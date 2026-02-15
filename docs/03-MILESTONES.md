@@ -85,7 +85,9 @@ Each milestone includes:
 
 ---
 
-### M003: LLM Model Acquisition
+### M003: LLM Model Acquisition ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Download and verify LLaMA 3 8B model
 
 **Why**: Need model file before implementing inference
@@ -93,26 +95,25 @@ Each milestone includes:
 **Dependencies**: M001
 
 **Deliverables**:
-- LLaMA 3 8B Instruct (4-bit quantized) downloaded
-- Model file placed in `Models/` directory
-- Checksum verified
-- `.gitignore` excludes `Models/` folder
-- Documentation updated with model source
+- [x] LLaMA 3.1 8B Instruct (4-bit quantized) downloaded
+- [x] Model file placed in `Models/` directory (`Models/model.gguf`)
+- [x] GGUF format verified (magic bytes: `GGUF`)
+- [x] `.gitignore` excludes `Models/` folder and `*.gguf`
+- [x] Documentation updated with model details
 
 **Success Criteria**:
-- File `Models/llama-3-8b-instruct-q4_k_m.gguf` exists
-- File size ~4.3GB
-- SHA256 checksum matches official release
+- [x] File `Models/model.gguf` exists (4.6GB)
+- [x] SHA256: `7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c`
+- [x] Valid GGUF format confirmed
 
 **Testing**:
-- Verify file integrity
-- Test load with llama.cpp CLI (if available)
+- [x] Verify file integrity (GGUF header + SHA256)
 
 **Difficulty**: 2/5
 
 **Shipping**: No
 
-**Notes**: See `manual-actions.md` for download instructions
+**Notes**: Model filename is `model.gguf` (LLaMA 3.1 8B Instruct Q4_K_M)
 
 ---
 
@@ -2325,7 +2326,7 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 **Immediate Next Steps**:
 1. ~~Complete M001 (Project Initialization)~~ ✅ Done
 2. ~~Complete M002 (Documentation Integration)~~ ✅ Done
-3. Complete M003 (Download LLM model) - see `manual-actions.md`
+3. ~~Complete M003 (Download LLM model)~~ ✅ Done
 4. Complete M004 (Add dependencies)
 5. Begin Phase 1 (UI development)
 

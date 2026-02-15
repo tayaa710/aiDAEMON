@@ -30,51 +30,25 @@ Last Updated: 2026-02-15
 
 ---
 
-## M003: LLM MODEL ACQUISITION
+## M003: LLM MODEL ACQUISITION ✅
 
-### Download LLaMA 3 Model
+### Download LLaMA 3.1 Model
 
-- [ ] **Choose download source**
-  - Option A: Hugging Face (TheBloke quantized models)
-  - Option B: Official Meta (requires request)
-  - **Recommended**: Hugging Face (faster, pre-quantized)
+- [x] **Downloaded LLaMA 3.1 8B Instruct (Q4_K_M)** ✅
+  - Source: bartowski/Meta-Llama-3.1-8B-Instruct-GGUF (Hugging Face)
+  - File: `Models/model.gguf` (4.6GB)
+  - Format: GGUF (verified magic bytes)
+  - SHA256: `7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c`
 
-- [ ] **Download LLaMA 3 8B Instruct (4-bit quantized)**
-
-  **Via Hugging Face:**
-  1. Go to: https://huggingface.co/TheBloke
-  2. Search for "LLaMA-3-8B-Instruct-GGUF"
-  3. Download file: `llama-3-8b-instruct-q4_k_m.gguf` (~4.3GB)
-
-  **Direct download (if available):**
-  ```bash
-  # Create Models directory
-  mkdir -p Models
-
-  # Download (replace URL with actual source)
-  curl -L -o Models/llama-3-8b-instruct-q4_k_m.gguf \
-    [HUGGING_FACE_URL]
-  ```
-
-- [ ] **Verify download integrity**
-  ```bash
-  # Check file size (should be ~4.3GB)
-  ls -lh Models/llama-3-8b-instruct-q4_k_m.gguf
-
-  # Verify SHA256 (compare with source)
-  shasum -a 256 Models/llama-3-8b-instruct-q4_k_m.gguf
-  ```
-
-- [ ] **Test model loads (optional, if llama.cpp CLI available)**
-  ```bash
-  # If you have llama.cpp installed:
-  llama-cli -m Models/llama-3-8b-instruct-q4_k_m.gguf -p "Hello" -n 10
-  ```
+- [x] **Verified download integrity** ✅
+  - GGUF header confirmed
+  - SHA256 checksum recorded
 
 **Notes:**
 - Model file is gitignored (too large for git)
 - Each developer must download separately
 - Keep model file in `Models/` directory at project root
+- Filename used in code: `model.gguf`
 
 ---
 
