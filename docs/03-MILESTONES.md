@@ -152,7 +152,9 @@ Each milestone includes:
 
 ## PHASE 1: CORE UI
 
-### M005: App Structure & Entry Point
+### M005: App Structure & Entry Point ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Set up app lifecycle and window management
 
 **Why**: Foundation for all UI work
@@ -160,21 +162,22 @@ Each milestone includes:
 **Dependencies**: M001, M004
 
 **Deliverables**:
-- `aiDAEMONApp.swift` - SwiftUI app entry point
-- `AppDelegate.swift` - macOS lifecycle hooks
-- Menu bar configuration (minimal: About, Quit)
-- App activates without showing window by default
+- [x] `aiDAEMONApp.swift` - SwiftUI app entry point with `NSApplicationDelegateAdaptor`
+- [x] `AppDelegate.swift` - macOS lifecycle hooks
+- [x] Menu bar configuration (minimal: About, Quit via default SwiftUI menu)
+- [x] App activates without showing window by default (Settings scene only)
 
 **Success Criteria**:
-- App launches
-- No default window appears
-- Menu bar shows app name + Quit option
-- App stays running in background
+- [x] App launches
+- [x] No default window appears
+- [x] Menu bar shows app name + Quit option
+- [x] App stays running in background (`applicationShouldTerminateAfterLastWindowClosed` returns false)
 
 **Testing**:
-- Launch app - no window should appear
-- Check menu bar - app is running
-- Quit from menu bar works
+- [x] Build succeeds
+- [x] Launch app - no window should appear
+- [x] Check menu bar - app is running
+- [x] Quit from menu bar works
 
 **Difficulty**: 2/5
 
@@ -2332,7 +2335,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 2. ~~Complete M002 (Documentation Integration)~~ ✅ Done
 3. ~~Complete M003 (Download LLM model)~~ ✅ Done
 4. ~~Complete M004 (Add dependencies)~~ ✅ Done
-5. Begin Phase 1 (UI development) - M005: App Structure & Entry Point
+5. ~~Complete M005 (App Structure & Entry Point)~~ ✅ Done
+6. Begin M006: Global Hotkey Detection
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file
