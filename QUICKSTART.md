@@ -211,13 +211,13 @@ These are estimates. Reality will vary.
 
 ## Next Actions (Right Now)
 
-1. [ ] Read `docs/00-FOUNDATION.md` completely
-2. [ ] Skim `docs/01-ARCHITECTURE.md`
-3. [ ] Open `docs/manual-actions.md`
+1. [x] Read `docs/00-FOUNDATION.md` completely
+2. [x] Skim `docs/01-ARCHITECTURE.md`
+3. [x] Open `docs/manual-actions.md`
 4. [ ] Download LLM model (M003)
-5. [ ] Install Xcode (if needed)
-6. [ ] Create Xcode project (M001)
-7. [ ] Commit initial setup
+5. [x] Install Xcode (if needed)
+6. [x] Create Xcode project (M001) ✅
+7. [x] Commit initial setup ✅
 8. [ ] Move to M002
 
 ---

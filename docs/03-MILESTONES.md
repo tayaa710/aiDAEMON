@@ -24,7 +24,9 @@ Each milestone includes:
 
 ## PHASE 0: SETUP & FOUNDATION
 
-### M001: Project Initialization
+### M001: Project Initialization ✅
+**Status**: COMPLETE (2026-02-15) | **Commit**: `0ff4feb`
+
 **Objective**: Create Xcode project and basic structure
 
 **Why**: Need working project before writing code
@@ -32,21 +34,21 @@ Each milestone includes:
 **Dependencies**: None
 
 **Deliverables**:
-- Xcode project created
-- SwiftUI macOS app template
-- Bundle identifier set: `com.aidaemon`
-- Deployment target: macOS 13.0+
-- Git repository initialized
-- `.gitignore` configured (Xcode, Models/, build artifacts)
+- [x] Xcode project created
+- [x] SwiftUI macOS app template
+- [x] Bundle identifier set: `com.aidaemon`
+- [x] Deployment target: macOS 13.0+
+- [x] Git repository initialized
+- [x] `.gitignore` configured (Xcode, Models/, build artifacts)
 
 **Success Criteria**:
-- Project builds without errors
-- Empty app launches and shows default window
-- Git commit created
+- [x] Project builds without errors (`xcodebuild` BUILD SUCCEEDED)
+- [x] App launches and shows default window with "aiDAEMON" text
+- [x] Git commit created
 
 **Testing**:
-- Build (Cmd+B) succeeds
-- Run (Cmd+R) shows empty app
+- [x] Build succeeds
+- [x] Run shows app
 
 **Difficulty**: 1/5
 
@@ -2317,10 +2319,11 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 ## Next Actions
 
 **Immediate Next Steps**:
-1. Complete M001 (Project Initialization)
-2. Complete M003 (Download LLM model) - see `manual-actions.md`
-3. Complete M004 (Add dependencies)
-4. Begin Phase 1 (UI development)
+1. ~~Complete M001 (Project Initialization)~~ ✅ Done
+2. Complete M002 (Documentation Integration)
+3. Complete M003 (Download LLM model) - see `manual-actions.md`
+4. Complete M004 (Add dependencies)
+5. Begin Phase 1 (UI development)
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file
