@@ -117,7 +117,9 @@ Each milestone includes:
 
 ---
 
-### M004: Swift Package Dependencies
+### M004: Swift Package Dependencies ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Add required third-party packages
 
 **Why**: Need external libraries for core functionality
@@ -125,24 +127,26 @@ Each milestone includes:
 **Dependencies**: M001
 
 **Deliverables**:
-- `llama.cpp` Swift bindings added (via SPM or manual)
-- Sparkle framework added (via SPM)
-- Sauce or KeyboardShortcuts added (via SPM)
+- [x] llama.cpp via `mattt/llama.swift` (LlamaSwift) @ 2.8061.0 - XCFramework wrapper
+- [x] Sparkle framework @ 2.8.1 (via SPM)
+- [x] KeyboardShortcuts @ 2.4.0 (via SPM, by sindresorhus)
+- [x] C++ interop enabled (`SWIFT_CXX_INTEROP_MODE = default`)
 
 **Success Criteria**:
-- All packages resolve successfully
-- Project builds with dependencies
-- No version conflicts
+- [x] All packages resolve successfully
+- [x] Project builds with dependencies (BUILD SUCCEEDED)
+- [x] No version conflicts
+- [x] All three imports compile (`import LlamaSwift`, `import Sparkle`, `import KeyboardShortcuts`)
 
 **Testing**:
-- Build project
-- Import each package in test file
+- [x] Build project with all dependencies
+- [x] Import each package - verified all compile
 
-**Difficulty**: 3/5 (llama.cpp integration can be tricky)
+**Difficulty**: 3/5
 
 **Shipping**: No
 
-**Notes**: May need custom Swift bridge for llama.cpp - see M015
+**Notes**: Used `mattt/llama.swift` instead of official `ggml-org/llama.cpp` (Package.swift removed from upstream). LlamaSwift wraps llama.cpp as precompiled XCFramework, supports macOS 13.0+.
 
 ---
 
@@ -2327,8 +2331,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 1. ~~Complete M001 (Project Initialization)~~ ✅ Done
 2. ~~Complete M002 (Documentation Integration)~~ ✅ Done
 3. ~~Complete M003 (Download LLM model)~~ ✅ Done
-4. Complete M004 (Add dependencies)
-5. Begin Phase 1 (UI development)
+4. ~~Complete M004 (Add dependencies)~~ ✅ Done
+5. Begin Phase 1 (UI development) - M005: App Structure & Entry Point
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

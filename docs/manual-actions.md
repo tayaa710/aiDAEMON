@@ -52,75 +52,40 @@ Last Updated: 2026-02-15
 
 ---
 
-## M004: DEPENDENCIES
+## M004: DEPENDENCIES ✅
 
 ### llama.cpp Integration
 
-- [x] **Research Swift bindings for llama.cpp**
-  - Option A: Use existing Swift package (search GitHub)
-  - Option B: Create custom Objective-C bridge
-  - Option C: Use C directly via Swift's C interop
+- [x] **Research Swift bindings for llama.cpp** ✅
+- [x] **Choose approach and document decision** ✅
+- [x] **Add llama.cpp dependency** ✅
 
-- [x] **Choose approach and document decision**
-  - Document chosen approach in this file
-  - Rationale: See below
+**Chosen Approach**: **mattt/llama.swift (LlamaSwift) via SPM**
 
-- [ ] **Add llama.cpp dependency**
-  - Using Option A: Official ggml-org/llama.cpp via SwiftPM
-  - Add to Package.swift or Xcode SPM
-  - Build and verify it compiles
+**Rationale** (updated from original plan):
+- Official `ggml-org/llama.cpp` removed its `Package.swift` - no longer usable as direct SPM dependency
+- `mattt/llama.swift` wraps llama.cpp as precompiled XCFramework
+- Supports macOS 13.0+ (matches our deployment target)
+- Semantically versioned (currently @ 2.8061.0)
+- Re-exports llama.cpp C++ APIs directly via Swift/C++ interop
+- Requires `SWIFT_CXX_INTEROP_MODE = default` build setting
 
-**Chosen Approach**: **Option A - Official ggml-org/llama.cpp (Swift Package Manager)**
-
-**Rationale**:
-- **Direct from source**: Official ggml-org/llama.cpp repository
-- **Precompiled XCFramework**: No need to build C++ ourselves
-- **Lowest risk**: Won't be abandoned, always up-to-date with upstream
-- **Minimal abstraction**: We write our own thin Swift wrapper (50-100 lines)
-- **Full control**: Optimize for our specific use case (text generation only)
-- **Best documented**: Official docs, active community
-- **Lightweight**: Just llama.cpp, no extra frameworks
-
-**Repository**: https://github.com/ggml-org/llama.cpp
-
-**Integration Method**: Swift Package Manager (SPM) in Xcode
-- Add package: `https://github.com/ggml-org/llama.cpp`
-- Select products: `llama` (the C library)
-- We'll write our own Swift wrapper in `aiDAEMON/LLM/LLMBridge.swift`
-
-**Alternatives Considered**:
-- LLM.swift: Too high-level, abstracts too much
-- SwiftLlama: Third-party wrapper, additional dependency risk
-- Custom ObjC++ bridge: Unnecessary complexity
-- Direct C interop: Same as Option A but with official SPM support
+**Repository**: https://github.com/mattt/llama.swift
+**Import**: `import LlamaSwift`
 
 ### Sparkle Framework
 
-- [ ] **Add Sparkle via Swift Package Manager**
-  1. Open Xcode project
-  2. File → Add Packages...
-  3. Enter: `https://github.com/sparkle-project/Sparkle`
-  4. Choose version: Latest
-  5. Add to target: aiDAEMON
-
-- [ ] **Verify Sparkle imports**
-  ```swift
-  import Sparkle
-  // Should compile without errors
-  ```
+- [x] **Add Sparkle via SPM** ✅ (@ 2.8.1)
+- [x] **Verified Sparkle imports** ✅ (`import Sparkle` compiles)
 
 ### Hotkey Library
 
-- [ ] **Choose hotkey library**
-  - Option A: Sauce - https://github.com/Clipy/Sauce
-  - Option B: KeyboardShortcuts - https://github.com/sindresorhus/KeyboardShortcuts
-  - **Recommended**: Sauce (more mature)
+- [x] **Chose KeyboardShortcuts** ✅ (by sindresorhus, @ 2.4.0)
+  - Modern SwiftUI API
+  - Actively maintained
+  - Clean integration
 
-- [ ] **Add chosen library via SPM**
-  - Add package URL
-  - Verify imports
-
-**Chosen Library**: [TO BE FILLED]
+**Import**: `import KeyboardShortcuts`
 
 ---
 

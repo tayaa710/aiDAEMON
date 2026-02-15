@@ -10,6 +10,9 @@
 		A1B2C3D400000001 /* aiDAEMONApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000002 /* aiDAEMONApp.swift */; };
 		A1B2C3D400000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000004 /* ContentView.swift */; };
 		A1B2C3D400000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D400000006 /* Assets.xcassets */; };
+		A1B2C3D400000096 /* LlamaSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D400000093 /* LlamaSwift */; };
+		A1B2C3D400000097 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D400000094 /* Sparkle */; };
+		A1B2C3D400000098 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D400000095 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +32,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D400000096 /* LlamaSwift in Frameworks */,
+				A1B2C3D400000097 /* Sparkle in Frameworks */,
+				A1B2C3D400000098 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +88,11 @@
 			dependencies = (
 			);
 			name = aiDAEMON;
+			packageProductDependencies = (
+				A1B2C3D400000093 /* LlamaSwift */,
+				A1B2C3D400000094 /* Sparkle */,
+				A1B2C3D400000095 /* KeyboardShortcuts */,
+			);
 			productName = aiDAEMON;
 			productReference = A1B2C3D400000010 /* aiDAEMON.app */;
 			productType = "com.apple.product-type.application";
@@ -110,6 +121,11 @@
 				Base,
 			);
 			mainGroup = A1B2C3D400000030;
+			packageReferences = (
+				A1B2C3D400000090 /* XCRemoteSwiftPackageReference "llama.swift" */,
+				A1B2C3D400000091 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				A1B2C3D400000092 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+			);
 			productRefGroup = A1B2C3D400000032 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -279,6 +295,7 @@
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aidaemon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_CXX_INTEROP_MODE = default;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -304,6 +321,7 @@
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aidaemon;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_CXX_INTEROP_MODE = default;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -331,6 +349,51 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D400000090 /* XCRemoteSwiftPackageReference "llama.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mattt/llama.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		A1B2C3D400000091 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		A1B2C3D400000092 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1B2C3D400000093 /* LlamaSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D400000090 /* XCRemoteSwiftPackageReference "llama.swift" */;
+			productName = LlamaSwift;
+		};
+		A1B2C3D400000094 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D400000091 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		A1B2C3D400000095 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D400000092 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1B2C3D400000050 /* Project object */;
 }
