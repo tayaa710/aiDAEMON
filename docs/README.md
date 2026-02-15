@@ -48,6 +48,7 @@ All documentation files are version controlled with the codebase. Changes to fou
 
 ## Current Project Phase
 
-**Status**: Pre-Development (Documentation & Setup)
-**Next Milestone**: M001 - Project Initialization
-**Target**: Complete setup and begin core development
+**Status**: Phase 1 (Core UI) in progress
+**Completed Milestones**: M001-M009
+**Next Milestone**: M010 - Settings Window
+**Target**: Complete Phase 1 core UI milestones

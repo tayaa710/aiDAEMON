@@ -8,8 +8,9 @@ Control your Mac by typing what you want in plain English. Powered by local AI, 
 
 ## Status
 
-**Current Phase**: Pre-Development
-**Next Milestone**: M001 - Project Initialization
+**Current Phase**: Phase 1 - Core UI
+**Completed Milestones**: M001-M009
+**Next Milestone**: M010 - Settings Window
 **Target**: MVP in 8-12 weeks
 
 ---

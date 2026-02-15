@@ -3,6 +3,10 @@ import SwiftUI
 
 final class FloatingWindow: NSWindow {
     private static let defaultSize = NSSize(width: 400, height: 80)
+    private static let expandedSize = NSSize(width: 400, height: 360)
+
+    private let commandInputState = CommandInputState()
+    private let resultsState = ResultsState()
 
     init() {
         super.init(
@@ -28,6 +32,7 @@ final class FloatingWindow: NSWindow {
         centerOnActiveScreen()
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
+        commandInputState.requestFocus()
     }
 
     func hideWindow() {
@@ -36,7 +41,7 @@ final class FloatingWindow: NSWindow {
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
-            hideWindow()
+            clearInputAndHide()
             return
         }
 
@@ -44,7 +49,7 @@ final class FloatingWindow: NSWindow {
     }
 
     override func cancelOperation(_ sender: Any?) {
-        hideWindow()
+        clearInputAndHide()
     }
 
     private func configureWindow() {
@@ -58,7 +63,15 @@ final class FloatingWindow: NSWindow {
     }
 
     private func configureContent() {
-        let hostingView = NSHostingView(rootView: FloatingWindowShellView())
+        let hostingView = NSHostingView(
+            rootView: FloatingWindowShellView(
+                commandInputState: commandInputState,
+                resultsState: resultsState,
+                onSubmit: { [weak self] command in
+                    self?.handleSubmit(command)
+                }
+            )
+        )
         hostingView.frame = NSRect(origin: .zero, size: Self.defaultSize)
         hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
@@ -88,9 +101,69 @@ final class FloatingWindow: NSWindow {
 
         setFrameOrigin(origin)
     }
+
+    private func clearInputAndHide() {
+        commandInputState.clear()
+        resultsState.clear()
+        resizeForResultsVisibility(hasResults: false, animated: false)
+        hideWindow()
+    }
+
+    private func handleSubmit(_ command: String) {
+        NSLog("Command submitted: %@", command)
+        let outputStyle = command.lowercased().contains("error") ? ResultStyle.error : ResultStyle.success
+        let outputText = output(for: command, style: outputStyle)
+
+        resultsState.show(outputText, style: outputStyle)
+        resizeForResultsVisibility(hasResults: true)
+    }
+
+    private func output(for command: String, style: ResultStyle) -> String {
+        if command.lowercased().contains("long") {
+            return (1...40)
+                .map { "Line \($0): placeholder output for \"\(command)\"" }
+                .joined(separator: "\n")
+        }
+
+        switch style {
+        case .success:
+            return "Success: placeholder output for \"\(command)\""
+        case .error:
+            return "Error: placeholder output for \"\(command)\""
+        }
+    }
+
+    private func resizeForResultsVisibility(hasResults: Bool, animated: Bool = true) {
+        let targetSize = hasResults ? Self.expandedSize : Self.defaultSize
+        let targetFrame = frameCentered(at: frame.center, size: targetSize)
+
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                animator().setFrame(targetFrame, display: true)
+            }
+        } else {
+            setFrame(targetFrame, display: true)
+        }
+    }
+
+    private func frameCentered(at center: NSPoint, size: NSSize) -> NSRect {
+        NSRect(
+            x: center.x - (size.width / 2),
+            y: center.y - (size.height / 2),
+            width: size.width,
+            height: size.height
+        )
+    }
 }
 
 private struct FloatingWindowShellView: View {
+    @ObservedObject var commandInputState: CommandInputState
+    @ObservedObject var resultsState: ResultsState
+
+    let onSubmit: (String) -> Void
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -99,15 +172,30 @@ private struct FloatingWindowShellView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.16), lineWidth: 1)
 
-            HStack(spacing: 10) {
-                Image(systemName: "brain.head.profile")
-                    .foregroundStyle(.secondary)
-                Text("aiDAEMON")
-                    .font(.headline)
-                Spacer(minLength: 0)
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "brain.head.profile")
+                        .foregroundStyle(.secondary)
+
+                    CommandInputView(
+                        state: commandInputState,
+                        onSubmit: onSubmit
+                    )
+                }
+
+                if let output = resultsState.output {
+                    ResultsView(output: output, style: resultsState.style)
+                }
             }
-            .padding(.horizontal, 16)
+            .padding(12)
         }
-        .frame(width: 400, height: 80)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.18), value: resultsState.hasResults)
+    }
+}
+
+private extension NSRect {
+    var center: NSPoint {
+        NSPoint(x: midX, y: midY)
     }
 }

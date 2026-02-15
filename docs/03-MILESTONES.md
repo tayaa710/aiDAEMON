@@ -255,7 +255,9 @@ Each milestone includes:
 
 ---
 
-### M008: Text Input Field
+### M008: Text Input Field ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Add text field to floating window
 
 **Why**: User needs to type commands
@@ -263,22 +265,22 @@ Each milestone includes:
 **Dependencies**: M007
 
 **Deliverables**:
-- `CommandInputView.swift` - SwiftUI text field
-- Placeholder text: "What do you want to do?"
-- Auto-focus when window appears
-- Enter key submits input
-- Escape key clears and hides window
+- [x] `CommandInputView.swift` - SwiftUI text field
+- [x] Placeholder text: "What do you want to do?"
+- [x] Auto-focus when window appears
+- [x] Enter key submits input
+- [x] Escape key clears and hides window
 
 **Success Criteria**:
-- Window shows with text field focused
-- Can type text
-- Enter key triggers action (print to console for now)
-- Escape clears text and hides window
+- [x] Window shows with text field focused
+- [x] Can type text
+- [x] Enter key triggers action (print to console for now)
+- [x] Escape clears text and hides window
 
 **Testing**:
-- Type "hello world"
-- Press Enter → see console log
-- Press Escape → text clears, window hides
+- [x] Type "hello world"
+- [x] Press Enter → see console log
+- [x] Press Escape → text clears, window hides
 
 **Difficulty**: 2/5
 
@@ -286,7 +288,9 @@ Each milestone includes:
 
 ---
 
-### M009: Results Display Area
+### M009: Results Display Area ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Show command results below input field
 
 **Why**: User needs feedback on what happened
@@ -294,21 +298,21 @@ Each milestone includes:
 **Dependencies**: M008
 
 **Deliverables**:
-- `ResultsView.swift` - displays text output
-- Window expands vertically to show results
-- Scrollable if output is long
-- Styled text (success = green, error = red)
+- [x] `ResultsView.swift` - displays text output
+- [x] Window expands vertically to show results
+- [x] Scrollable if output is long
+- [x] Styled text (success = green, error = red)
 
 **Success Criteria**:
-- After Enter, results area appears
-- Shows test output
-- Window resizes smoothly
-- Scrolls if content > 300px
+- [x] After Enter, results area appears
+- [x] Shows test output
+- [x] Window resizes smoothly
+- [x] Scrolls if content > 300px
 
 **Testing**:
-- Submit command → see result
-- Submit long output → verify scroll
-- Test success and error styling
+- [x] Submit command → see result
+- [x] Submit long output → verify scroll
+- [x] Test success and error styling
 
 **Difficulty**: 2/5
 
@@ -2344,7 +2348,9 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 5. ~~Complete M005 (App Structure & Entry Point)~~ ✅ Done
 6. ~~Complete M006 (Global Hotkey Detection)~~ ✅ Done
 7. ~~Complete M007 (Floating Window UI)~~ ✅ Done
-8. Begin M008: Text Input Field
+8. ~~Complete M008 (Text Input Field)~~ ✅ Done
+9. ~~Complete M009 (Results Display Area)~~ ✅ Done
+10. Begin M010: Settings Window
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

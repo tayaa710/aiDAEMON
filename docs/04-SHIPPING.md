@@ -26,9 +26,9 @@ Each stage has specific entry criteria and goals.
 **Timeline**: Weeks 1-4 (Milestones M001-M030)
 
 ### Entry Criteria
-- [ ] Project builds without errors (M001)
+- [x] Project builds without errors (M001)
 - [ ] LLM model loads and generates text (M013)
-- [ ] Basic UI shows and accepts input (M008)
+- [x] Basic UI shows and accepts input (M008)
 - [ ] At least one command type works (M018)
 
 ### Goals

@@ -72,21 +72,21 @@ open docs/manual-actions.md
 
 ---
 
-## Step 5: Start Milestone M001 (15 minutes)
+## Step 5: Continue From Current Milestone (15 minutes)
 
 ```bash
 open docs/03-MILESTONES.md
-# Navigate to M001: Project Initialization
+# Navigate to M010: Settings Window
 ```
 
 **Tasks:**
-1. Create new Xcode project
-2. Set bundle identifier: `com.aidaemon`
-3. Configure deployment target: macOS 13.0+
-4. Initialize git repository
-5. Commit: "Initial project setup - M001 complete"
+1. Build and run current app state
+2. Navigate to M010 requirements in `03-MILESTONES.md`
+3. Implement M010 deliverables
+4. Verify all M010 success criteria
+5. Commit: "M010: Settings Window complete"
 
-**Success**: Project builds, empty app runs.
+**Success**: Settings window opens via Cmd+, and all M010 criteria pass.
 
 ---
 
@@ -96,11 +96,10 @@ open docs/03-MILESTONES.md
 
 Each milestone builds on previous ones. The order is intentional.
 
-After M001:
-- M002: Add docs to project
-- M003: Verify model downloaded
-- M004: Add Swift package dependencies
-- M005: App structure
+Current sequence:
+- M010: Settings Window
+- M011: Permission Checks Foundation
+- M012: LLM Manager Skeleton
 - ...and so on
 
 ---
