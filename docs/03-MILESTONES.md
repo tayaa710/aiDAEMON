@@ -320,7 +320,9 @@ Each milestone includes:
 
 ---
 
-### M010: Settings Window
+### M010: Settings Window ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Create settings interface
 
 **Why**: User needs to configure app
@@ -328,22 +330,22 @@ Each milestone includes:
 **Dependencies**: M005
 
 **Deliverables**:
-- `SettingsView.swift` - SwiftUI settings window
-- Menu bar item: "Settings..." (Cmd+,)
-- Tabbed interface: General, Permissions, History, About
-- General tab: Hotkey selector placeholder, theme toggle (future)
-- About tab: Version number, links
+- [x] `SettingsView.swift` - SwiftUI settings window
+- [x] Menu bar item: "Settings..." (Cmd+,)
+- [x] Tabbed interface: General, Permissions, History, About
+- [x] General tab: Hotkey selector placeholder, theme toggle (future)
+- [x] About tab: Version number, links
 
 **Success Criteria**:
-- Cmd+, opens settings window
-- Tabs are navigable
-- Window can be closed and reopened
-- Settings persist across launches (via UserDefaults)
+- [x] Cmd+, opens settings window
+- [x] Tabs are navigable
+- [x] Window can be closed and reopened
+- [x] Settings persist across launches (via UserDefaults)
 
 **Testing**:
-- Open settings
-- Navigate tabs
-- Close and reopen - verify state
+- [x] Open settings
+- [x] Navigate tabs
+- [x] Close and reopen - verify state
 
 **Difficulty**: 2/5
 
@@ -2350,7 +2352,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 7. ~~Complete M007 (Floating Window UI)~~ ✅ Done
 8. ~~Complete M008 (Text Input Field)~~ ✅ Done
 9. ~~Complete M009 (Results Display Area)~~ ✅ Done
-10. Begin M010: Settings Window
+10. ~~Complete M010 (Settings Window)~~ ✅ Done
+11. Begin M011: LLM Model File Loader
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

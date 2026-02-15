@@ -76,17 +76,17 @@ open docs/manual-actions.md
 
 ```bash
 open docs/03-MILESTONES.md
-# Navigate to M010: Settings Window
+# Navigate to M011: LLM Model File Loader
 ```
 
 **Tasks:**
 1. Build and run current app state
-2. Navigate to M010 requirements in `03-MILESTONES.md`
-3. Implement M010 deliverables
-4. Verify all M010 success criteria
-5. Commit: "M010: Settings Window complete"
+2. Navigate to M011 requirements in `03-MILESTONES.md`
+3. Implement M011 deliverables
+4. Verify all M011 success criteria
+5. Commit: "M011: LLM Model File Loader complete"
 
-**Success**: Settings window opens via Cmd+, and all M010 criteria pass.
+**Success**: Model loader handles valid, missing, and corrupted model files per M011 criteria.
 
 ---
 
@@ -97,9 +97,9 @@ open docs/03-MILESTONES.md
 Each milestone builds on previous ones. The order is intentional.
 
 Current sequence:
-- M010: Settings Window
-- M011: Permission Checks Foundation
-- M012: LLM Manager Skeleton
+- M011: LLM Model File Loader
+- M012: llama.cpp Swift Bridge
+- M013: Basic Inference Test
 - ...and so on
 
 ---

@@ -8,9 +8,9 @@ Control your Mac by typing what you want in plain English. Powered by local AI, 
 
 ## Status
 
-**Current Phase**: Phase 1 - Core UI
-**Completed Milestones**: M001-M009
-**Next Milestone**: M010 - Settings Window
+**Current Phase**: Phase 2 - LLM Integration
+**Completed Milestones**: M001-M010
+**Next Milestone**: M011 - LLM Model File Loader
 **Target**: MVP in 8-12 weeks
 
 ---
