@@ -185,7 +185,9 @@ Each milestone includes:
 
 ---
 
-### M006: Global Hotkey Detection
+### M006: Global Hotkey Detection ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Detect global hotkey to activate UI
 
 **Why**: Primary user entry point
@@ -193,20 +195,20 @@ Each milestone includes:
 **Dependencies**: M005
 
 **Deliverables**:
-- `HotkeyManager.swift` class
-- Register global hotkey: Cmd+Shift+Space (default)
-- Notification posted when hotkey pressed
-- Hotkey works even when app not focused
+- [x] `HotkeyManager.swift` class
+- [x] Register global hotkey: Cmd+Shift+Space (default)
+- [x] Notification posted when hotkey pressed
+- [x] Hotkey works even when app not focused
 
 **Success Criteria**:
-- Press Cmd+Shift+Space from any app
-- Console logs "Hotkey pressed"
-- Works regardless of focused app
+- [x] Press Cmd+Shift+Space from any app
+- [x] Console logs "Hotkey pressed"
+- [x] Works regardless of focused app
 
 **Testing**:
-- Focus different apps (Safari, Finder, etc.)
-- Press hotkey
-- Verify notification received
+- [x] Focus different apps (Safari, Finder, etc.)
+- [x] Press hotkey
+- [x] Verify notification received
 
 **Difficulty**: 2/5
 
@@ -2336,7 +2338,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 3. ~~Complete M003 (Download LLM model)~~ ✅ Done
 4. ~~Complete M004 (Add dependencies)~~ ✅ Done
 5. ~~Complete M005 (App Structure & Entry Point)~~ ✅ Done
-6. Begin M006: Global Hotkey Detection
+6. ~~Complete M006 (Global Hotkey Detection)~~ ✅ Done
+7. Begin M007: Floating Window UI
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file
