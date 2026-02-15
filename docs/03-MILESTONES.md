@@ -56,7 +56,9 @@ Each milestone includes:
 
 ---
 
-### M002: Documentation Integration
+### M002: Documentation Integration ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Link documentation into project
 
 **Why**: Keep docs accessible during development
@@ -64,16 +66,18 @@ Each milestone includes:
 **Dependencies**: M001
 
 **Deliverables**:
-- `docs/` folder added to Xcode project as reference
-- README.md at project root
-- License file (MIT or similar)
+- [x] `docs/` folder added to Xcode project as folder reference
+- [x] README.md added to Xcode sidebar
+- [x] QUICKSTART.md added to Xcode sidebar
+- [x] License file created (MIT)
 
 **Success Criteria**:
-- Docs visible in Xcode sidebar
-- Can open and read from IDE
+- [x] Docs visible in Xcode sidebar
+- [x] Can open and read from IDE
 
 **Testing**:
-- Open any doc file from Xcode
+- [x] Project builds with doc references
+- [x] Files visible in Xcode sidebar
 
 **Difficulty**: 1/5
 
@@ -2320,7 +2324,7 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 
 **Immediate Next Steps**:
 1. ~~Complete M001 (Project Initialization)~~ ✅ Done
-2. Complete M002 (Documentation Integration)
+2. ~~Complete M002 (Documentation Integration)~~ ✅ Done
 3. Complete M003 (Download LLM model) - see `manual-actions.md`
 4. Complete M004 (Add dependencies)
 5. Begin Phase 1 (UI development)

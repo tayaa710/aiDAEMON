@@ -201,7 +201,7 @@ Contributions welcome after initial release. For now:
 
 ## License
 
-[To be determined - likely MIT or Apache 2.0]
+MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
