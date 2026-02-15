@@ -28,6 +28,6 @@ final class HotkeyManager {
         }
 
         isListening = true
-        NSLog("Global hotkey registered: Cmd+Shift+Space")
+        NSLog("Global hotkey registered: Cmd+Shift+Space (toggle window)")
     }
 }

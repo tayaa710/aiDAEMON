@@ -676,7 +676,7 @@ Built in Swift, powered by LLaMA 3. Source code [here/coming soon].
    I wanted: just type what I want, Mac does it.
 
    [3/10] How it works:
-   - Global hotkey (Cmd+Shift+Space)
+   - Global hotkey toggle (Cmd+Shift+Space shows/hides window)
    - Type command in plain English
    - Local AI (LLaMA 3) interprets it
    - Shows what it'll do

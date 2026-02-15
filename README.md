@@ -94,7 +94,7 @@ Complete documentation system in [`docs/`](docs/):
 ## Development Roadmap
 
 ### Phase 1: Core UI (Weeks 1-2)
-- Global hotkey activation
+- Global hotkey toggle (Cmd+Shift+Space shows/hides window)
 - Floating input window
 - Text input and results display
 - Settings interface

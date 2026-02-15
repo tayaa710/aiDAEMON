@@ -76,7 +76,7 @@ Version: 1.0
 **Technology**: SwiftUI (macOS 13.0+)
 
 **Primary Interface**: Floating Window
-- Appears on global hotkey (default: Cmd+Shift+Space)
+- Visibility toggles on global hotkey (default: Cmd+Shift+Space)
 - Always on top (NSWindow level: .floating)
 - Centered on current screen
 - Auto-hides when focus lost (configurable)
@@ -102,6 +102,7 @@ SettingsView
 ```
 
 **Key Behaviors**:
+- Cmd+Shift+Space toggles window show/hide
 - Escape key always closes window
 - Enter key submits command
 - Up/down arrows navigate history (future)
@@ -401,9 +402,10 @@ CREATE TABLE auto_approve_rules (
 ### Command Execution Flow
 
 ```
-1. User activates hotkey
+1. User presses hotkey (Cmd+Shift+Space)
    ↓
-2. UI shows floating window, focuses text field
+2. UI toggles floating window visibility (shows if hidden, hides if visible)
+   If shown, text field receives focus
    ↓
 3. User types: "open youtube"
    ↓

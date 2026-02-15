@@ -188,7 +188,7 @@ Each milestone includes:
 ### M006: Global Hotkey Detection ✅
 **Status**: COMPLETE (2026-02-15)
 
-**Objective**: Detect global hotkey to activate UI
+**Objective**: Detect global hotkey to toggle UI visibility
 
 **Why**: Primary user entry point
 
@@ -196,7 +196,7 @@ Each milestone includes:
 
 **Deliverables**:
 - [x] `HotkeyManager.swift` class
-- [x] Register global hotkey: Cmd+Shift+Space (default)
+- [x] Register global hotkey: Cmd+Shift+Space (default toggle shortcut)
 - [x] Notification posted when hotkey pressed
 - [x] Hotkey works even when app not focused
 
@@ -216,7 +216,9 @@ Each milestone includes:
 
 ---
 
-### M007: Floating Window UI
+### M007: Floating Window UI ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Create floating input window
 
 **Why**: Primary user interface
@@ -224,26 +226,28 @@ Each milestone includes:
 **Dependencies**: M006
 
 **Deliverables**:
-- `FloatingWindow.swift` - NSWindow subclass
-- Window properties:
-  - Always on top (`.floating` level)
-  - No title bar
-  - Centered on current screen
-  - Size: 400x80px
-  - Rounded corners, shadow
-- Window shows on hotkey press
-- Window hides on Escape key
+- [x] `FloatingWindow.swift` - NSWindow subclass
+- [x] Window properties:
+  - [x] Always on top (`.floating` level)
+  - [x] No title bar
+  - [x] Centered on current screen
+  - [x] Size: 400x80px
+  - [x] Rounded corners, shadow
+- [x] Window toggles on hotkey press (Cmd+Shift+Space shows/hides)
+- [x] Window hides on Escape key
 
 **Success Criteria**:
-- Hotkey shows window
-- Window appears centered on screen with cursor
-- Escape hides window
-- Window stays above all other windows
+- [x] Hotkey shows window when hidden
+- [x] Hotkey hides window when visible
+- [x] Window appears centered on screen with cursor
+- [x] Escape hides window
+- [x] Window stays above all other windows
 
 **Testing**:
-- Hotkey → window appears
-- Escape → window disappears
-- Try with multiple monitors (if available)
+- [x] Hotkey (window hidden) → window appears
+- [x] Hotkey (window visible) → window disappears
+- [x] Escape → window disappears
+- [x] Try with multiple monitors (if available)
 
 **Difficulty**: 3/5
 
@@ -1798,7 +1802,7 @@ Each milestone includes:
 
 **Deliverables**:
 - XCUITest suite
-- Test hotkey activation
+- Test hotkey toggle activation (show/hide)
 - Test input and submission
 - Test settings navigation
 
@@ -2339,7 +2343,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 4. ~~Complete M004 (Add dependencies)~~ ✅ Done
 5. ~~Complete M005 (App Structure & Entry Point)~~ ✅ Done
 6. ~~Complete M006 (Global Hotkey Detection)~~ ✅ Done
-7. Begin M007: Floating Window UI
+7. ~~Complete M007 (Floating Window UI)~~ ✅ Done
+8. Begin M008: Text Input Field
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

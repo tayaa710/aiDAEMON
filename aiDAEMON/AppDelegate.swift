@@ -1,6 +1,7 @@
 import Cocoa
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private lazy var floatingWindow = FloatingWindow()
     private var hotkeyObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -10,8 +11,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             forName: .hotkeyPressed,
             object: nil,
             queue: .main
-        ) { _ in
-            NSLog("Hotkey notification received")
+        ) { [weak self] _ in
+            guard let self else { return }
+
+            if self.floatingWindow.isVisible {
+                self.floatingWindow.hideWindow()
+                NSLog("Floating window hidden")
+            } else {
+                self.floatingWindow.showOnActiveScreen()
+                NSLog("Floating window shown")
+            }
         }
 
         NSLog("aiDAEMON launched successfully")
