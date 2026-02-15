@@ -23,6 +23,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Load LLM model in background
+        LLMManager.shared.loadModelAsync()
+
         NSLog("aiDAEMON launched successfully")
     }
 

@@ -111,26 +111,58 @@ final class FloatingWindow: NSWindow {
 
     private func handleSubmit(_ command: String) {
         NSLog("Command submitted: %@", command)
-        let outputStyle = command.lowercased().contains("error") ? ResultStyle.error : ResultStyle.success
-        let outputText = output(for: command, style: outputStyle)
 
-        resultsState.show(outputText, style: outputStyle)
+        let manager = LLMManager.shared
+
+        guard manager.state == .ready else {
+            let msg: String
+            switch manager.state {
+            case .idle:
+                msg = "Model not loaded. Restart app to load model."
+            case .loading:
+                msg = "Model is still loading, please wait..."
+            case .generating:
+                msg = "Already generating, please wait..."
+            case .error(let detail):
+                msg = "Model error: \(detail)"
+            case .ready:
+                msg = "Ready" // unreachable
+            }
+            resultsState.show(msg, style: .error)
+            resizeForResultsVisibility(hasResults: true)
+            return
+        }
+
+        resultsState.show("Generating...", style: .success)
         resizeForResultsVisibility(hasResults: true)
-    }
 
-    private func output(for command: String, style: ResultStyle) -> String {
-        if command.lowercased().contains("long") {
-            return (1...40)
-                .map { "Line \($0): placeholder output for \"\(command)\"" }
-                .joined(separator: "\n")
-        }
-
-        switch style {
-        case .success:
-            return "Success: placeholder output for \"\(command)\""
-        case .error:
-            return "Error: placeholder output for \"\(command)\""
-        }
+        var streamedOutput = ""
+        manager.generate(
+            prompt: command,
+            onToken: { [weak self] token in
+                DispatchQueue.main.async {
+                    streamedOutput += token
+                    self?.resultsState.show(streamedOutput, style: .success)
+                }
+            },
+            completion: { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let output):
+                        let finalOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                        self?.resultsState.show(
+                            finalOutput.isEmpty ? "(empty response)" : finalOutput,
+                            style: .success
+                        )
+                    case .failure(let error):
+                        self?.resultsState.show(
+                            "Generation failed: \(error.localizedDescription)",
+                            style: .error
+                        )
+                    }
+                }
+            }
+        )
     }
 
     private func resizeForResultsVisibility(hasResults: Bool, animated: Bool = true) {

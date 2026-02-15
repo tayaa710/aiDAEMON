@@ -60,7 +60,7 @@ public final class ModelLoader {
         let start = CFAbsoluteTimeGetCurrent()
 
         var modelParams = llama_model_default_params()
-        modelParams.n_gpu_layers = 0
+        modelParams.n_gpu_layers = 99
         modelParams.use_mmap = true
 
         let maybeModel = resolvedPath.withCString { pathCString in
