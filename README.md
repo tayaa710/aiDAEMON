@@ -9,8 +9,8 @@ Control your Mac by typing what you want in plain English. Powered by local AI, 
 ## Status
 
 **Current Phase**: Phase 2 - LLM Integration
-**Completed Milestones**: M001-M010
-**Next Milestone**: M011 - LLM Model File Loader
+**Completed Milestones**: M001-M011
+**Next Milestone**: M012 - llama.cpp Swift Bridge
 **Target**: MVP in 8-12 weeks
 
 ---

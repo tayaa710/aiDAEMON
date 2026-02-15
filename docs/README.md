@@ -48,7 +48,7 @@ All documentation files are version controlled with the codebase. Changes to fou
 
 ## Current Project Phase
 
-**Status**: Phase 1 (Core UI) in progress
-**Completed Milestones**: M001-M009
-**Next Milestone**: M010 - Settings Window
-**Target**: Complete Phase 1 core UI milestones
+**Status**: Phase 2 (LLM Integration) in progress
+**Completed Milestones**: M001-M011
+**Next Milestone**: M012 - llama.cpp Swift Bridge
+**Target**: Complete Phase 2 LLM integration milestones

@@ -355,7 +355,9 @@ Each milestone includes:
 
 ## PHASE 2: LLM INTEGRATION
 
-### M011: LLM Model File Loader
+### M011: LLM Model File Loader ✅
+**Status**: COMPLETE (2026-02-15)
+
 **Objective**: Load LLaMA model file into memory
 
 **Why**: Required for inference
@@ -363,21 +365,21 @@ Each milestone includes:
 **Dependencies**: M003, M004
 
 **Deliverables**:
-- `ModelLoader.swift` class
-- Function: `loadModel(path:) -> ModelHandle?`
-- Handles file not found error
-- Handles corrupted model error
-- Shows loading progress (future: progress bar)
+- [x] `ModelLoader.swift` class
+- [x] Function: `loadModel(path:) -> ModelHandle?`
+- [x] Handles file not found error
+- [x] Handles corrupted model error
+- [x] Shows loading progress (future: progress bar)
 
 **Success Criteria**:
-- Model loads successfully from `Models/` directory
-- Takes <5 seconds on M1 Mac
-- Error handling works (test with invalid file)
+- [x] Model loads successfully from `Models/` directory
+- [x] Takes <5 seconds on M1 Mac
+- [x] Error handling works (test with invalid file)
 
 **Testing**:
-- Load valid model → success
-- Load missing file → error message
-- Load corrupted file → error message
+- [x] Load valid model → success
+- [x] Load missing file → error message
+- [x] Load corrupted file → error message
 
 **Difficulty**: 3/5
 
@@ -2353,7 +2355,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 8. ~~Complete M008 (Text Input Field)~~ ✅ Done
 9. ~~Complete M009 (Results Display Area)~~ ✅ Done
 10. ~~Complete M010 (Settings Window)~~ ✅ Done
-11. Begin M011: LLM Model File Loader
+11. ~~Complete M011 (LLM Model File Loader)~~ ✅ Done
+12. Begin M012: llama.cpp Swift Bridge
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

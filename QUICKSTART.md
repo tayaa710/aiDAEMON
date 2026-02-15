@@ -76,17 +76,17 @@ open docs/manual-actions.md
 
 ```bash
 open docs/03-MILESTONES.md
-# Navigate to M011: LLM Model File Loader
+# Navigate to M012: llama.cpp Swift Bridge
 ```
 
 **Tasks:**
 1. Build and run current app state
-2. Navigate to M011 requirements in `03-MILESTONES.md`
-3. Implement M011 deliverables
-4. Verify all M011 success criteria
-5. Commit: "M011: LLM Model File Loader complete"
+2. Navigate to M012 requirements in `03-MILESTONES.md`
+3. Implement M012 deliverables
+4. Verify all M012 success criteria
+5. Commit: "M012: llama.cpp Swift Bridge complete"
 
-**Success**: Model loader handles valid, missing, and corrupted model files per M011 criteria.
+**Success**: Swift bridge loads, generates, and unloads through llama.cpp APIs with proper memory management.
 
 ---
 
@@ -97,9 +97,9 @@ open docs/03-MILESTONES.md
 Each milestone builds on previous ones. The order is intentional.
 
 Current sequence:
-- M011: LLM Model File Loader
 - M012: llama.cpp Swift Bridge
 - M013: Basic Inference Test
+- M014: Prompt Template Builder
 - ...and so on
 
 ---
