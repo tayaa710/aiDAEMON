@@ -5,6 +5,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        // Run parser tests on launch in debug builds
+        CommandParser.runTests()
+        #endif
+
         HotkeyManager.shared.startListening()
 
         hotkeyObserver = NotificationCenter.default.addObserver(

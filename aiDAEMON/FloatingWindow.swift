@@ -136,9 +136,13 @@ final class FloatingWindow: NSWindow {
         resultsState.show("Generating...", style: .success)
         resizeForResultsVisibility(hasResults: true)
 
+        let prompt = PromptBuilder.buildCommandPrompt(userInput: command)
+        NSLog("Prompt built (%d chars) for input: %@", prompt.count, command)
+
         var streamedOutput = ""
         manager.generate(
-            prompt: command,
+            prompt: prompt,
+            params: PromptBuilder.commandParams,
             onToken: { [weak self] token in
                 DispatchQueue.main.async {
                     streamedOutput += token
