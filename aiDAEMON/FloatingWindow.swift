@@ -29,6 +29,7 @@ final class FloatingWindow: NSWindow {
     }
 
     func showOnActiveScreen() {
+        WindowManager.rememberLastExternalApplication(NSWorkspace.shared.frontmostApplication)
         centerOnActiveScreen()
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)

@@ -3,7 +3,7 @@
 This file tracks all manual tasks that must be completed during development.
 Mark items as complete by changing `[ ]` to `[x]`.
 
-Last Updated: 2026-02-15
+Last Updated: 2026-02-16
 
 ---
 
@@ -86,6 +86,54 @@ Last Updated: 2026-02-15
   - Clean integration
 
 **Import**: `import KeyboardShortcuts`
+
+---
+
+## M020: WINDOW MANAGER EXECUTOR ✅
+
+### Accessibility Permission
+
+- [ ] **Grant Accessibility access to aiDAEMON**
+  1. Launch `aiDAEMON`.
+  2. Trigger a window command (for example: `left half`).
+  3. macOS prompts for permission.
+  4. Open System Settings → Privacy & Security → Accessibility.
+  5. Enable `aiDAEMON`.
+  6. Relaunch `aiDAEMON`.
+
+### Manual QA (Window Commands)
+
+- [ ] **Regression: aiDAEMON should not resize itself**
+  1. Open Safari and make it the active app.
+  2. Press `Cmd+Shift+Space` to open aiDAEMON.
+  3. Enter `left half`.
+  4. Verify Safari moves to left half.
+  5. Verify aiDAEMON floating window size/position is unchanged by the command.
+
+- [ ] **Position coverage on a real app window**
+  - `right half`
+  - `top half`
+  - `bottom half`
+  - `full screen`
+  - `center`
+  - `top left`
+  - `top right`
+  - `bottom left`
+  - `bottom right`
+
+- [ ] **Cross-app behavior**
+  1. Repeat 2-3 commands each with Safari, Finder, and TextEdit.
+  2. Verify each command affects the previously active external app, not aiDAEMON.
+
+- [ ] **Failure handling**
+  1. Disable Accessibility permission for aiDAEMON.
+  2. Run `left half`.
+  3. Verify a permission error is shown and no window is moved.
+
+- [ ] **Optional multi-monitor check**
+  1. Move an app window to secondary display.
+  2. Run `left half` and `right half`.
+  3. Verify results stay on the same display with correct geometry.
 
 ---
 
