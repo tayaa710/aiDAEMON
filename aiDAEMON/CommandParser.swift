@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Command Types
 
 /// All supported command types from the LLM
-public enum CommandType: String, Codable {
+public enum CommandType: String, Codable, CaseIterable {
     case APP_OPEN
     case FILE_SEARCH
     case WINDOW_MANAGE

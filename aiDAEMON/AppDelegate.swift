@@ -6,8 +6,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
-        // Run parser tests on launch in debug builds
+        // Run debug test suites on launch
         CommandParser.runTests()
+        CommandRegistry.runTests()
         #endif
 
         HotkeyManager.shared.startListening()
@@ -27,6 +28,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 NSLog("Floating window shown")
             }
         }
+
+        // Register command executors
+        CommandRegistry.shared.register(AppLauncher(), for: .APP_OPEN)
 
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()

@@ -3,6 +3,7 @@ import SwiftUI
 enum ResultStyle {
     case success
     case error
+    case loading
 
     var textColor: Color {
         switch self {
@@ -10,6 +11,8 @@ enum ResultStyle {
             return Color(nsColor: .systemGreen)
         case .error:
             return Color(nsColor: .systemRed)
+        case .loading:
+            return Color(nsColor: .secondaryLabelColor)
         }
     }
 
@@ -19,6 +22,8 @@ enum ResultStyle {
             return Color(nsColor: .systemGreen).opacity(0.10)
         case .error:
             return Color(nsColor: .systemRed).opacity(0.10)
+        case .loading:
+            return Color(nsColor: .controlBackgroundColor).opacity(0.50)
         }
     }
 
@@ -28,6 +33,16 @@ enum ResultStyle {
             return Color(nsColor: .systemGreen).opacity(0.45)
         case .error:
             return Color(nsColor: .systemRed).opacity(0.45)
+        case .loading:
+            return Color(nsColor: .separatorColor).opacity(0.45)
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .success: return "Result"
+        case .error: return "Error"
+        case .loading: return "Processing"
         }
     }
 }
@@ -58,9 +73,15 @@ struct ResultsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(style == .success ? "Result" : "Error")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(style.textColor)
+            HStack(spacing: 6) {
+                if style == .loading {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Text(style.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(style.textColor)
+            }
 
             ScrollView {
                 Text(output)
