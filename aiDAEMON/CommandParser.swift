@@ -19,12 +19,14 @@ public enum CommandType: String, Codable, CaseIterable {
 public struct Command: Codable {
     public let type: CommandType
     public let target: String?
+    public let query: String?
     public let parameters: [String: AnyCodable]?
     public let confidence: Double?
 
-    public init(type: CommandType, target: String? = nil, parameters: [String: AnyCodable]? = nil, confidence: Double? = nil) {
+    public init(type: CommandType, target: String? = nil, query: String? = nil, parameters: [String: AnyCodable]? = nil, confidence: Double? = nil) {
         self.type = type
         self.target = target
+        self.query = query
         self.parameters = parameters
         self.confidence = confidence
     }
@@ -338,6 +340,9 @@ extension Command {
         var parts = ["Command: \(type.rawValue)"]
         if let target = target {
             parts.append("Target: \(target)")
+        }
+        if let query = query {
+            parts.append("Query: \(query)")
         }
         if let confidence = confidence {
             parts.append("Confidence: \(String(format: "%.0f%%", confidence * 100))")

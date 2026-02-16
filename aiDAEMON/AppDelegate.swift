@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Run debug test suites on launch
         CommandParser.runTests()
         CommandRegistry.runTests()
+        FileSearcher.runTests()
         #endif
 
         HotkeyManager.shared.startListening()
@@ -31,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Register command executors
         CommandRegistry.shared.register(AppLauncher(), for: .APP_OPEN)
+        CommandRegistry.shared.register(FileSearcher(), for: .FILE_SEARCH)
 
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()

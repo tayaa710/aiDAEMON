@@ -216,6 +216,10 @@ final class FloatingWindow: NSWindow {
             lines.append("Target: \(target)")
         }
 
+        if let query = command.query {
+            lines.append("Query: \(query)")
+        }
+
         if let params = command.parameters, !params.isEmpty {
             for (key, value) in params {
                 lines.append("\(key): \(value.value)")

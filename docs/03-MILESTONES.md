@@ -651,7 +651,7 @@ Each milestone includes:
 
 ---
 
-### M019: File Search Executor
+### M019: File Search Executor ✅
 **Objective**: Search files using Spotlight
 
 **Why**: Second most common command
@@ -659,10 +659,13 @@ Each milestone includes:
 **Dependencies**: M017
 
 **Deliverables**:
-- `FileSearcher.swift` class
-- Uses `mdfind` command
-- Parses results to array of file paths
-- Displays results in UI
+- [x] `FileSearcher.swift` class
+- [x] Uses `mdfind` command (Spotlight via `kMDItemDisplayName` query)
+- [x] Parses results to array of file paths
+- [x] Displays results in UI (file name + abbreviated path, capped at 20 results)
+- [x] Kind filtering (pdf, image, video, audio, document, text, folder, etc.)
+- [x] Input sanitization to prevent mdfind injection
+- [x] Registered in CommandRegistry via AppDelegate
 
 **Success Criteria**:
 - "find tax" → lists files containing "tax"
@@ -670,13 +673,61 @@ Each milestone includes:
 - Clickable to open in Finder (future)
 
 **Testing**:
-- Search for known files
-- Search with no results
-- Search with many results
+- [x] Search for known files — "find safari" returns Safari-related files (manual test) ✅
+- [x] Search with no results — nonsense query returns "No files found" (manual test) ✅
+- [x] Search with many results — broad query returns capped results (manual test) ✅
+- [x] Search with kind filter e.g. "pdf" (manual test) ✅
+- [x] Build succeeds (BUILD SUCCEEDED) ✅
+- [x] All 15 automated tests pass at launch ✅
 
 **Difficulty**: 3/5
 
 **Shipping**: No
+
+**Notes**: Uses `mdfind -limit 20` with `kMDItemDisplayName` for name-based Spotlight search. Supports optional `kind` parameter mapped to UTI types (e.g. "pdf" → `com.adobe.pdf`). Results limited to 20 via mdfind `-limit` flag (prevents hanging on broad queries). Minimum 2-character query enforced. Paths abbreviated with `~` for home directory. `Command` struct extended with `query` field to match LLM output format (`FILE_SEARCH` uses `query` instead of `target`).
+
+---
+
+### M019b: Search Relevance Ranking ✅
+**Objective**: Replace `mdfind` shell-out with native `NSMetadataQuery` and add relevance-based result ranking
+
+**Why**: Current mdfind returns results in arbitrary Spotlight order. Users expect the most relevant files first — exact name matches, recently used files, and files in common locations should rank higher than obscure system files.
+
+**Dependencies**: M019
+
+**Deliverables**:
+- [x] Migrated from `Process("/usr/bin/mdfind")` to `NSMetadataQuery` (native Swift Spotlight API)
+- [x] `SpotlightSearcher` wrapper class — manages NSMetadataQuery lifecycle with completion handler
+- [x] `RelevanceScorer` — weighted composite scoring system:
+  - Spotlight relevance (`kMDQueryResultContentRelevance`) — 30% weight
+  - Exact/starts-with name match — 25% weight
+  - Recency (`kMDItemLastUsedDate` with exponential decay) — 25% weight
+  - Location priority (~/Desktop, ~/Documents, ~/Downloads) — 20% weight
+- [x] Fetch 50 candidates, score and sort, display top 20
+- [x] 5-second timeout prevents hanging if Spotlight is rebuilding index
+- [x] `MockMetadataItem` for unit testing scorer in isolation
+
+**Success Criteria**:
+- "find tax" → `tax.pdf` on Desktop ranks above `/Library/Caches/something-tax-related`
+- "find screenshot" → recent screenshots rank first
+- Results feel noticeably more useful than random Spotlight order
+- No performance regression (NSMetadataQuery should be faster than Process/pipe)
+
+**Testing**:
+- [ ] Search for file with exact name match — appears first (manual test)
+- [ ] Search for common term — recent files ranked higher (manual test)
+- [ ] Search for file in ~/Documents vs /Library — Documents file ranks higher (manual test)
+- [ ] Performance: results appear within 1 second for common queries (manual test)
+- [x] Build succeeds (BUILD SUCCEEDED)
+- [x] Test 15: Exact name match scores higher than contains (automated)
+- [x] Test 16: Recent file scores higher than old file (automated)
+- [x] Test 17: ~/Documents scores higher than /usr (automated)
+
+**Difficulty**: 3/5
+
+**Shipping**: No
+
+**Notes**: Uses `NSMetadataQuery` with notification pattern (`.NSMetadataQueryDidFinishGathering`). Query runs on main thread (run loop required). `SpotlightSearcher` is a one-shot wrapper: starts query, waits for completion or timeout, scores results, fires completion handler. Eliminated Process/pipe overhead. `kMDItem*` constants require `as String` cast in Swift with C++ interop enabled. Tests pump `RunLoop.main` to allow NSMetadataQuery callbacks during synchronous test execution.
 
 ---
 
@@ -2423,7 +2474,9 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 16. ~~Complete M016 (End-to-End LLM Pipeline)~~ ✅ Done
 17. ~~Complete M017 (Command Type Registry)~~ ✅ Done
 18. ~~Complete M018 (App Launcher Executor)~~ ✅ Done
-19. Begin M019: File Search Executor
+19. ~~Complete M019 (File Search Executor)~~ ✅ Done
+20. ~~Complete M019b (Search Relevance Ranking)~~ ✅ Done
+21. Begin M020: Window Manager Executor
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file
