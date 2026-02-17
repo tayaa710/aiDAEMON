@@ -11,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CommandRegistry.runTests()
         FileSearcher.runTests()
         WindowManager.runTests()
+        SystemInfo.runTests()
         #endif
 
         HotkeyManager.shared.startListening()
@@ -35,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CommandRegistry.shared.register(AppLauncher(), for: .APP_OPEN)
         CommandRegistry.shared.register(FileSearcher(), for: .FILE_SEARCH)
         CommandRegistry.shared.register(WindowManager(), for: .WINDOW_MANAGE)
+        CommandRegistry.shared.register(SystemInfo(), for: .SYSTEM_INFO)
 
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()

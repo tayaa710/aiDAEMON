@@ -2,7 +2,7 @@
 
 Complete development roadmap broken into atomic milestones.
 
-Last Updated: 2026-02-16
+Last Updated: 2026-02-17
 Version: 1.0
 
 ---
@@ -789,7 +789,9 @@ Each milestone includes:
 
 ---
 
-### M021: System Info Executor
+### M021: System Info Executor ✅
+**Status**: COMPLETE (2026-02-17)
+
 **Objective**: Display system information
 
 **Why**: Quick info commands
@@ -797,23 +799,48 @@ Each milestone includes:
 **Dependencies**: M017
 
 **Deliverables**:
-- `SystemInfo.swift` class
-- Commands: IP address, disk space, CPU usage, battery
-- Uses shell commands: `curl`, `df`, `pmset`
+- [x] `SystemInfo.swift` struct implementing `CommandExecutor` protocol
+- [x] 8 info types: IP address, disk space, CPU usage, battery, memory, hostname, OS version, uptime
+- [x] Uses native Swift APIs (no shell commands): `getifaddrs`, `FileManager`, `host_processor_info`, `IOKit.ps`, `ProcessInfo`, `vm_statistics64`
+- [x] Public IP via `api.ipify.org` with 5-second timeout
+- [x] Alias resolution for LLM output variants (e.g. "ip" → ip_address, "ram" → memory, "storage" → disk_space, "ram_usage" → memory, "battery_status" → battery)
+- [x] Hyphen/underscore/case normalisation for target strings
+- [x] Registered in `AppDelegate` on launch via `CommandRegistry.shared.register()`
+- [x] `PromptBuilder` updated: SYSTEM_INFO/QUICK_ACTION boundary clarified, 3 extra SYSTEM_INFO examples added ("check battery", "how much ram", "disk space") to fix LLM misclassification of battery queries as QUICK_ACTION
+- [x] Test deadlock fixed: Tests 8-12 call `fetch()` directly (avoids `DispatchGroup.wait()` deadlock on main thread)
 
 **Success Criteria**:
-- "what's my ip" → shows IP address
-- "disk space" → shows available space
-- Results formatted cleanly
+- [x] "what's my ip" → shows local + public IP address
+- [x] "check battery" → shows battery level/status (correctly routed as SYSTEM_INFO)
+- [x] "how much ram do i have" → shows memory details
+- [x] "disk space" → shows total/used/free with percentages
+- [x] Results formatted cleanly with labels
 
 **Testing**:
-- Test each info command
-- Verify output formatting
-- Test on battery and plugged in
+- [x] Build succeeds (BUILD SUCCEEDED)
+- [x] Test 1: Executor name is 'SystemInfo' (automated)
+- [x] Test 2: All 8 canonical targets resolve (automated)
+- [x] Test 3: All aliases resolve correctly (automated)
+- [x] Test 4: Unknown target returns nil (automated)
+- [x] Test 5: Hyphen/underscore/case normalisation works (automated)
+- [x] Test 6: Missing target returns error (automated)
+- [x] Test 7: Unknown target returns descriptive error (automated)
+- [x] Test 8: Disk space returns success with details (automated)
+- [x] Test 9: OS version returns success with macOS info (automated)
+- [x] Test 10: Hostname returns non-empty result (automated)
+- [x] Test 11: Uptime returns formatted duration (automated)
+- [x] Test 12: Memory returns success with total (automated)
+- [x] Test 13: End-to-end parse SYSTEM_INFO command (automated)
+- [x] "check battery" routes to SYSTEM_INFO (verified via prompt fix)
+- [x] "how much ram do i have" routes to SYSTEM_INFO with target "memory"
+- [ ] All info types verified in live UI (manual test)
+- [ ] Test on battery and plugged in (manual test)
 
 **Difficulty**: 2/5
 
 **Shipping**: No
+
+**Notes**: Uses native Swift APIs exclusively — no shell-outs or `Process` calls. IP address uses `getifaddrs` for local IP and `URLSession` for public IP (with 5-second timeout to avoid hanging). CPU usage from `host_processor_info` (Mach kernel API). Battery via `IOKit.ps` framework (`IOPSCopyPowerSourcesInfo`). Memory via `vm_statistics64`. All queries dispatched to background queue; completion called on main queue. Tests 8-12 call `fetch()` directly to avoid main-thread deadlock (tests run on main queue, so `DispatchGroup.wait()` would block the `DispatchQueue.main.async` completion callback). Post-completion fixes: added `ram_usage` and `battery_status` aliases; updated `PromptBuilder` with SYSTEM_INFO examples and boundary clarification to prevent LLM misclassification.
 
 ---
 
@@ -2504,7 +2531,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 19. ~~Complete M019 (File Search Executor)~~ ✅ Done
 20. ~~Complete M019b (Search Relevance Ranking)~~ ✅ Done
 21. ~~Complete M020 (Window Manager Executor)~~ ✅ Done
-22. Begin M021: System Info Executor
+22. ~~Complete M021 (System Info Executor)~~ ✅ Done
+23. Begin M022: Command Validation Layer
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

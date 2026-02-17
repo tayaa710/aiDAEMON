@@ -2,7 +2,7 @@
 
 Complete system architecture and technical specifications for aiDAEMON.
 
-Last Updated: 2026-02-15
+Last Updated: 2026-02-17
 Version: 1.0
 
 ---
@@ -117,11 +117,12 @@ SettingsView
 **Inference**: CPU-only (GPU acceleration via Metal future optimization)
 
 **Model Files**:
-- Primary: `llama-3-8b-instruct-q4_k_m.gguf` (~4.3GB)
-- Location: `~/Library/Application Support/aiDAEMON/models/`
-- Fallback: Download on first launch if not bundled
+- Primary: `model.gguf` (~4.6GB, LLaMA 3.1 8B Instruct Q4_K_M)
+- Location: `Models/` directory at project root (gitignored; developer must download manually)
+- SHA256: `7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c`
+- Path discovery: app walks up from bundle directory to find `Models/model.gguf` at launch
 
-**Prompt Template**:
+**Prompt Template** (see `PromptBuilder.swift` for canonical version):
 ```
 You are a macOS command interpreter. Convert user intent to structured JSON.
 
@@ -129,22 +130,22 @@ Available command types:
 - APP_OPEN: Open an application or URL
 - FILE_SEARCH: Find files using Spotlight
 - WINDOW_MANAGE: Resize, move, or close windows
-- SYSTEM_INFO: Show system information
+- SYSTEM_INFO: Check or show system status (ip, disk, cpu, battery, memory, hostname, os version, uptime)
 - FILE_OP: File operations (move, rename, delete, create)
 - PROCESS_MANAGE: Quit, restart, or kill processes
-- QUICK_ACTION: System actions (screenshot, trash, DND)
+- QUICK_ACTION: Perform system actions (screenshot, empty trash, DND, lock screen)
+
+Use SYSTEM_INFO for questions about system status. Use QUICK_ACTION only for actions that change something.
+SYSTEM_INFO targets: ip_address, disk_space, cpu_usage, battery, memory, hostname, os_version, uptime.
 
 Output JSON only, no explanation.
 
-Example:
-User: "open youtube"
-{"type": "APP_OPEN", "target": "https://youtube.com"}
-
-User: "find tax documents from 2024"
-{"type": "FILE_SEARCH", "query": "tax", "kind": "pdf", "date": "2024"}
+[Few-shot examples follow — see PromptBuilder.swift]
 
 User: "{USER_INPUT}"
 ```
+
+**Generation Parameters**: temperature=0.1, topK=40, topP=0.9, maxTokens=256, repeatPenalty=1.1
 
 **Output Format** (JSON):
 ```json
@@ -221,61 +222,49 @@ struct ValidatedCommand {
 **Command Executors** (one per type):
 
 #### AppLauncher
-```swift
-func execute() -> Result<String, Error> {
-    if target.starts(with: "http") {
-        NSWorkspace.shared.open(URL(string: target))
-    } else {
-        NSWorkspace.shared.launchApplication(target)
-    }
-}
-```
+- URL detection: http/https prefix or bare domain pattern (e.g. `youtube.com`)
+- Opens URLs via `NSWorkspace.shared.open(url)`
+- Opens apps via `NSWorkspace.openApplication(at:configuration:)` (modern API)
+- Three-tier lookup: known bundle ID map → exact name in /Applications → fuzzy name match
 
-**Commands**: `open -a`, `NSWorkspace.launchApplication()`
 **Permissions**: None (basic macOS capability)
 
 ---
 
 #### FileSearcher
-```swift
-func execute() -> Result<[FileResult], Error> {
-    let query = buildSpotlightQuery(parameters)
-    let results = Process.run("mdfind", args: [query])
-    return parseResults(results)
-}
-```
+- Uses `NSMetadataQuery` (native Spotlight API, not shell `mdfind`)
+- `SpotlightSearcher` wrapper: one-shot query with 5-second timeout
+- `RelevanceScorer`: weighted composite score (Spotlight relevance 30%, name match 25%, recency 25%, location priority 20%)
+- Fetches 50 candidates, scores and sorts, returns top 20
+- Supports `kind` parameter mapped to UTI types (e.g. "pdf" → `com.adobe.pdf`)
 
-**Commands**: `mdfind` (Spotlight CLI)
-**Permissions**: None (Spotlight-level access)
+**Permissions**: None (user-level Spotlight access)
 
 ---
 
 #### WindowManager
-```swift
-func execute() -> Result<String, Error> {
-    let app = NSWorkspace.shared.frontmostApplication
-    let windows = AXUIElementCreateApplication(app.processID)
-    // Resize using Accessibility API
-}
-```
+- Uses Accessibility API (`AXUIElement`) to get/set window position and size
+- 10 positions: left_half, right_half, top_half, bottom_half, full_screen, center, top_left, top_right, bottom_left, bottom_right
+- Target app resolution: explicit target → frontmost non-aiDAEMON app → last remembered external app
+- Coordinate conversion: NSScreen (bottom-left origin) → AX API (top-left relative to primary screen)
+- Multi-monitor: respects screen origin offset
 
-**Commands**: Accessibility API (AXUIElement)
-**Permissions**: Accessibility
+**Permissions**: Accessibility (prompts user on first use)
 
 ---
 
 #### SystemInfo
-```swift
-func execute() -> Result<String, Error> {
-    switch infoType {
-    case .ip: return Process.run("curl", "-s", "ifconfig.me")
-    case .disk: return Process.run("df", "-h")
-    case .cpu: return parseActivityMonitor()
-    }
-}
-```
+- 8 info types: ip_address, disk_space, cpu_usage, battery, memory, hostname, os_version, uptime
+- All native Swift APIs — no shell-outs or `Process` calls:
+  - IP: `getifaddrs` (local) + `URLSession` to api.ipify.org (public, 5s timeout)
+  - Disk: `FileManager.attributesOfFileSystem`
+  - CPU: `host_processor_info` (Mach kernel)
+  - Battery: `IOKit.ps` (`IOPSCopyPowerSourcesInfo`)
+  - Memory: `vm_statistics64`
+  - Hostname/OS/Uptime: `ProcessInfo`
+- Alias resolution for LLM variants (e.g. "ram" → memory, "storage" → disk_space, "battery_status" → battery)
+- All queries dispatched to background queue; completion called on main queue
 
-**Commands**: `curl`, `df`, `top`, `sysctl`
 **Permissions**: None
 
 ---
@@ -441,19 +430,16 @@ CREATE TABLE auto_approve_rules (
 
 ### Swift Package Dependencies
 
-**Confirmed**:
-- `llama.cpp` (via swift-llama or custom bridge)
-- `Sparkle` (auto-updates)
-- `Sauce` (global hotkey management)
-
-**Under Consideration**:
-- `KeyboardShortcuts` (alternative to Sauce)
-- `SQLite.swift` (nicer SQLite interface than raw C)
+**Confirmed and in use**:
+- `mattt/llama.swift` @ 2.8061.0 — wraps llama.cpp as precompiled XCFramework via SPM; `import LlamaSwift`; requires `SWIFT_CXX_INTEROP_MODE = default`. Note: official `ggml-org/llama.cpp` removed `Package.swift` — do NOT use it directly.
+- `sparkle-project/Sparkle` @ 2.8.1 — auto-updates
+- `sindresorhus/KeyboardShortcuts` @ 2.4.0 — global hotkey management
 
 **Explicitly NOT Using**:
 - Electron (too large, not native)
 - Python (distribution complexity)
 - Web technologies (slower, less integrated)
+- `ggml-org/llama.cpp` direct SPM — Package.swift removed upstream
 
 ---
 
@@ -477,57 +463,38 @@ CREATE TABLE auto_approve_rules (
 
 ### File Structure
 
+Note: Actual structure is flat (no subdirectories) within the app target. Planned subdirectory layout deferred.
+
 ```
 aiDAEMON/
-├── aiDAEMON/                   # Main app target
-│   ├── App/
-│   │   ├── aiDAEMONApp.swift  # App entry point
-│   │   ├── AppDelegate.swift   # System event handling
-│   │   └── HotkeyManager.swift # Global hotkey
-│   ├── UI/
-│   │   ├── FloatingWindow.swift
-│   │   ├── CommandInputView.swift
-│   │   ├── ResultsView.swift
-│   │   ├── ConfirmationDialog.swift
-│   │   └── Settings/
-│   │       ├── SettingsView.swift
-│   │       ├── GeneralTab.swift
-│   │       ├── PermissionsTab.swift
-│   │       └── HistoryTab.swift
-│   ├── LLM/
-│   │   ├── LLMManager.swift        # Model loading, inference
-│   │   ├── PromptBuilder.swift     # Construct prompts
-│   │   └── ModelDownloader.swift   # First-launch download
-│   ├── Commands/
-│   │   ├── CommandParser.swift     # JSON parsing
-│   │   ├── CommandValidator.swift  # Safety checks
-│   │   ├── Executors/
-│   │   │   ├── AppLauncher.swift
-│   │   │   ├── FileSearcher.swift
-│   │   │   ├── WindowManager.swift
-│   │   │   ├── SystemInfo.swift
-│   │   │   ├── FileOperator.swift
-│   │   │   ├── ProcessManager.swift
-│   │   │   └── QuickActions.swift
-│   │   └── CommandRegistry.swift   # Maps types to executors
-│   ├── Storage/
-│   │   ├── ActionLogger.swift
-│   │   ├── SettingsStore.swift
-│   │   └── Database.swift          # SQLite wrapper
-│   └── Utilities/
-│       ├── PermissionChecker.swift
-│       ├── ProcessRunner.swift     # Safe shell execution
-│       └── Extensions/
-│           ├── String+Sanitize.swift
-│           └── URL+Validation.swift
-├── aiDAEMONTests/              # Unit tests
-├── aiDAEMONUITests/            # UI tests
-├── Models/                     # LLM model files (gitignored)
-├── docs/                       # This documentation
-└── scripts/                    # Build/deploy scripts
-    ├── download-model.sh
-    ├── notarize.sh
-    └── build-release.sh
+├── aiDAEMON/                    # Main app target (flat layout)
+│   ├── aiDAEMONApp.swift        # App entry point (@main)
+│   ├── AppDelegate.swift        # System lifecycle + test runner + executor registration
+│   ├── HotkeyManager.swift      # Global hotkey (KeyboardShortcuts)
+│   ├── FloatingWindow.swift     # NSWindow subclass, always-on-top
+│   ├── CommandInputView.swift   # SwiftUI text input
+│   ├── ResultsView.swift        # SwiftUI results display (success/error/loading styles)
+│   ├── SettingsView.swift       # SwiftUI settings window (tabbed)
+│   ├── ContentView.swift        # Placeholder (required by project template)
+│   ├── ModelLoader.swift        # GGUF model file loading
+│   ├── LLMBridge.swift          # llama.cpp C API Swift wrapper
+│   ├── LLMManager.swift         # Singleton: model state, async inference, path discovery
+│   ├── PromptBuilder.swift      # Prompt template + input sanitisation
+│   ├── CommandParser.swift      # JSON → Command struct (CommandType, AnyCodable)
+│   ├── CommandRegistry.swift    # CommandExecutor protocol + dispatch + PlaceholderExecutor
+│   ├── AppLauncher.swift        # APP_OPEN executor
+│   ├── FileSearcher.swift       # FILE_SEARCH executor (NSMetadataQuery + RelevanceScorer)
+│   ├── WindowManager.swift      # WINDOW_MANAGE executor (AXUIElement)
+│   ├── SystemInfo.swift         # SYSTEM_INFO executor (native APIs)
+│   ├── Assets.xcassets          # App icons and color assets
+│   └── aiDAEMON.entitlements   # Entitlements (apple-events automation)
+├── aiDAEMON.xcodeproj/          # Hand-crafted Xcode project (tracked in git)
+├── Models/                      # LLM model files (gitignored)
+│   └── model.gguf               # LLaMA 3.1 8B Instruct Q4_K_M (4.6GB, download manually)
+├── docs/                        # This documentation
+└── scripts/                     # Build/deploy scripts (planned, not yet created)
+    ├── notarize.sh              # Planned for M054
+    └── create-dmg.sh            # Planned for M055
 ```
 
 ---

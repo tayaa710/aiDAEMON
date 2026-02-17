@@ -22,10 +22,13 @@ public struct PromptBuilder {
         - APP_OPEN: Open an application or URL
         - FILE_SEARCH: Find files using Spotlight
         - WINDOW_MANAGE: Resize, move, or close windows
-        - SYSTEM_INFO: Show system information
+        - SYSTEM_INFO: Check or show system status (ip, disk, cpu, battery, memory, hostname, os version, uptime)
         - FILE_OP: File operations (move, rename, delete, create)
         - PROCESS_MANAGE: Quit, restart, or kill processes
-        - QUICK_ACTION: System actions (screenshot, trash, DND)
+        - QUICK_ACTION: Perform system actions (screenshot, empty trash, DND, lock screen)
+
+        Use SYSTEM_INFO for questions about system status. Use QUICK_ACTION only for actions that change something.
+        SYSTEM_INFO targets: ip_address, disk_space, cpu_usage, battery, memory, hostname, os_version, uptime.
 
         Output JSON only, no explanation.
 
@@ -41,6 +44,15 @@ public struct PromptBuilder {
 
         User: "what's my ip"
         {"type": "SYSTEM_INFO", "target": "ip_address", "confidence": 0.95}
+
+        User: "check battery"
+        {"type": "SYSTEM_INFO", "target": "battery", "confidence": 0.95}
+
+        User: "how much ram do i have"
+        {"type": "SYSTEM_INFO", "target": "memory", "confidence": 0.95}
+
+        User: "disk space"
+        {"type": "SYSTEM_INFO", "target": "disk_space", "confidence": 0.95}
 
         User: "quit chrome"
         {"type": "PROCESS_MANAGE", "target": "Google Chrome", "parameters": {"action": "quit"}, "confidence": 0.90}
