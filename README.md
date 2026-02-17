@@ -1,278 +1,98 @@
 # aiDAEMON
 
-**Natural language interface for macOS system control**
+**Local-first AI companion for macOS**
 
-Control your Mac by typing what you want in plain English. Powered by local AI, no data leaves your machine.
-
----
-
-## Status
-
-**Current Phase**: Phase 2 - LLM Integration
-**Completed Milestones**: M001-M011
-**Next Milestone**: M012 - llama.cpp Swift Bridge
-**Target**: MVP in 8-12 weeks
+aiDAEMON is pivoting from a command parser into a supervised JARVIS-style desktop companion.
 
 ---
 
-## What It Does
+## Current Status
 
-Type natural language commands:
+**Strategic Phase**: Pivot Transition
 
-- `open youtube` → Opens YouTube in your browser
-- `find tax documents from 2024` → Searches files with Spotlight
-- `left half` → Resizes current window to left 50%
-- `what's my ip?` → Shows your IP address
-- `empty trash` → Empties trash (with confirmation)
+- Completed foundation work: `M001-M025`
+- Current milestone: `M026 - Build Stability Recovery`
+- Roadmap scope: `M001-M132` (plus `M133-M140` future)
 
-More commands coming as development progresses.
-
----
-
-## Why aiDAEMON?
-
-### Privacy-First
-- 100% local AI processing (LLaMA 3 8B)
-- No data sent to cloud services
-- No telemetry or tracking
-- Your commands stay on your Mac
-
-### Fast & Offline
-- Local inference (no API latency)
-- Works without internet
-- No per-query costs
-
-### Safe & Transparent
-- Shows what it will do before executing
-- Confirmation for destructive actions
-- Complete audit log
-- Emergency stop mechanism
-
-### Power User Focused
-- Natural language beats keyboard shortcuts
-- Faster than hunting through menus
-- Extensible and customizable
-- Built by developers, for power users
+Planned external testing windows:
+- Alpha: 2026-05-11 to 2026-06-26
+- Beta: 2026-07-06 to 2026-08-21
+- Public rollout target window: 2026-09-07 to 2026-10-05
 
 ---
 
-## Core Principles
+## What Works Today
 
-1. **Privacy is non-negotiable** - Local-first, cloud optional
-2. **User must stay in control** - No autonomous execution
-3. **Transparency over magic** - Show commands, explain actions
-4. **Safety by design** - Confirmations, reversibility, audit logs
-5. **Start focused** - Do fewer things well
+The current app can already:
+- Open apps and URLs
+- Search files with ranked Spotlight results
+- Manage window positions
+- Report core system information
+- Parse natural language through a local model
 
-See [docs/00-FOUNDATION.md](docs/00-FOUNDATION.md) for complete philosophy.
+This is now treated as a migration base, not the final product shape.
+
+---
+
+## New Product Direction
+
+aiDAEMON is now scoped as a companion that can:
+- Hold conversation context across turns
+- Plan multi-step workflows
+- Use a schema-based tool runtime
+- Apply runtime safety policy before every action
+- Operate with explicit autonomy levels and approval gates
+- Build memory and context with user controls
+
+See `docs/00-FOUNDATION.md` for non-negotiable boundaries.
+
+---
+
+## Principles
+
+1. Local-first default behavior
+2. User authority over autonomy
+3. Transparent planning and execution
+4. Runtime safety enforcement
+5. Memory with explicit controls
 
 ---
 
 ## Documentation
 
-Complete documentation system in [`docs/`](docs/):
-
-- **[00-FOUNDATION.md](docs/00-FOUNDATION.md)** - Core principles and architectural invariants (READ THIS FIRST)
-- **[01-ARCHITECTURE.md](docs/01-ARCHITECTURE.md)** - Technical architecture and implementation details
-- **[02-THREAT-MODEL.md](docs/02-THREAT-MODEL.md)** - Security, privacy, and threat mitigation
-- **[03-MILESTONES.md](docs/03-MILESTONES.md)** - Complete development roadmap (93+ milestones)
-- **[04-SHIPPING.md](docs/04-SHIPPING.md)** - Release strategy and launch plan
-- **[manual-actions.md](docs/manual-actions.md)** - Checklist of manual setup tasks
+- `docs/00-FOUNDATION.md` - strategic source of truth
+- `docs/01-ARCHITECTURE.md` - agent architecture and migration model
+- `docs/02-THREAT-MODEL.md` - security/privacy model
+- `docs/03-MILESTONES.md` - detailed milestone roadmap
+- `docs/04-SHIPPING.md` - stage gates and release operations
+- `docs/manual-actions.md` - manual task checklist
 
 ---
 
-## Technology Stack
+## Development Workflow
 
-- **Language**: Swift (macOS native)
-- **UI**: SwiftUI (modern, declarative)
-- **AI Model**: LLaMA 3 8B (4-bit quantized, ~4GB)
-- **Inference**: llama.cpp (local, CPU/Metal)
-- **Permissions**: Accessibility + Automation (minimal)
-- **Distribution**: Direct download (not App Store)
+1. Read `docs/00-FOUNDATION.md`
+2. Confirm active milestone in `docs/03-MILESTONES.md`
+3. Complete manual dependencies in `docs/manual-actions.md`
+4. Implement and verify one milestone at a time
 
 ---
 
-## Development Roadmap
+## Technical Stack
 
-### Phase 1: Core UI (Weeks 1-2)
-- Global hotkey toggle (Cmd+Shift+Space shows/hides window)
-- Floating input window
-- Text input and results display
-- Settings interface
-
-### Phase 2: LLM Integration (Weeks 2-3)
-- Load LLaMA 3 model
-- Intent parsing (natural language → structured commands)
-- JSON output parsing
-- Error handling
-
-### Phase 3: Command Execution (Weeks 3-4)
-- App launcher
-- File search (Spotlight)
-- Window management
-- System info
-- File operations
-- Process management
-
-### Phase 4: Polish & Safety (Weeks 5-6)
-- Permission flow
-- Confirmation dialogs
-- Action logging
-- Settings persistence
-- UI polish
-
-### Phase 5: Distribution (Weeks 7-8)
-- Code signing
-- Notarization
-- DMG packaging
-- Auto-updates (Sparkle)
-
-### Phase 6: Testing & Launch (Weeks 9-10)
-- Beta testing
-- Bug fixes
-- Documentation
-- Public release
-
-See [docs/03-MILESTONES.md](docs/03-MILESTONES.md) for complete milestone breakdown.
+- Swift + SwiftUI (macOS native)
+- Local LLM inference (`llama.cpp` via `LlamaSwift`)
+- Accessibility + Automation APIs
+- Sparkle for updates (release track)
 
 ---
 
-## Getting Started (For Developers)
+## Distribution
 
-### Prerequisites
-
-- macOS 13.0+ (Ventura or later)
-- Xcode 15+
-- 8GB+ RAM (for LLM inference)
-- Apple Developer account (for distribution)
-
-### Setup
-
-1. **Clone repository**
-   ```bash
-   git clone https://github.com/[username]/aiDAEMON.git
-   cd aiDAEMON
-   ```
-
-2. **Read foundation docs**
-   ```bash
-   open docs/00-FOUNDATION.md
-   ```
-
-3. **Follow manual actions**
-   ```bash
-   open docs/manual-actions.md
-   ```
-   Complete setup tasks (Xcode, model download, dependencies).
-
-4. **Start with M001**
-   See [docs/03-MILESTONES.md](docs/03-MILESTONES.md) for first milestone.
-
----
-
-## Project Structure
-
-```
-aiDAEMON/
-├── aiDAEMON/           # Main app source code
-│   ├── App/            # App lifecycle, entry point
-│   ├── UI/             # SwiftUI views
-│   ├── LLM/            # Model loading, inference
-│   ├── Commands/       # Executors for each command type
-│   ├── Storage/        # Database, settings
-│   └── Utilities/      # Helpers, extensions
-├── docs/               # Complete documentation
-├── Models/             # LLM model files (gitignored)
-├── scripts/            # Build, notarize, release scripts
-└── README.md           # This file
-```
-
----
-
-## Contributing
-
-**Current Status**: Pre-alpha development
-
-Contributions welcome after initial release. For now:
-- Watch this repo for updates
-- File issues for ideas/feedback
-- Wait for v0.1.0 before submitting PRs
+Direct distribution (outside the Mac App Store), with code signing and notarization requirements tracked in milestones.
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## FAQ
-
-### Why local AI instead of ChatGPT API?
-Privacy. Your commands, file paths, and usage patterns never leave your machine. Also: no API costs, works offline, instant responses.
-
-### Why not use Siri or Shortcuts?
-Siri requires internet and is limited. Shortcuts has a clunky UI. aiDAEMON is built for power users who want natural language with full system control.
-
-### Will this work on older Macs?
-Minimum: macOS 13.0. Recommended: Apple Silicon (M1+) for best LLM performance. Intel Macs may work but will be slower.
-
-### How big is the download?
-App bundle: ~50MB. LLM model: ~4.3GB. Total first install: ~4.5GB.
-
-### Can I use my own LLM model?
-Not in MVP. Future versions may support custom models.
-
-### Will this be open source?
-Decision pending. Leaning toward open source (MIT license) to build trust and allow community contributions.
-
-### How much will it cost?
-Free for MVP. Potential paid features later (cloud vision, advanced workflows), but core will stay free.
-
-### Is this safe?
-See [docs/02-THREAT-MODEL.md](docs/02-THREAT-MODEL.md) for complete security analysis. Short answer: Yes, with caveats. You grant Accessibility permission (same as other automation tools). All commands require approval. Local-only processing.
-
----
-
-## Roadmap
-
-**v1.0** (MVP - Target: Q2 2026)
-- Local LLM parsing
-- 15-20 command types
-- Safe execution with confirmations
-- macOS native app
-
-**v1.1** (Post-launch)
-- Voice input (Whisper)
-- Custom aliases
-- Multi-step workflows
-
-**v2.0** (Future)
-- Vision features (screen understanding)
-- Plugin system
-- Cloud sync (optional)
-
----
-
-## Contact
-
-- Issues: [GitHub Issues](https://github.com/[username]/aiDAEMON/issues)
-- Security: security@aidaemon.dev (when set up)
-- Twitter: [@aidaemon](https://twitter.com/aidaemon) (when created)
-
----
-
-## Acknowledgments
-
-- **LLaMA 3** by Meta AI
-- **llama.cpp** by Georgi Gerganov
-- **Sparkle** update framework
-- Inspiration: Alfred, Raycast, Quicksilver
-
----
-
-**Current Status**: Documentation complete. Beginning development.
-
-**Next Steps**: Complete manual setup tasks, then start Milestone M001.
-
-See [docs/](docs/) for complete development blueprint.
+MIT License. See `LICENSE`.

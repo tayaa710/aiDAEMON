@@ -3,22 +3,17 @@
 Complete development roadmap broken into atomic milestones.
 
 Last Updated: 2026-02-17
-Version: 1.0
+Version: 2.0 (Strategic Pivot)
 
 ---
 
 ## Milestone Structure
 
-Each milestone includes:
-- **Objective**: What is being built
-- **Why**: Why this exists / why this order
-- **Success Criteria**: How to know it's done
-- **Dependencies**: What must be complete first
-- **Deliverables**: Concrete outputs
-- **Testing**: What to verify
-- **No Regressions**: What must still work
-- **Difficulty**: Estimated complexity (1-5)
-- **Shipping Gate**: Can we ship after this?
+Milestones are intentionally granular and may be documented in one of two formats:
+- **Atomic format**: Full objective, dependencies, deliverables, success criteria, difficulty, shipping.
+- **Grouped format**: Milestone headings plus phase-level objective, deliverables, and exit criteria.
+
+Both formats are valid as long as sequencing, ownership, and gates remain clear.
 
 ---
 
@@ -988,1623 +983,584 @@ Each milestone includes:
 
 ---
 
-## PHASE 4: PERMISSIONS & SAFETY
+## PHASE 4: PIVOT TRANSITION
 
-### M025: Permission Checker Utility
-**Objective**: Check macOS permission status
+### M025: Strategic Pivot Documentation Baseline ✅
+**Status**: COMPLETE (2026-02-17)
 
-**Why**: Know what permissions we have
+**Objective**: Rewrite project documentation to reflect the companion-first vision.
 
-**Dependencies**: M001
+**Why**: The old roadmap optimized for a command launcher, not a JARVIS-style companion.
+
+**Dependencies**: M024
 
 **Deliverables**:
-- `PermissionChecker.swift` class
-- Functions: `hasAccessibility()`, `hasAutomation(for:)`
-- Checks without prompting user
+- Foundation, architecture, threat model, milestones, shipping docs rewritten.
+- Completed milestones M001-M024 preserved.
+- New roadmap created with transition milestones first.
 
 **Success Criteria**:
-- Returns true if permission granted
-- Returns false if not granted
-- Does not trigger system prompt
-
-**Testing**:
-- Test with permissions granted
-- Test without permissions
-- Verify no unwanted prompts
+- Documentation consistently reflects the pivot.
+- Next milestone points to transition execution work (not legacy scope).
 
 **Difficulty**: 2/5
-
 **Shipping**: No
 
 ---
 
-### M026: Permission Request Flow
-**Objective**: Request permissions when needed
+### M026: Build Stability Recovery
+**Status**: PLANNED
 
-**Why**: Can't function without permissions
+**Objective**: Return the project to a reliable build baseline before structural migration.
+
+**Why**: Migration without a stable baseline creates false regressions and debugging noise.
 
 **Dependencies**: M025
 
 **Deliverables**:
-- Function to request Accessibility permission
-- Clear explanation dialog before request
-- "Open System Settings" button
+- Build succeeds in Debug and Release.
+- Existing command flows smoke-tested.
+- Build break checklist added to contributor workflow.
 
 **Success Criteria**:
-- First launch → explain why permission needed
-- Button opens System Settings to correct pane
-- Re-check after user grants permission
-
-**Testing**:
-- Test on fresh system (no permissions)
-- Verify explanation is clear
-- Test Settings button
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M027: Permissions Status UI
-**Objective**: Show permission status in Settings
-
-**Why**: User needs to know what's granted
-
-**Dependencies**: M025, M010
-
-**Deliverables**:
-- Permissions tab in Settings
-- Shows status: ✓ Granted or ✗ Not Granted
-- "Grant" buttons for each permission
-- Explanation of what each unlocks
-
-**Success Criteria**:
-- Status updates in real-time
-- Buttons open correct System Settings panes
-- Explanations are clear
-
-**Testing**:
-- View with no permissions
-- Grant permissions, verify UI updates
-- Test each "Grant" button
+- One-command build success on primary dev machine.
+- No known compile blockers in active branch.
 
 **Difficulty**: 2/5
-
 **Shipping**: No
 
 ---
 
-### M028: Graceful Degradation
-**Objective**: Handle missing permissions gracefully
+### M027: Legacy Capability Inventory
+**Status**: PLANNED
 
-**Why**: App should work with partial permissions
+**Objective**: Produce a capability map of existing working features and known gaps.
 
-**Dependencies**: M025
+**Why**: Pivot migration requires explicit reuse versus replace decisions.
+
+**Dependencies**: M026
 
 **Deliverables**:
-- Commands that need permissions show error if not granted
-- Error message explains which permission is needed
-- App doesn't crash without permissions
+- Matrix of supported commands, quality level, and known defects.
+- Executor maturity scoring (A/B/C).
+- Legacy-to-new architecture mapping notes.
 
 **Success Criteria**:
-- Window management without Accessibility → error message
-- Error explains how to grant permission
-- App remains functional for other commands
-
-**Testing**:
-- Revoke permissions
-- Try commands that need them
-- Verify errors are helpful
+- Inventory is complete enough to drive migration planning.
 
 **Difficulty**: 2/5
-
 **Shipping**: No
 
 ---
 
-### M029: Safe Shell Execution
-**Objective**: Execute shell commands safely
+### M028: Legacy-to-Tool Compatibility Adapter (Design)
+**Status**: PLANNED
 
-**Why**: Prevent command injection
+**Objective**: Define how current command dispatch maps to future tool calls.
 
-**Dependencies**: M022
+**Why**: We need backward compatibility while agent runtime is introduced.
+
+**Dependencies**: M027
 
 **Deliverables**:
-- `ProcessRunner.swift` utility
-- Executes commands with argument arrays (not strings)
-- Sanitizes all inputs
-- Timeouts for long-running commands
+- Adapter interface spec.
+- Mapping rules from `CommandType` to tool schemas.
+- Error and fallback behavior defined.
 
 **Success Criteria**:
-- Safe execution of whitelisted commands
-- No command injection possible
-- Timeouts work (abort after 10 seconds)
-
-**Testing**:
-- Test normal commands
-- Test injection attempts (should fail safely)
-- Test long-running command with timeout
+- Design is approved and unblocks implementation milestones.
 
 **Difficulty**: 3/5
-
 **Shipping**: No
 
 ---
 
-### M030: Accessibility Permission Integration
-**Objective**: Enable window management features
+### M029: Conversation State Model (Design)
+**Status**: PLANNED
 
-**Why**: Required for window control
+**Objective**: Define canonical conversation turn, task, and step models.
 
-**Dependencies**: M020, M026
+**Why**: Agentic behavior requires persistent structured state.
 
-**Deliverables**:
-- Window management requests Accessibility permission
-- Clear explanation: "To control windows, aiDAEMON needs Accessibility access"
-- Works after permission granted
-
-**Success Criteria**:
-- First window command → permission request
-- After granting → window management works
-- Without permission → clear error
-
-**Testing**:
-- Test without permission
-- Grant permission
-- Test window commands work
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-## PHASE 5: DATA PERSISTENCE
-
-### M031: SQLite Database Setup
-**Objective**: Initialize database for history and settings
-
-**Why**: Persist data across sessions
-
-**Dependencies**: M001
+**Dependencies**: M028
 
 **Deliverables**:
-- `Database.swift` wrapper class
-- SQLite database at `~/Library/Application Support/aiDAEMON/history.db`
-- Schema as defined in `01-ARCHITECTURE.md`
-- Migrations system (future-proofing)
+- Conversation turn schema.
+- Task/step lifecycle states.
+- Minimal storage contract.
 
 **Success Criteria**:
-- Database file created on first launch
-- Tables created successfully
-- Can query database
-
-**Testing**:
-- Launch app → verify DB created
-- Query empty tables
-- Verify file location
+- Schema supports multi-step execution and retry tracking.
 
 **Difficulty**: 3/5
-
 **Shipping**: No
 
 ---
 
-### M032: Action Logging
-**Objective**: Log all executed commands
+### M030: Orchestrator State Machine (Design)
+**Status**: PLANNED
 
-**Why**: Audit trail and debugging
+**Objective**: Define orchestrator states and transition rules.
+
+**Why**: Agent loop reliability depends on deterministic state transitions.
+
+**Dependencies**: M029
+
+**Deliverables**:
+- State machine diagram.
+- Transition table with failure handling.
+- Cancellation and timeout policy.
+
+**Success Criteria**:
+- All command paths map to explicit states.
+
+**Difficulty**: 3/5
+**Shipping**: No
+
+---
+
+### M031: Policy Engine v1 Ruleset (Design)
+**Status**: PLANNED
+
+**Objective**: Specify baseline risk classes and approval rules.
+
+**Why**: Planning without runtime policy enforcement is unsafe.
+
+**Dependencies**: M030
+
+**Deliverables**:
+- Safe/caution/dangerous matrix by tool class.
+- Autonomy-level gating rules.
+- Deny-by-default behavior for unknown actions.
+
+**Success Criteria**:
+- Ruleset is testable and implementation-ready.
+
+**Difficulty**: 3/5
+**Shipping**: No
+
+---
+
+### M032: Permission UX Refresh Plan
+**Status**: PLANNED
+
+**Objective**: Redesign permission messaging for companion workflows.
+
+**Why**: Companion scope needs clearer permission context and trust framing.
 
 **Dependencies**: M031
 
 **Deliverables**:
-- `ActionLogger.swift` class
-- Function: `log(command:success:error:)`
-- Automatic logging after each execution
-- Stores timestamp, input, type, success/fail
+- Permission screens and user copy.
+- Capability-to-permission mapping.
+- Degraded-mode behavior documented.
 
 **Success Criteria**:
-- Each command is logged
-- Database grows with usage
-- Can query recent commands
-
-**Testing**:
-- Execute several commands
-- Query database - verify entries
-- Verify success/failure logged correctly
+- Permission flow is understandable for non-technical alpha testers.
 
 **Difficulty**: 2/5
-
 **Shipping**: No
 
 ---
 
-### M033: Command History View
-**Objective**: Display past commands in Settings
+### M033: Observability Baseline
+**Status**: PLANNED
 
-**Why**: User wants to see what they've done
+**Objective**: Define minimum telemetry/logging for debugging agent behavior locally.
 
-**Dependencies**: M032, M010
-
-**Deliverables**:
-- History tab in Settings
-- List of recent commands (last 100)
-- Shows: timestamp, input, success/fail
-- Search/filter (future)
-
-**Success Criteria**:
-- History tab shows logged commands
-- Most recent first
-- Updates after new commands
-
-**Testing**:
-- Execute commands
-- Open History tab
-- Verify commands appear
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M034: History Export
-**Objective**: Export history as JSON
-
-**Why**: User data portability
-
-**Dependencies**: M033
-
-**Deliverables**:
-- "Export" button in History tab
-- Saves as JSON file to user-chosen location
-- Includes all logged data
-
-**Success Criteria**:
-- Click Export → file save dialog
-- Saved JSON is valid and complete
-- Can re-import (future)
-
-**Testing**:
-- Export history
-- Verify JSON is valid
-- Check all fields present
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M035: History Clear
-**Objective**: Delete all logged commands
-
-**Why**: Privacy control
-
-**Dependencies**: M033
-
-**Deliverables**:
-- "Clear All History" button
-- Confirmation dialog
-- Deletes all rows from database
-
-**Success Criteria**:
-- Button → confirmation dialog
-- Confirm → history deleted
-- History view updates to empty
-
-**Testing**:
-- Clear history
-- Verify database is empty
-- Verify UI updates
-
-**Difficulty**: 1/5
-
-**Shipping**: No
-
----
-
-### M036: Settings Persistence
-**Objective**: Save user preferences
-
-**Why**: Remember user choices
-
-**Dependencies**: M010
-
-**Deliverables**:
-- `SettingsStore.swift` class
-- UserDefaults for simple settings
-- Persists hotkey, theme, auto-hide delay
-- Loads on launch
-
-**Success Criteria**:
-- Change settings → quit app → relaunch → settings remembered
-- Defaults are sensible for first launch
-
-**Testing**:
-- Change settings, restart, verify persisted
-- Delete preferences file, verify defaults
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-## PHASE 6: POLISH & UX
-
-### M037: Loading States
-**Objective**: Show progress during long operations
-
-**Why**: User feedback for slow commands
-
-**Dependencies**: M016
-
-**Deliverables**:
-- Spinner during LLM inference
-- Progress indicator for file operations
-- "Working..." message
-
-**Success Criteria**:
-- User sees feedback immediately
-- Spinner stops when complete
-- No UI freeze
-
-**Testing**:
-- Test with slow LLM inference
-- Test with large file operations
-- Verify smooth animation
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M038: Error Message Improvements
-**Objective**: User-friendly error messages
-
-**Why**: Current errors might be too technical
-
-**Dependencies**: M024
-
-**Deliverables**:
-- Rewrite error messages for clarity
-- Include recovery suggestions
-- Avoid jargon
-
-**Success Criteria**:
-- Non-technical user can understand errors
-- Errors suggest next steps
-
-**Testing**:
-- Trigger each error type
-- Verify messages are clear
-- Get feedback from non-technical user
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M039: Keyboard Shortcuts
-**Objective**: Add shortcuts for common actions
-
-**Why**: Power user efficiency
-
-**Dependencies**: M008
-
-**Deliverables**:
-- Esc: Close window
-- Enter: Submit command
-- Cmd+K: Clear input
-- Cmd+,: Settings (already done in M010)
-- Cmd+H: Show/hide history
-
-**Success Criteria**:
-- All shortcuts work
-- No conflicts with system shortcuts
-
-**Testing**:
-- Test each shortcut
-- Verify in documentation
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M040: Window Auto-Hide
-**Objective**: Hide window after command completes
-
-**Why**: Reduce UI clutter
-
-**Dependencies**: M024
-
-**Deliverables**:
-- Configurable delay (1-5 seconds)
-- Auto-hide after successful command
-- Don't auto-hide on error (user needs to see)
-
-**Success Criteria**:
-- Success → window hides after delay
-- Error → window stays open
-- Delay is configurable in Settings
-
-**Testing**:
-- Run successful command, verify hide
-- Run failed command, verify stays open
-- Change delay, verify it works
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M041: Visual Polish
-**Objective**: Improve aesthetics
-
-**Why**: Professional appearance
-
-**Dependencies**: M007-M009
-
-**Deliverables**:
-- Custom app icon
-- Refined window styling (shadows, blur)
-- Color scheme (light/dark mode)
-- Typography improvements
-
-**Success Criteria**:
-- App looks polished
-- Dark mode works correctly
-- Icon looks good in Dock and menu bar
-
-**Testing**:
-- View in light and dark mode
-- Check icon at various sizes
-- Get design feedback
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M042: Sound Effects (Optional)
-**Objective**: Audio feedback for actions
-
-**Why**: Additional user feedback
-
-**Dependencies**: M024
-
-**Deliverables**:
-- Success sound
-- Error sound
-- Configurable on/off in Settings
-
-**Success Criteria**:
-- Sounds are subtle and pleasant
-- Can be disabled
-- Don't play if system is muted
-
-**Testing**:
-- Trigger success/error sounds
-- Toggle on/off in Settings
-- Test with system muted
-
-**Difficulty**: 2/5
-
-**Shipping**: No (nice to have)
-
----
-
-## PHASE 7: ADDITIONAL EXECUTORS
-
-### M043: File Operations Executor
-**Objective**: Move, rename, delete files
-
-**Why**: Common user requests
-
-**Dependencies**: M017, M023
-
-**Deliverables**:
-- `FileOperator.swift` class
-- Commands: move, rename, delete, create folder
-- Uses Trash by default (not rm -rf)
-- Confirmation for destructive operations
-
-**Success Criteria**:
-- "move file to desktop" → file moves
-- "delete old-file.txt" → moves to Trash after confirmation
-- Errors are clear
-
-**Testing**:
-- Test each operation
-- Verify Trash is used
-- Test confirmation dialogs
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M044: Process Management Executor
-**Objective**: Quit, restart, kill processes
-
-**Why**: Troubleshooting and power user feature
-
-**Dependencies**: M017, M023
-
-**Deliverables**:
-- `ProcessManager.swift` class
-- Commands: quit app, restart app, force quit, kill port
-- Uses `killall`, `pkill`, `lsof`
-- Confirmation for force quit
-
-**Success Criteria**:
-- "quit chrome" → Chrome quits gracefully
-- "force quit chrome" → Chrome force quits after confirmation
-- "kill port 3000" → kills process using port
-
-**Testing**:
-- Test quit vs force quit
-- Test kill by port
-- Verify confirmations
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M045: Quick Actions Executor
-**Objective**: System-level quick actions
-
-**Why**: Common one-off tasks
-
-**Dependencies**: M017
-
-**Deliverables**:
-- `QuickActions.swift` class
-- Commands: screenshot, empty trash, Do Not Disturb, lock screen, sleep
-- Uses AppleScript and system APIs
-
-**Success Criteria**:
-- "screenshot" → takes screenshot to clipboard
-- "empty trash" → empties after confirmation
-- "do not disturb" → enables DND for specified time
-
-**Testing**:
-- Test each action
-- Verify AppleScript permissions
-- Test DND timer
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-## PHASE 8: ADVANCED FEATURES
-
-### M046: Custom Aliases
-**Objective**: User-defined command shortcuts
-
-**Why**: Personalization and efficiency
-
-**Dependencies**: M031
-
-**Deliverables**:
-- Aliases table in database (already in M031 schema)
-- UI to add/edit/delete aliases
-- Alias expansion before LLM parsing
-- Example: "yt" → "open youtube"
-
-**Success Criteria**:
-- User can create alias in Settings
-- Typing alias expands to full command
-- Aliases persist across launches
-
-**Testing**:
-- Create alias
-- Use alias
-- Edit/delete alias
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M047: Multi-Step Commands
-**Objective**: Execute multiple commands in sequence
-
-**Why**: Complex workflows
-
-**Dependencies**: M017
-
-**Deliverables**:
-- LLM can output multiple commands
-- Execute sequentially with progress
-- Stop on first error
-- Example: "open youtube and go full screen"
-
-**Success Criteria**:
-- Multi-step command executes in order
-- Progress shown for each step
-- Errors stop execution
-
-**Testing**:
-- Test 2-3 step commands
-- Verify order
-- Test error in middle
-
-**Difficulty**: 4/5
-
-**Shipping**: No
-
----
-
-### M048: Context Awareness
-**Objective**: Use current app/window context
-
-**Why**: Smarter command interpretation
-
-**Dependencies**: M025
-
-**Deliverables**:
-- Detect frontmost app
-- Detect selected files in Finder
-- Pass context to LLM prompt
-- Example: "zoom in" knows which app to control
-
-**Success Criteria**:
-- Context-dependent commands work
-- Works with Safari, Finder, etc.
-- LLM uses context correctly
-
-**Testing**:
-- Test with different frontmost apps
-- Test with Finder selection
-- Verify context is used
-
-**Difficulty**: 4/5
-
-**Shipping**: No
-
----
-
-### M049: Command Suggestions
-**Objective**: Autocomplete and suggestions
-
-**Why**: Faster input, discoverability
+**Why**: Multi-step systems are hard to debug without traces.
 
 **Dependencies**: M032
 
 **Deliverables**:
-- Dropdown of suggestions as user types
-- Based on command history (frecency)
-- Based on common commands
-- Tab to accept suggestion
+- Structured local logs for plan, action, outcome.
+- Correlation IDs across a conversation turn.
+- Redaction policy for sensitive values.
 
 **Success Criteria**:
-- Typing "ope" suggests "open safari"
-- Recent commands ranked higher
-- Tab completes suggestion
-
-**Testing**:
-- Test with history
-- Test with no history
-- Verify ranking
+- Failed workflows can be traced end-to-end from logs.
 
 **Difficulty**: 3/5
-
 **Shipping**: No
 
 ---
 
-### M050: Undo System
-**Objective**: Reverse certain actions
+### M034: Pivot Transition Exit Gate
+**Status**: PLANNED
 
-**Why**: Safety net
+**Objective**: Approve transition readiness before implementing the new core.
 
-**Dependencies**: M032
+**Why**: Prevent architecture churn and rework.
+
+**Dependencies**: M026-M033
 
 **Deliverables**:
-- Undo metadata stored in database
-- Cmd+Z to undo last action
-- Works for: file moves, window positions
-- Cannot undo: deletions (already in Trash, that's undo)
+- Transition review checklist completed.
+- Risks and unknowns prioritized.
+- Agent core milestone backlog confirmed.
 
 **Success Criteria**:
-- Move file → Cmd+Z → file moves back
-- Resize window → Cmd+Z → window restores
-- Undo metadata stored correctly
+- Team agrees migration can start with controlled risk.
 
-**Testing**:
-- Test each reversible action
-- Verify irreversible actions can't be undone
+**Difficulty**: 2/5
+**Shipping**: No
+
+---
+
+## PHASE 5: AGENT CORE
+
+### M035: Tool Schema Specification v1
+### M036: Tool Registry Runtime v1
+### M037: Planner Prompt Contract v1
+### M038: Step Graph Data Model
+### M039: Orchestrator Skeleton Implementation
+### M040: Step Execution Controller
+### M041: Result Normalization Layer
+### M042: Clarification Question Flow
+### M043: Retry and Recovery Strategy
+### M044: Plan Explanation Generator
+### M045: Cancellation and Interrupt Handling
+### M046: Background Task Progress Model
+### M047: Plan Confidence Scoring
+### M048: Error Taxonomy for Agent Runtime
+### M049: Planner Evaluation Harness
+### M050: Prompt Versioning and Rollback
+### M051: Legacy Pipeline Adapter v1
+### M052: Agent Core Exit Gate
+
+**Status for M035-M052**: PLANNED
+
+**Phase Objective**: Deliver a working agent loop that can reason, plan, execute, recover, and explain.
+
+**Phase Deliverables**:
+- Schema-based tool routing live.
+- Multi-step execution (2-5 step plans) operational.
+- User-visible planning and explanation path.
+- Legacy commands routable through adapter during migration.
+
+**Phase Exit Criteria**:
+- Core workflows can run through orchestrator path.
+- Policy hooks exist in every action path.
+- Regression risk to legacy functionality is controlled.
+
+**Difficulty**: 5/5
+**Shipping**: No
+
+---
+
+## PHASE 6: TOOL RUNTIME EXPANSION
+
+### M053: File Operations Executor v1
+### M054: Process Management Executor v1
+### M055: Quick Actions Executor v1
+### M056: Browser Control Tool v1
+### M057: Finder Selection Tool v1
+### M058: Clipboard Read/Write Tool v1
+### M059: Notification Tool v1
+### M060: Calendar Read Tool v1
+### M061: Calendar Write Tool v1
+### M062: Reminder Read/Write Tool v1
+### M063: Notes Tool v1
+### M064: Email Draft Tool v1
+### M065: Local Knowledge Index Tool v1
+### M066: Safe Terminal Task Tool v1
+### M067: Tool Permission Scoping UI
+### M068: Tool Timeout and Circuit Breakers
+### M069: Tool Error Recovery Patterns
+### M070: Tool Reliability Test Suite
+### M071: Tool Performance Budget Pass
+### M072: Tool Runtime Exit Gate
+
+**Status for M053-M072**: PLANNED
+
+**Phase Objective**: Expand from narrow command support to broad companion capabilities.
+
+**Phase Deliverables**:
+- Missing legacy executor families implemented.
+- New high-value companion tools added.
+- Tool permissions, timeouts, and resilience controls in place.
+
+**Phase Exit Criteria**:
+- At least 15 high-utility tools are production-candidate quality.
+- Tool failures degrade gracefully with recoverable messaging.
 
 **Difficulty**: 4/5
-
 **Shipping**: No
 
 ---
 
-## PHASE 9: CODE SIGNING & DISTRIBUTION
+## PHASE 7: MEMORY AND CONTEXT
 
-### M051: App Icon Design
-**Objective**: Create professional app icon
+### M073: Working Memory Store
+### M074: Session Memory Store
+### M075: Long-Term Memory Store
+### M076: Memory Write Policy Engine
+### M077: Memory Retrieval Ranking v1
+### M078: Memory Conflict Resolution Rules
+### M079: Memory Controls UI (View/Edit/Delete)
+### M080: Memory Export and Full Wipe
+### M081: Frontmost App Context Provider
+### M082: Finder Context Provider
+### M083: Clipboard Context Provider
+### M084: Browser Tab Context Provider (Opt-In)
+### M085: Context Redaction Filters
+### M086: Memory+Context Exit Gate
 
-**Why**: Required for distribution
+**Status for M073-M086**: PLANNED
 
-**Dependencies**: None (can be parallel)
+**Phase Objective**: Make the assistant context-aware and personalized without violating privacy boundaries.
 
-**Deliverables**:
-- 1024x1024 icon design
-- Icon set for all sizes (16x16 to 512x512)
-- Added to Xcode asset catalog
+**Phase Deliverables**:
+- Tiered memory model implemented.
+- User controls for memory transparency and deletion.
+- Context providers available with trust/consent boundaries.
 
-**Success Criteria**:
-- Icon visible in Dock, Finder, menu bar
-- Looks good at all sizes
-- Matches app aesthetic
+**Phase Exit Criteria**:
+- Memory behavior is auditable and user-controllable.
+- Context improves quality without unsafe overreach.
 
-**Testing**:
-- View at different sizes
-- Test in light/dark mode
-- Get design feedback
-
-**Difficulty**: 3/5 (design skill dependent)
-
+**Difficulty**: 5/5
 **Shipping**: No
 
 ---
 
-### M052: Code Signing Setup
-**Objective**: Sign app with Developer ID
+## PHASE 8: MULTIMODAL AND COMPANION UX
 
-**Why**: Required to avoid Gatekeeper warning
+### M087: Chat-First Interaction Redesign
+### M088: Conversation Timeline and Search
+### M089: Voice Input Pipeline v1
+### M090: Push-to-Talk UX
+### M091: On-Device TTS Response v1
+### M092: Voice Interrupt and Barge-In Handling
+### M093: Screen Capture Consent Flow
+### M094: Vision Context Parser v1
+### M095: Multimodal Plan Fusion
+### M096: Companion Persona Controls
+### M097: Proactive Suggestions (Non-Autonomous)
+### M098: Routine Template Library
+### M099: Accessibility and Internationalization Pass
+### M100: Companion UX Exit Gate
 
-**Dependencies**: None (need Apple Developer account)
+**Status for M087-M100**: PLANNED
 
-**Deliverables**:
-- Apple Developer account enrolled ($99/year)
-- Developer ID certificate installed
-- Xcode configured with signing identity
-- App builds with valid signature
+**Phase Objective**: Deliver a companion experience that feels conversational, multimodal, and human-usable.
 
-**Success Criteria**:
-- App is signed after build
-- Signature is valid: `codesign -dv --verbose=4 aiDAEMON.app`
-- No signing errors
+**Phase Deliverables**:
+- Voice path usable for core tasks.
+- Optional vision/context path with strict consent.
+- Companion UX for daily usage patterns.
 
-**Testing**:
-- Build app
-- Verify signature
-- Test on different Mac
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: See `manual-actions.md` for enrollment steps
-
----
-
-### M053: Entitlements Configuration
-**Objective**: Declare required permissions
-
-**Why**: macOS requires entitlements for certain APIs
-
-**Dependencies**: M052
-
-**Deliverables**:
-- Entitlements file configured
-- Required: `com.apple.security.automation.apple-events`
-- NOT included: `com.apple.security.app-sandbox` (can't use sandbox)
-
-**Success Criteria**:
-- App builds with entitlements
-- Entitlements visible: `codesign -d --entitlements - aiDAEMON.app`
-
-**Testing**:
-- Verify entitlements present
-- Verify automation works
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M054: Notarization
-**Objective**: Notarize app with Apple
-
-**Why**: Required to distribute outside App Store
-
-**Dependencies**: M052, M053
-
-**Deliverables**:
-- Build script to notarize: `scripts/notarize.sh`
-- Upload to Apple notary service
-- Staple notarization ticket to app
-- Verify notarization successful
-
-**Success Criteria**:
-- Notarization succeeds
-- Stapling succeeds
-- `spctl -a -v aiDAEMON.app` shows "accepted"
-
-**Testing**:
-- Test on different Mac (without Xcode)
-- Verify no Gatekeeper warning
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: See `manual-actions.md` for notarization steps
-
----
-
-### M055: DMG Creation
-**Objective**: Package app in distributable DMG
-
-**Why**: Standard macOS distribution format
-
-**Dependencies**: M054
-
-**Deliverables**:
-- DMG with app bundle
-- Custom background image (optional)
-- Applications folder symlink for drag-install
-- Script: `scripts/create-dmg.sh`
-
-**Success Criteria**:
-- DMG mounts correctly
-- User can drag to Applications
-- Notarization is preserved
-
-**Testing**:
-- Mount DMG
-- Install app
-- Verify app runs
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M056: Sparkle Auto-Update Integration
-**Objective**: Enable automatic updates
-
-**Why**: Keep users on latest version
-
-**Dependencies**: M004, M052
-
-**Deliverables**:
-- Sparkle framework configured
-- Update feed (appcast.xml) hosted
-- EdDSA keys generated
-- Updates signed with private key
-
-**Success Criteria**:
-- App checks for updates on launch
-- Update notification works
-- Download and install works
-- Rollback if update fails
-
-**Testing**:
-- Publish test update
-- Verify app detects it
-- Install update
-- Verify new version runs
+**Phase Exit Criteria**:
+- Text + voice flows are reliable for common workflows.
+- Multimodal features respect explicit privacy controls.
 
 **Difficulty**: 4/5
-
 **Shipping**: No
 
 ---
 
-### M057: Release Build Script
-**Objective**: Automate release process
+## PHASE 9: AUTONOMY AND SAFETY HARDENING
 
-**Why**: Consistent builds
+### M101: Autonomy Levels Implementation (L0-L3)
+### M102: Scope-Based Auto-Approval Rules
+### M103: Time-Bound Permission Grants
+### M104: Dangerous Action Double Confirmation
+### M105: Global Kill Switch and Safe Mode
+### M106: Policy Fuzzing Harness
+### M107: Prompt/Tool Injection Red-Team Pass
+### M108: Incident Response Tooling
+### M109: External Security Review Preparation
+### M110: Safety Hardening Exit Gate
 
-**Dependencies**: M052-M056
+**Status for M101-M110**: PLANNED
 
-**Deliverables**:
-- `scripts/build-release.sh` script
-- Steps: Clean → Build → Sign → Notarize → Create DMG → Upload
-- Version bumping
-- Changelog integration
+**Phase Objective**: Ensure companion power does not outpace trust and safety.
 
-**Success Criteria**:
-- Script runs without errors
-- Produces signed, notarized DMG
-- DMG is distributable
+**Phase Deliverables**:
+- Runtime autonomy controls fully enforced.
+- Security and abuse testing integrated.
+- Emergency controls validated.
 
-**Testing**:
-- Run script end-to-end
-- Install resulting DMG
-- Verify all steps work
+**Phase Exit Criteria**:
+- No known critical policy bypasses.
+- High-risk workflows require explicit user authority.
 
-**Difficulty**: 3/5
-
+**Difficulty**: 5/5
 **Shipping**: No
 
 ---
 
-## PHASE 10: TESTING & QA
+## PHASE 10: QUALITY, PERFORMANCE, AND RELEASE INFRA
 
-### M058: Unit Tests - LLM Parsing
-**Objective**: Test LLM prompt building and parsing
+### M111: End-to-End Scenario Test Suite
+### M112: CI Pipeline and Quality Gates
+### M113: Crash Reporting Opt-In
+### M114: Performance Benchmark Suite
+### M115: Soak and Leak Testing
+### M116: Release Build Automation v2
+### M117: Notarization and Update Channel Rehearsal
+### M118: Pre-Alpha Candidate Gate
 
-**Why**: Core functionality must be reliable
+**Status for M111-M118**: PLANNED
 
-**Dependencies**: M014-M016
+**Phase Objective**: Prepare a stable release train before external testing cohorts.
 
-**Deliverables**:
-- Test suite for PromptBuilder
-- Test suite for CommandParser
-- Test cases for all command types
-- Test malformed inputs
+**Phase Deliverables**:
+- Automated quality coverage for core workflows.
+- Reproducible build and release process.
+- Known performance and stability baselines.
 
-**Success Criteria**:
-- All tests pass
-- Code coverage >80% for LLM module
-
-**Testing**:
-- Run test suite
-- Verify coverage
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M059: Unit Tests - Executors
-**Objective**: Test each command executor
-
-**Why**: Execution must be reliable
-
-**Dependencies**: M018-M021, M043-M045
-
-**Deliverables**:
-- Test suite for each executor
-- Mock file system for file operations
-- Mock NSWorkspace for app launching
-
-**Success Criteria**:
-- All tests pass
-- Code coverage >70% for executors
-
-**Testing**:
-- Run test suite
-- Verify coverage
+**Phase Exit Criteria**:
+- Internal dogfood can run daily without major blockers.
+- Release candidate quality is sufficient for alpha users.
 
 **Difficulty**: 4/5
-
 **Shipping**: No
 
 ---
 
-### M060: Integration Tests
-**Objective**: Test end-to-end flows
+## PHASE 11: ALPHA PROGRAM (EXTERNAL)
 
-**Why**: Ensure components work together
+**Planned Window**: 2026-05-11 to 2026-06-26
 
-**Dependencies**: M058, M059
+### M119: Alpha Cohort Recruitment and Onboarding (2026-05-11)
+### M120: Alpha Wave 1 (2026-05-18 to 2026-05-29)
+### M121: Alpha Triage Sprint (2026-06-01 to 2026-06-05)
+### M122: Alpha Wave 2 Verification (2026-06-08 to 2026-06-19)
+### M123: Alpha Exit Gate (2026-06-22 to 2026-06-26)
 
-**Deliverables**:
-- Test: User input → LLM → Executor → Result
-- Test permission flows
-- Test error handling
+**Status for M119-M123**: PLANNED
 
-**Success Criteria**:
-- Key user flows work
-- No crashes in test suite
+**Phase Objective**: Validate real-world usability and uncover architectural edge cases early.
 
-**Testing**:
-- Run integration tests
-- Fix failures
+**Phase Deliverables**:
+- 15-30 alpha testers across varied hardware profiles.
+- Structured feedback and issue triage loops.
+- High-priority alpha defects resolved or mitigated.
 
-**Difficulty**: 4/5
-
-**Shipping**: No
-
----
-
-### M061: UI Tests
-**Objective**: Automated UI testing
-
-**Why**: Catch UI regressions
-
-**Dependencies**: M007-M010
-
-**Deliverables**:
-- XCUITest suite
-- Test hotkey toggle activation (show/hide)
-- Test input and submission
-- Test settings navigation
-
-**Success Criteria**:
-- UI tests pass
-- Cover major user flows
-
-**Testing**:
-- Run UI test suite
-- Verify on CI (if set up)
+**Phase Exit Criteria**:
+- No unresolved critical defects.
+- Weekly active usage signal from alpha cohort.
+- Clear readiness for beta scale-up.
 
 **Difficulty**: 3/5
-
 **Shipping**: No
 
 ---
 
-### M062: Performance Testing
-**Objective**: Verify performance targets
+## PHASE 12: BETA PROGRAM (BROADER)
 
-**Why**: Ensure app is fast
+**Planned Window**: 2026-07-06 to 2026-08-21
 
-**Dependencies**: M016, M018-M021
+### M124: Beta Infrastructure and Waitlist Prep (2026-06-29)
+### M125: Beta Launch Wave (2026-07-06)
+### M126: Beta Stabilization Sprint 1 (2026-07-20)
+### M127: Beta Stabilization Sprint 2 (2026-08-03)
+### M128: Beta Exit Gate (2026-08-17 to 2026-08-21)
 
-**Deliverables**:
-- Benchmark suite
-- Measure: hotkey response, LLM inference, command execution
-- Compare against targets in `01-ARCHITECTURE.md`
+**Status for M124-M128**: PLANNED
 
-**Success Criteria**:
-- All benchmarks meet targets
-- No performance regressions
+**Phase Objective**: Validate stability, reliability, and supportability at broader scale.
 
-**Testing**:
-- Run benchmarks
-- Profile with Instruments
-- Optimize if needed
+**Phase Deliverables**:
+- 100+ beta participants.
+- Release updates shipped during beta with low friction.
+- Performance, crash, and task-success metrics tracked.
+
+**Phase Exit Criteria**:
+- Crash-free sessions meet target.
+- Task completion quality meets launch thresholds.
+- Support burden remains manageable.
 
 **Difficulty**: 3/5
-
 **Shipping**: No
 
 ---
 
-### M063: Memory Leak Testing
-**Objective**: Ensure no memory leaks
+## PHASE 13: PUBLIC LAUNCH
 
-**Why**: App stability
+**Planned Window**: 2026-09-07 to 2026-10-05
 
-**Dependencies**: M011-M013
+### M129: Release Candidate Freeze (2026-09-07)
+### M130: Launch Readiness Audit (2026-09-14)
+### M131: Public Rollout (2026-09-28)
+### M132: Week-1 Patch Planning and Rollout (2026-10-05)
 
-**Deliverables**:
-- Run Instruments Leaks tool
-- Test LLM load/unload cycles
-- Test window open/close cycles
-- Fix any leaks found
+**Status for M129-M132**: PLANNED
 
-**Success Criteria**:
-- No leaks detected
-- Memory usage stays stable
+**Phase Objective**: Ship a trustworthy companion release and respond fast post-launch.
 
-**Testing**:
-- Run with Instruments
-- Use app for extended period
+**Phase Deliverables**:
+- Signed, notarized, update-enabled public build.
+- Launch checklist completed.
+- Week-1 issue response plan executed.
+
+**Phase Exit Criteria**:
+- Public users can install, trust, and use core companion workflows.
+- No launch-blocking regressions remain open.
 
 **Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M064: Security Audit
-**Objective**: Verify security measures
-
-**Why**: Trust and safety
-
-**Dependencies**: M022, M029
-
-**Deliverables**:
-- Manual code review of security-critical code
-- Fuzzing tests (malformed inputs)
-- Verify sanitization works
-- Check entitlements are minimal
-
-**Success Criteria**:
-- No security issues found
-- All injection attempts blocked
-- Checklist in `02-THREAT-MODEL.md` complete
-
-**Testing**:
-- Run fuzzing tests
-- Manual code review
-- External audit (future)
-
-**Difficulty**: 4/5
-
-**Shipping**: No
+**Shipping**: YES (M131)
 
 ---
 
-### M065: Beta Testing Program
-**Objective**: Get real-world feedback
-
-**Why**: Find bugs we missed
-
-**Dependencies**: M055 (need distributable build)
-
-**Deliverables**:
-- Recruit 10-20 beta testers
-- Distribute via DMG
-- Collect feedback (form or email)
-- Track crashes (if opt-in enabled)
-
-**Success Criteria**:
-- 10+ testers actively using
-- Feedback collected
-- Critical bugs identified
-
-**Testing**:
-- Deploy to testers
-- Monitor feedback
-- Triage issues
-
-**Difficulty**: 2/5 (logistics)
-
-**Shipping**: No
-
----
-
-### M066: Bug Fixes from Beta
-**Objective**: Fix issues found in beta
-
-**Why**: Polish before public release
-
-**Dependencies**: M065
-
-**Deliverables**:
-- All critical bugs fixed
-- High-priority bugs fixed
-- Medium bugs triaged for post-launch
-
-**Success Criteria**:
-- No known critical bugs
-- App is stable for beta testers
-
-**Testing**:
-- Re-test fixed bugs
-- Regression testing
-
-**Difficulty**: Variable
-
-**Shipping**: No
-
----
-
-## PHASE 11: LAUNCH PREPARATION
-
-### M067: Documentation - User Guide
-**Objective**: Write user-facing documentation
-
-**Why**: Help users get started
-
-**Dependencies**: M066 (app should be stable)
-
-**Deliverables**:
-- README.md for GitHub/website
-- Getting Started guide
-- Command reference (list of supported commands)
-- FAQ
-- Troubleshooting guide
-
-**Success Criteria**:
-- Documentation is clear and complete
-- Covers common issues
-- Screenshots included
-
-**Testing**:
-- Have non-technical user follow guide
-- Revise based on feedback
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M068: Privacy Policy
-**Objective**: Legal document on data handling
-
-**Why**: Required, builds trust
-
-**Dependencies**: None
-
-**Deliverables**:
-- Privacy policy document
-- Hosted on website or in app
-- Covers: what data is collected (none), local storage, optional features
-
-**Success Criteria**:
-- Legally compliant
-- User-friendly language
-- Accessible from app (About tab)
-
-**Testing**:
-- Legal review (optional)
-- User readability check
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M069: Website / Landing Page
-**Objective**: Public-facing website
-
-**Why**: Distribution and information
-
-**Dependencies**: M051, M067
-
-**Deliverables**:
-- Simple landing page
-- Features overview
-- Download link
-- Documentation links
-- Privacy policy link
-
-**Success Criteria**:
-- Professional appearance
-- Clear call-to-action (Download)
-- Mobile-friendly
-
-**Testing**:
-- Test on multiple browsers
-- Get design feedback
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M070: GitHub Repository Setup
-**Objective**: Public or private repo for distribution
-
-**Why**: Versioning, issue tracking, releases
-
-**Dependencies**: M067
-
-**Deliverables**:
-- GitHub repo created
-- README.md
-- LICENSE file
-- .gitignore configured
-- GitHub Releases for distribution
-- Issue templates
-
-**Success Criteria**:
-- Repo is well-organized
-- Releases work for DMG hosting
-- Issues can be filed
-
-**Testing**:
-- Test cloning repo
-- Test release upload
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M071: Analytics Decision
-**Objective**: Decide if adding opt-in analytics
-
-**Why**: Understand usage patterns
-
-**Dependencies**: None (decision point)
-
-**Deliverables**:
-- Decision: Yes (opt-in) or No
-- If Yes: Implement privacy-preserving analytics
-- If No: Document decision
-
-**Success Criteria**:
-- Decision made and documented
-- If implemented: Opt-in UI works
-
-**Testing**:
-- If implemented: Verify data is anonymized
-
-**Difficulty**: Variable
-
-**Shipping**: No
-
----
-
-### M072: Crash Reporting Opt-In
-**Objective**: Implement crash reporting
-
-**Why**: Fix crashes we don't know about
-
-**Dependencies**: M071
-
-**Deliverables**:
-- Crash reporting library (e.g., Sentry, Crashlytics)
-- Opt-in during first launch
-- Can be disabled in Settings
-- Anonymize all data
-
-**Success Criteria**:
-- Crashes are reported (if opted in)
-- No PII sent
-- Can be disabled
-
-**Testing**:
-- Trigger test crash
-- Verify report received
-- Verify opt-out works
-
-**Difficulty**: 3/5
-
-**Shipping**: No (optional feature)
-
----
-
-### M073: Final QA Pass
-**Objective**: Comprehensive testing before launch
-
-**Why**: Last chance to find bugs
-
-**Dependencies**: M066
-
-**Deliverables**:
-- Test all features
-- Test all commands
-- Test on multiple Macs (if available)
-- Test on different macOS versions
-- Verify permissions flow
-- Verify update mechanism
-
-**Success Criteria**:
-- No critical bugs found
-- All features work as expected
-- Performance meets targets
-
-**Testing**:
-- Systematic testing of all features
-- Edge cases
-- User scenarios
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M074: Launch Checklist
-**Objective**: Final pre-launch verification
-
-**Why**: Ensure nothing is forgotten
-
-**Dependencies**: M067-M073
-
-**Deliverables**:
-- Checklist of launch requirements
-- Items: Code signed ✓, Notarized ✓, Docs ✓, Website ✓, etc.
-- All items checked off
-
-**Success Criteria**:
-- Every item on checklist is complete
-- Ready to publish download link
-
-**Testing**:
-- Review checklist with fresh eyes
-
-**Difficulty**: 1/5
-
-**Shipping**: No
-
----
-
-## PHASE 12: PUBLIC LAUNCH
-
-### M075: Public Release
-**Objective**: Make app publicly available
-
-**Why**: Launch day!
-
-**Dependencies**: M074
-
-**Deliverables**:
-- DMG uploaded to GitHub Releases
-- Website updated with download link
-- Announcement (blog post, social media, etc.)
-- Monitor for issues
-
-**Success Criteria**:
-- Download link works
-- Users can install and run app
-- No immediate critical bugs
-
-**Testing**:
-- Download from public link
-- Install on clean Mac
-- Verify works
-
-**Difficulty**: 2/5
-
-**Shipping**: YES - PUBLIC LAUNCH
-
----
-
-### M076: Post-Launch Monitoring
-**Objective**: Track issues and feedback
-
-**Why**: Catch problems early
-
-**Dependencies**: M075
-
-**Deliverables**:
-- Monitor GitHub issues
-- Monitor social media mentions
-- Monitor crash reports (if enabled)
-- Respond to users
-- Triage bugs
-
-**Success Criteria**:
-- Active issue tracking
-- Users feel heard
-- Critical bugs identified quickly
-
-**Testing**:
-- N/A (ongoing process)
-
-**Difficulty**: 2/5
-
-**Shipping**: Post-launch activity
-
----
-
-### M077: First Patch Release
-**Objective**: Fix high-priority bugs from launch
-
-**Why**: Stability improvements
-
-**Dependencies**: M076
-
-**Deliverables**:
-- v1.0.1 release
-- Bug fixes
-- Updated DMG
-- Release notes
-
-**Success Criteria**:
-- Fixes are deployed
-- Users update successfully
-- Stability improves
-
-**Testing**:
-- Test fixes
-- Regression test
-- Deploy update
-
-**Difficulty**: Variable
-
-**Shipping**: Patch release
-
----
-
-## FUTURE PHASES (Post-MVP)
-
-### Phase 13: Voice Input (Future)
-- M078: Whisper model integration
-- M079: Push-to-talk hotkey
-- M080: Microphone permission handling
-- M081: Speech-to-text accuracy testing
-
-### Phase 14: Vision Features (Future)
-- M082: Screen capture implementation
-- M083: Claude API integration
-- M084: Screen understanding prompts
-- M085: Privacy warnings for vision mode
-
-### Phase 15: Cloud Sync (Future)
-- M086: iCloud integration
-- M087: End-to-end encryption
-- M088: Sync conflict resolution
-- M089: Settings sync across devices
-
-### Phase 16: Plugin System (Future)
-- M090: Plugin API design
-- M091: Sandboxing for plugins
-- M092: Plugin marketplace
-- M093: Community plugins
+## FUTURE PHASES (POST-V1)
+
+### Phase 14: Ecosystem and Extensibility
+- M133: Plugin SDK Design
+- M134: Plugin Capability Sandbox
+- M135: Community Plugin Distribution Model
+- M136: Enterprise Policy Pack
+
+### Phase 15: Hybrid Intelligence
+- M137: Optional Cloud Reasoning Router
+- M138: Privacy-Preserving Prompt Redaction Pipeline
+- M139: Cross-Device Companion Sync (Opt-In)
+- M140: Team Companion Workspaces
 
 ---
 
 ## Milestone Summary
 
-**Total Milestones**: 93+ (MVP = M001-M077)
+**Completed Milestones**: M001-M025
 
-**By Phase**:
-- Phase 0 (Setup): 4 milestones
-- Phase 1 (UI): 6 milestones
-- Phase 2 (LLM): 6 milestones
-- Phase 3 (Execution): 8 milestones
-- Phase 4 (Permissions): 6 milestones
-- Phase 5 (Data): 6 milestones
-- Phase 6 (Polish): 6 milestones
-- Phase 7 (Executors): 3 milestones
-- Phase 8 (Advanced): 5 milestones
-- Phase 9 (Distribution): 7 milestones
-- Phase 10 (Testing): 9 milestones
-- Phase 11 (Launch Prep): 8 milestones
-- Phase 12 (Launch): 3 milestones
-- Future: 16+ milestones
+**Total Milestones (Current + Planned)**: 140
+- Foundation through launch: M001-M132
+- Future/post-v1: M133-M140
 
-**Estimated Timeline** (one developer, part-time):
-- Phases 0-3: 2-3 weeks
-- Phases 4-6: 2-3 weeks
-- Phases 7-9: 2-3 weeks
-- Phases 10-11: 1-2 weeks
-- Phase 12: 1 week
-- **Total MVP: 8-12 weeks**
+**MVP/Launch Candidate Scope**: M001-M132
 
-**Critical Path**:
-M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 → M052 → M054 → M073 → M075
+**By Phase (Updated)**:
+- Phase 0-3 (legacy foundation): 25 milestones complete (M001-M025)
+- Phase 4 (pivot transition): 9 planned milestones (M026-M034)
+- Phase 5 (agent core): 18 planned milestones (M035-M052)
+- Phase 6 (tool expansion): 20 planned milestones (M053-M072)
+- Phase 7 (memory/context): 14 planned milestones (M073-M086)
+- Phase 8 (multimodal/UX): 14 planned milestones (M087-M100)
+- Phase 9 (autonomy/safety): 10 planned milestones (M101-M110)
+- Phase 10 (quality/release infra): 8 planned milestones (M111-M118)
+- Phase 11 (alpha): 5 planned milestones (M119-M123)
+- Phase 12 (beta): 5 planned milestones (M124-M128)
+- Phase 13 (public launch): 4 planned milestones (M129-M132)
+- Phase 14-15 future: 8 milestones (M133-M140)
+
+**Planned External Testing Windows**:
+- Alpha: 2026-05-11 to 2026-06-26
+- Beta: 2026-07-06 to 2026-08-21
+- Public Launch Window: 2026-09-07 to 2026-10-05
+
+**Critical Path (Pivoted)**:
+M026 -> M034 -> M039 -> M052 -> M072 -> M086 -> M100 -> M110 -> M118 -> M123 -> M128 -> M131
 
 ---
 
 ## Next Actions
 
-**Immediate Next Steps**:
-1. ~~Complete M001 (Project Initialization)~~ ✅ Done
-2. ~~Complete M002 (Documentation Integration)~~ ✅ Done
-3. ~~Complete M003 (Download LLM model)~~ ✅ Done
-4. ~~Complete M004 (Add dependencies)~~ ✅ Done
-5. ~~Complete M005 (App Structure & Entry Point)~~ ✅ Done
-6. ~~Complete M006 (Global Hotkey Detection)~~ ✅ Done
-7. ~~Complete M007 (Floating Window UI)~~ ✅ Done
-8. ~~Complete M008 (Text Input Field)~~ ✅ Done
-9. ~~Complete M009 (Results Display Area)~~ ✅ Done
-10. ~~Complete M010 (Settings Window)~~ ✅ Done
-11. ~~Complete M011 (LLM Model File Loader)~~ ✅ Done
-12. ~~Complete M012 (llama.cpp Swift Bridge)~~ ✅ Done
-13. ~~Complete M013 (Basic Inference Test)~~ ✅ Done
-14. ~~Complete M014 (Prompt Template Builder)~~ ✅ Done
-15. ~~Complete M015 (JSON Output Parsing)~~ ✅ Done
-16. ~~Complete M016 (End-to-End LLM Pipeline)~~ ✅ Done
-17. ~~Complete M017 (Command Type Registry)~~ ✅ Done
-18. ~~Complete M018 (App Launcher Executor)~~ ✅ Done
-19. ~~Complete M019 (File Search Executor)~~ ✅ Done
-20. ~~Complete M019b (Search Relevance Ranking)~~ ✅ Done
-21. ~~Complete M020 (Window Manager Executor)~~ ✅ Done
-22. ~~Complete M021 (System Info Executor)~~ ✅ Done
-23. ~~Complete M022 (Command Validation Layer)~~ ✅ Done
-24. ~~Complete M023 (Confirmation Dialog System)~~ ✅ Done
-25. ~~Complete M024 (Execution Result Handling)~~ ✅ Done
-26. Begin M025: Permission Checker Utility
-
-**Tracking Progress**:
-- Mark completed milestones with ✓ in this file
-- Update `manual-actions.md` as manual tasks are identified
-- Commit after each milestone completion
-
-**When Stuck**:
-- Re-read `00-FOUNDATION.md` for principles
-- Check `01-ARCHITECTURE.md` for technical details
-- Consult `02-THREAT-MODEL.md` for security questions
-- Break current milestone into smaller tasks
+1. Complete M026 (Build Stability Recovery).
+2. Complete M027 (Legacy Capability Inventory).
+3. Complete M028-M031 (transition designs for adapter, state model, orchestrator, policy).
+4. Use M034 exit gate to approve implementation start for agent core.
 
 ---
 
-**Read Next**: `04-SHIPPING.md` for release strategy details.
+**Read Next**: `04-SHIPPING.md` for detailed stage gates and testing operations.

@@ -1,272 +1,95 @@
 # Quick Start Guide
 
-**You have complete documentation. Here's what to do next.**
+Use this guide to continue from the strategic pivot without losing momentum.
 
 ---
 
-## Step 1: Read Foundation (10 minutes)
+## Step 1: Read the Pivot Foundation
 
 ```bash
 open docs/00-FOUNDATION.md
 ```
 
-**This is the most important file.** It contains:
-- Core philosophy and principles
-- Architectural decisions (including local LLM choice)
-- What is and isn't allowed
-- Non-negotiable constraints
-
-**Do not skip this.** Every decision flows from this document.
+Focus on:
+- New companion scope
+- Autonomy levels
+- Non-negotiable safety and privacy rules
 
 ---
 
-## Step 2: Review Architecture (15 minutes)
+## Step 2: Review the New Architecture
 
 ```bash
 open docs/01-ARCHITECTURE.md
 ```
 
-Understand:
-- System components and data flow
-- Technology stack (Swift, SwiftUI, llama.cpp)
-- File structure
-- Command execution pipeline
+Focus on:
+- Agent loop model
+- Planner/policy/tool runtime layers
+- Migration path from legacy command pipeline
 
 ---
 
-## Step 3: Scan Milestones (5 minutes)
+## Step 3: Check Active Milestone
 
 ```bash
 open docs/03-MILESTONES.md
 ```
 
-You don't need to read all 93 milestones now. Just:
-- Understand the phase structure
-- Note that development is broken into atomic tasks
-- Bookmark this file - you'll reference it constantly
+Current sequence after pivot:
+1. `M026` Build Stability Recovery
+2. `M027` Legacy Capability Inventory
+3. `M028-M031` Transition design milestones
+4. `M034` Transition exit gate
 
 ---
 
-## Step 4: Complete Manual Setup Tasks (30-60 minutes)
+## Step 4: Confirm Manual Dependencies
 
 ```bash
 open docs/manual-actions.md
 ```
 
-**Required before coding:**
-
-1. **Install Xcode** (if not already)
-   - App Store → Xcode → Install
-   - Open once to complete setup
-
-2. **Download LLM Model** (~4GB download)
-   - See M003 section in manual-actions.md
-   - Download LLaMA 3 8B (4-bit quantized)
-   - Place in `Models/` directory
-   - Verify integrity
-
-3. **Research llama.cpp Swift bindings**
-   - Search GitHub for Swift packages
-   - Document your chosen approach
-   - This will inform M004 and M012
+Complete all pending `M026-M034` manual tasks before coding the agent core milestones.
 
 ---
 
-## Step 5: Continue From Current Milestone (15 minutes)
+## Step 5: Execute One Milestone at a Time
 
-```bash
-open docs/03-MILESTONES.md
-# Navigate to M012: llama.cpp Swift Bridge
-```
+For each milestone:
+1. Read objective + dependencies in `03-MILESTONES.md`
+2. Implement only that milestone scope
+3. Verify success criteria
+4. Update docs/checklist
+5. Commit with milestone reference
 
-**Tasks:**
-1. Build and run current app state
-2. Navigate to M012 requirements in `03-MILESTONES.md`
-3. Implement M012 deliverables
-4. Verify all M012 success criteria
-5. Commit: "M012: llama.cpp Swift Bridge complete"
-
-**Success**: Swift bridge loads, generates, and unloads through llama.cpp APIs with proper memory management.
+Example commit format:
+- `M026: restore build baseline and smoke checklist`
 
 ---
 
-## Step 6: Proceed Sequentially
+## Testing Windows (Planning)
 
-**Do NOT skip milestones.**
+- Alpha: 2026-05-11 to 2026-06-26
+- Beta: 2026-07-06 to 2026-08-21
+- Public rollout target: week of 2026-09-28
 
-Each milestone builds on previous ones. The order is intentional.
-
-Current sequence:
-- M012: llama.cpp Swift Bridge
-- M013: Basic Inference Test
-- M014: Prompt Template Builder
-- ...and so on
+Dates move if quality gates fail.
 
 ---
 
-## Daily Workflow
+## Operating Rules
 
-### Before Starting Work
-
-1. **Read current milestone** in `03-MILESTONES.md`
-2. **Check manual-actions.md** for any pending tasks
-3. **Reference architecture doc** if implementing new component
-
-### During Work
-
-- **One milestone at a time** - complete fully before moving on
-- **Test success criteria** before marking complete
-- **Commit after each milestone** - clear commit messages
-- **Update manual-actions.md** if you discover manual tasks
-
-### After Completing Work
-
-- **Mark milestone complete** with ✓ in `03-MILESTONES.md`
-- **Update manual-actions.md** - check off completed tasks
-- **Commit documentation updates** along with code
-- **Review next milestone** to prepare for tomorrow
+- Do not bypass safety gates for speed.
+- Do not skip transition milestones.
+- Keep local-first behavior intact.
+- Keep all high-impact actions user-controlled.
 
 ---
 
-## When You Get Stuck
+## If You Are Unsure
 
-### Technical Questions
-→ Check `01-ARCHITECTURE.md` for implementation details
-
-### Architectural Decisions
-→ Check `00-FOUNDATION.md` - does this align with principles?
-
-### Security Concerns
-→ Check `02-THREAT-MODEL.md` for threat analysis
-
-### "Should I ship this?"
-→ Check `04-SHIPPING.md` for release criteria
-
-### Process Questions
-→ Check `03-MILESTONES.md` - am I following the order?
-
----
-
-## Key Reminders
-
-### Never Compromise On:
-- Privacy (local-first, always)
-- User control (no autonomous execution in MVP)
-- Transparency (show commands before running)
-- Safety (confirmations for destructive actions)
-
-### You Can Ship Without:
-- Perfect UI (polish later)
-- All command types (start with 15-20)
-- Voice input (Phase 5+)
-- Vision features (Phase 6+)
-
-### Red Flags:
-- Skipping milestones → Don't. Follow the order.
-- Not testing success criteria → You'll ship broken code.
-- Weakening privacy guarantees → Violates foundation.
-- Adding features not in roadmap → Scope creep.
-
----
-
-## Progress Tracking
-
-### Update These Files Regularly:
-
-**03-MILESTONES.md**
-- Mark completed milestones: `[ ]` → `[x]`
-- Add discovered sub-tasks if needed
-- Update estimates based on reality
-
-**manual-actions.md**
-- Check off completed manual tasks
-- Add new manual tasks as discovered
-- Document decisions made
-
-**Git Commits**
-- Commit after each milestone
-- Message format: "M0XX: [Milestone name] - [brief description]"
-- Example: "M001: Project Initialization - Created Xcode project, configured git"
-
----
-
-## Estimated Timeline
-
-**Part-time (10-15 hours/week):**
-- Phase 0-3: 2-3 weeks
-- Phase 4-6: 2-3 weeks
-- Phase 7-9: 2-3 weeks
-- Phase 10-11: 1-2 weeks
-- **Total: 8-12 weeks to MVP**
-
-**Full-time (40 hours/week):**
-- Phases 0-6: 1.5-2 weeks
-- Phases 7-11: 1.5-2 weeks
-- **Total: 3-4 weeks to MVP**
-
-These are estimates. Reality will vary.
-
----
-
-## Next Actions (Right Now)
-
-1. [x] Read `docs/00-FOUNDATION.md` completely
-2. [x] Skim `docs/01-ARCHITECTURE.md`
-3. [x] Open `docs/manual-actions.md`
-4. [ ] Download LLM model (M003)
-5. [x] Install Xcode (if needed)
-6. [x] Create Xcode project (M001) ✅
-7. [x] Commit initial setup ✅
-8. [ ] Move to M002
-
----
-
-## Important Files at a Glance
-
-| File | Purpose | When to Read |
-|------|---------|--------------|
-| `00-FOUNDATION.md` | Core truth, principles, decisions | First, and when making architectural choices |
-| `01-ARCHITECTURE.md` | Technical implementation details | When implementing new components |
-| `02-THREAT-MODEL.md` | Security, privacy, safety | When touching permissions or user data |
-| `03-MILESTONES.md` | Complete development roadmap | Daily - current milestone |
-| `04-SHIPPING.md` | Release strategy | When approaching alpha/beta/launch |
-| `manual-actions.md` | Setup tasks checklist | Beginning, and throughout development |
-
----
-
-## Support
-
-**If you're confused:**
-1. Re-read the relevant doc section
-2. Check if answer is in another doc
-3. Document your question - it may help others
-
-**If you find errors:**
-- Fix them immediately
-- Update the docs
-- Commit with clear message
-
-**If you make architectural changes:**
-- Document in `00-FOUNDATION.md` with rationale
-- Update affected sections in other docs
-- Commit separately from code changes
-
----
-
-## You're Ready
-
-You have:
-- ✅ Complete philosophy and principles
-- ✅ Detailed technical architecture
-- ✅ Comprehensive threat model
-- ✅ 93+ atomic milestones
-- ✅ Release strategy
-- ✅ Manual task checklist
-
-**Everything you need to build this is documented.**
-
-**Start with:** `docs/manual-actions.md` → Complete setup → `M001`
-
-**Remember:** Follow the order, test thoroughly, commit frequently.
-
-Good luck. Build something great.
+1. Re-read `00-FOUNDATION.md`
+2. Re-check current milestone dependencies
+3. Add missing manual tasks to `manual-actions.md`
+4. Prefer smaller milestone splits over large speculative changes
