@@ -40,9 +40,17 @@ enum ResultStyle {
 
     var label: String {
         switch self {
-        case .success: return "Result"
+        case .success: return "Success"
         case .error: return "Error"
         case .loading: return "Processing"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .success: return "checkmark.circle.fill"
+        case .error: return "xmark.circle.fill"
+        case .loading: return "" // uses ProgressView instead
         }
     }
 }
@@ -77,6 +85,10 @@ struct ResultsView: View {
                 if style == .loading {
                     ProgressView()
                         .controlSize(.small)
+                } else {
+                    Image(systemName: style.icon)
+                        .foregroundStyle(style.textColor)
+                        .font(.caption)
                 }
                 Text(style.label)
                     .font(.caption.weight(.semibold))
@@ -104,3 +116,109 @@ struct ResultsView: View {
         )
     }
 }
+
+// MARK: - Debug Tests
+
+#if DEBUG
+extension ResultsView {
+    static func runTests() {
+        print("\nRunning ResultsView tests...")
+        var passed = 0
+        var failed = 0
+
+        // Test 1: Success style has checkmark icon and "Success" label
+        do {
+            let style = ResultStyle.success
+            if style.icon == "checkmark.circle.fill" && style.label == "Success" {
+                print("  ✅ Test 1: Success style has checkmark icon and 'Success' label")
+                passed += 1
+            } else {
+                print("  ❌ Test 1: Expected checkmark.circle.fill/Success, got \(style.icon)/\(style.label)")
+                failed += 1
+            }
+        }
+
+        // Test 2: Error style has xmark icon and "Error" label
+        do {
+            let style = ResultStyle.error
+            if style.icon == "xmark.circle.fill" && style.label == "Error" {
+                print("  ✅ Test 2: Error style has xmark icon and 'Error' label")
+                passed += 1
+            } else {
+                print("  ❌ Test 2: Expected xmark.circle.fill/Error, got \(style.icon)/\(style.label)")
+                failed += 1
+            }
+        }
+
+        // Test 3: Loading style has "Processing" label
+        do {
+            let style = ResultStyle.loading
+            if style.label == "Processing" {
+                print("  ✅ Test 3: Loading style has 'Processing' label")
+                passed += 1
+            } else {
+                print("  ❌ Test 3: Expected Processing, got \(style.label)")
+                failed += 1
+            }
+        }
+
+        // Test 4: ResultsState show/clear lifecycle
+        do {
+            let state = ResultsState()
+            guard !state.hasResults else {
+                print("  ❌ Test 4: Initial state should have no results")
+                failed += 1
+                print("\nResultsView results: \(passed) passed, \(failed) failed\n")
+                return
+            }
+
+            state.show("Hello", style: .success)
+            guard state.hasResults, state.output == "Hello", state.style == .success else {
+                print("  ❌ Test 4: show() did not set state correctly")
+                failed += 1
+                print("\nResultsView results: \(passed) passed, \(failed) failed\n")
+                return
+            }
+
+            state.clear()
+            guard !state.hasResults, state.output == nil else {
+                print("  ❌ Test 4: clear() did not reset state")
+                failed += 1
+                print("\nResultsView results: \(passed) passed, \(failed) failed\n")
+                return
+            }
+
+            print("  ✅ Test 4: ResultsState show/clear lifecycle works")
+            passed += 1
+        }
+
+        // Test 5: All styles have distinct text colors
+        do {
+            let successColor = ResultStyle.success.textColor
+            let errorColor = ResultStyle.error.textColor
+            let loadingColor = ResultStyle.loading.textColor
+            if successColor != errorColor && errorColor != loadingColor {
+                print("  ✅ Test 5: All styles have distinct text colors")
+                passed += 1
+            } else {
+                print("  ❌ Test 5: Styles share text colors")
+                failed += 1
+            }
+        }
+
+        // Test 6: Success and error styles have non-empty icons
+        do {
+            if !ResultStyle.success.icon.isEmpty && !ResultStyle.error.icon.isEmpty
+                && ResultStyle.loading.icon.isEmpty {
+                print("  ✅ Test 6: Success/error have icons, loading does not")
+                passed += 1
+            } else {
+                print("  ❌ Test 6: Unexpected icon state")
+                failed += 1
+            }
+        }
+
+        print("\nResultsView results: \(passed) passed, \(failed) failed\n")
+    }
+}
+#endif

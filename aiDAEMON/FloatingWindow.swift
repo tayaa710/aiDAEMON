@@ -227,12 +227,13 @@ final class FloatingWindow: NSWindow {
     }
 
     private func executeValidatedCommand(_ command: Command, userInput: String) {
-        let display = formatCommand(command, userInput: userInput)
-        resultsState.show(display, style: .loading)
+        let action = readableCommandType(command.type)
+        resultsState.show("Executing: \(action)...", style: .loading)
 
         CommandRegistry.shared.execute(command) { [weak self] execResult in
             DispatchQueue.main.async {
-                var msg = display + "\n\n" + execResult.message
+                let context = "\(userInput) → \(action)"
+                var msg = context + "\n\n" + execResult.message
                 if let details = execResult.details {
                     msg += "\n" + details
                 }

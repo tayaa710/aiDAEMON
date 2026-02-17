@@ -947,7 +947,9 @@ Each milestone includes:
 
 ---
 
-### M024: Execution Result Handling
+### M024: Execution Result Handling ✅
+**Status**: COMPLETE (2026-02-17)
+
 **Objective**: Display execution results and errors
 
 **Why**: User feedback
@@ -955,23 +957,34 @@ Each milestone includes:
 **Dependencies**: M018-M021
 
 **Deliverables**:
-- Success messages in ResultsView
-- Error messages in ResultsView
-- Formatted output for file lists, info, etc.
+- [x] SF Symbol icons in ResultsView header: `checkmark.circle.fill` (success), `xmark.circle.fill` (error)
+- [x] Updated labels: "Success" (was "Result"), "Error", "Processing"
+- [x] Compact result display: `"user input → Action Type"` context line + executor output
+- [x] Loading state shows `"Executing: Action Type..."` during command dispatch
+- [x] 6 automated tests covering icons, labels, state lifecycle, and color distinctness
+- [x] Tests wired into `AppDelegate` debug test suite
 
 **Success Criteria**:
-- Success → green checkmark + message
-- Error → red X + error description
-- Output formatted nicely
+- [x] Success → green checkmark + "Success" label + message
+- [x] Error → red X + "Error" label + error description
+- [x] Output formatted with compact context line + executor results
 
 **Testing**:
-- Test successful commands
-- Test failing commands
-- Verify formatting
+- [x] Build succeeds (BUILD SUCCEEDED)
+- [x] Test 1: Success style has checkmark icon and 'Success' label (automated)
+- [x] Test 2: Error style has xmark icon and 'Error' label (automated)
+- [x] Test 3: Loading style has 'Processing' label (automated)
+- [x] Test 4: ResultsState show/clear lifecycle works (automated)
+- [x] Test 5: All styles have distinct text colors (automated)
+- [x] Test 6: Success/error have icons, loading does not (automated)
+- [ ] Test successful commands in live UI (manual test)
+- [ ] Test failing commands in live UI (manual test)
 
 **Difficulty**: 2/5
 
 **Shipping**: No
+
+**Notes**: ResultsView now shows SF Symbol icons alongside the header label for success (green checkmark) and error (red X). Loading state retains the ProgressView spinner. Execution results display a compact `"user input → Action Type"` context line instead of the verbose command breakdown, keeping results clean and scannable.
 
 ---
 
@@ -2578,7 +2591,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 22. ~~Complete M021 (System Info Executor)~~ ✅ Done
 23. ~~Complete M022 (Command Validation Layer)~~ ✅ Done
 24. ~~Complete M023 (Confirmation Dialog System)~~ ✅ Done
-25. Begin M024: Execution Result Handling
+25. ~~Complete M024 (Execution Result Handling)~~ ✅ Done
+26. Begin M025: Permission Checker Utility
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file
