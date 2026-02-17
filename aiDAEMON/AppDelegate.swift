@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         FileSearcher.runTests()
         WindowManager.runTests()
         SystemInfo.runTests()
+        CommandValidator.runTests()
         #endif
 
         HotkeyManager.shared.startListening()

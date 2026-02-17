@@ -844,7 +844,9 @@ Each milestone includes:
 
 ---
 
-### M022: Command Validation Layer
+### M022: Command Validation Layer ✅
+**Status**: COMPLETE (2026-02-17)
+
 **Objective**: Validate commands before execution
 
 **Why**: Security and safety
@@ -852,25 +854,47 @@ Each milestone includes:
 **Dependencies**: M017
 
 **Deliverables**:
-- `CommandValidator.swift` class
-- Validates parameters
-- Classifies safety level
-- Sanitizes inputs
-- Resolves file paths
+- [x] `CommandValidator.swift` struct with `validate(_:) -> ValidationResult` method
+- [x] `ValidationResult` enum: `.valid(Command)`, `.needsConfirmation(Command, reason:, level:)`, `.rejected(reason:)`
+- [x] `SafetyLevel` enum: `.safe`, `.caution`, `.dangerous`
+- [x] Input sanitization: strips null bytes + control chars, truncates to 500 chars per field
+- [x] Required field validation for all 7 command types with descriptive error messages
+- [x] Path traversal detection (`../`, `/..`) for FILE_OP and FILE_SEARCH commands
+- [x] Safety classification: read-only ops → `.safe`; file ops/quit → `.caution`; force kill → `.dangerous`
+- [x] Wired into `FloatingWindow.handleGenerationResult` between parse and execute
+- [x] `executeValidatedCommand()` helper extracted to clean up pipeline
+- [x] 15 automated tests covering validation, sanitization, safety classification, path traversal
+- [x] Tests wired into `AppDelegate` debug test suite
 
 **Success Criteria**:
-- Valid commands pass through
-- Invalid commands are rejected with explanation
-- Dangerous commands are flagged
+- [x] Valid commands pass through unchanged
+- [x] Invalid commands rejected with explanation
+- [x] Dangerous commands flagged for confirmation (M023 will add dialog)
+- [x] Path traversal attempts blocked
 
 **Testing**:
-- Test with valid commands
-- Test with injection attempts
-- Test with path traversal attempts
+- [x] Build succeeds (BUILD SUCCEEDED)
+- [x] Test 1: Valid SYSTEM_INFO is .valid (automated)
+- [x] Test 2: SYSTEM_INFO with nil target is .rejected (automated)
+- [x] Test 3: Valid APP_OPEN is .valid (automated)
+- [x] Test 4: FILE_SEARCH with 1-char query is .rejected (automated)
+- [x] Test 5: Valid FILE_SEARCH is .valid (automated)
+- [x] Test 6: Path traversal in FILE_OP target is .rejected (automated)
+- [x] Test 7: Control characters stripped from target (automated)
+- [x] Test 8: Overlong target truncated to 500 chars (automated)
+- [x] Test 9: FILE_OP delete needs .caution confirmation (automated)
+- [x] Test 10: PROCESS_MANAGE force_quit needs .dangerous confirmation (automated)
+- [x] Test 11: WINDOW_MANAGE is .valid (non-destructive) (automated)
+- [x] Test 12: WINDOW_MANAGE with blank target is .rejected (automated)
+- [x] Test 13: Confirmation reason contains target name (automated)
+- [x] Test 14: FILE_SEARCH resolves query field correctly (automated)
+- [x] Test 15: APP_OPEN with empty string target is .rejected (automated)
 
 **Difficulty**: 3/5
 
 **Shipping**: No
+
+**Notes**: Validator sits between `CommandParser.parse` and `CommandRegistry.execute`. `.needsConfirmation` cases currently log the reason and proceed (M023 will intercept these for the confirmation dialog). Sanitization runs on every command: control chars stripped, max 500 chars enforced per string field. Path traversal check covers `../` and `/..` sequences.
 
 ---
 
@@ -2532,7 +2556,8 @@ M001 → M003 → M004 → M011 → M013 → M016 → M018 → M022 → M026 →
 20. ~~Complete M019b (Search Relevance Ranking)~~ ✅ Done
 21. ~~Complete M020 (Window Manager Executor)~~ ✅ Done
 22. ~~Complete M021 (System Info Executor)~~ ✅ Done
-23. Begin M022: Command Validation Layer
+23. ~~Complete M022 (Command Validation Layer)~~ ✅ Done
+24. Begin M023: Confirmation Dialog System
 
 **Tracking Progress**:
 - Mark completed milestones with ✓ in this file

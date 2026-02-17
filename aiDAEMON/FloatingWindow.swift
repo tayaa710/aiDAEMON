@@ -170,25 +170,21 @@ final class FloatingWindow: NSWindow {
             do {
                 let command = try CommandParser.parse(trimmed)
                 NSLog("Parsed command: %@ target=%@", command.type.rawValue, command.target ?? "(none)")
-                let display = formatCommand(command, userInput: userInput)
-                resultsState.show(display, style: .loading)
 
-                CommandRegistry.shared.execute(command) { [weak self] execResult in
-                    DispatchQueue.main.async {
-                        if execResult.success {
-                            var msg = display + "\n\n" + execResult.message
-                            if let details = execResult.details {
-                                msg += "\n" + details
-                            }
-                            self?.resultsState.show(msg, style: .success)
-                        } else {
-                            var msg = display + "\n\n" + execResult.message
-                            if let details = execResult.details {
-                                msg += "\n" + details
-                            }
-                            self?.resultsState.show(msg, style: .error)
-                        }
-                    }
+                let validation = CommandValidator.shared.validate(command)
+                switch validation {
+                case .rejected(let reason):
+                    resultsState.show("Command blocked: \(reason)", style: .error)
+                    resizeForResultsVisibility(hasResults: true)
+                    return
+
+                case .needsConfirmation(let validCmd, let reason, _):
+                    // M023 will add a real confirmation dialog; for now, show reason and proceed
+                    NSLog("CommandValidator: needsConfirmation — %@", reason)
+                    executeValidatedCommand(validCmd, userInput: userInput)
+
+                case .valid(let validCmd):
+                    executeValidatedCommand(validCmd, userInput: userInput)
                 }
             } catch {
                 NSLog("Parse failed: %@\nRaw output: %@", error.localizedDescription, trimmed)
@@ -203,6 +199,21 @@ final class FloatingWindow: NSWindow {
                 "Generation failed: \(error.localizedDescription)",
                 style: .error
             )
+        }
+    }
+
+    private func executeValidatedCommand(_ command: Command, userInput: String) {
+        let display = formatCommand(command, userInput: userInput)
+        resultsState.show(display, style: .loading)
+
+        CommandRegistry.shared.execute(command) { [weak self] execResult in
+            DispatchQueue.main.async {
+                var msg = display + "\n\n" + execResult.message
+                if let details = execResult.details {
+                    msg += "\n" + details
+                }
+                self?.resultsState.show(msg, style: execResult.success ? .success : .error)
+            }
         }
     }
 
