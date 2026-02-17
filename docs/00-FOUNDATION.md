@@ -5,229 +5,149 @@
 When in doubt, this file overrides issues, chat messages, code comments, and secondary docs.
 
 Last Updated: 2026-02-17
-Version: 2.0 (Strategic Pivot)
+Version: 3.0 (JARVIS Product Vision)
 
 ---
 
-## Pivot Notice
+## What Is aiDAEMON?
 
-As of 2026-02-17, aiDAEMON is no longer scoped as only a "natural language command launcher."
+**aiDAEMON is a JARVIS-style AI companion app for macOS.**
 
-The project is now scoped as a **local-first, supervised AI companion for macOS**:
-- Conversational
-- Tool-using
-- Multi-step
-- Context-aware
-- Explicitly safety-governed
+Think Iron Man's JARVIS — you talk to your computer (or type), and it does things for you. Open apps, move windows, set up workflows, search files, control browsers, manage your calendar — anything you'd normally do with a mouse and keyboard, your AI companion does instead.
 
-This is an intentional product pivot, not a reset. Existing completed milestones remain valid foundation work.
+The app runs natively on macOS. A small local AI handles simple tasks instantly. For complex tasks (multi-step planning, understanding what's on screen), it connects to a private cloud brain that the user pays for via subscription.
 
----
+**Target customer**: Anyone who wants to control their Mac by just telling it what to do.
 
-## Core Philosophy
-
-### What This Project Is
-
-**aiDAEMON** is a JARVIS-style desktop companion with strict safety rails.
-
-It should:
-- Understand open-ended user intent
-- Plan and execute multi-step workflows
-- Use tools on the user's behalf
-- Explain what it is doing
-- Ask before high-impact actions
-- Improve with memory and context over time
-
-### What This Project Is Not
-
-It is not:
-- A hidden autonomous background monitor
-- A spyware-like surveillance system
-- A "run anything silently" root agent
-- A cloud-first product that requires external APIs to function
-- A replacement for user consent or system permissions
+**Business model**: Free tier (local AI, simple tasks) + paid tier ($15-20/month, cloud brain for complex tasks).
 
 ---
 
-## Non-Negotiable Principles
+## Product Principles
 
-### 1. User Authority Over Agent Autonomy
+### 1. Privacy Is Sacred
 
-The user is always the final authority.
+Users are trusting this app with access to their entire computer. That trust must never be violated.
 
-- High-impact actions require explicit approval
-- Autonomy level is visible and adjustable
-- User can interrupt, pause, or disable agent execution instantly
-- No irreversible action is silently executed
+- **Simple tasks never leave the Mac.** Local model handles them entirely.
+- **Complex tasks go to the cloud brain, but data is encrypted in transit and never stored.**
+- **No telemetry, no analytics, no tracking** unless the user explicitly opts in.
+- **No training on user data.** Ever. By anyone. This is contractual, not just a promise.
+- **Users can see exactly what was sent to the cloud** in an audit log.
+- **Users can disable cloud entirely** and still have a functional (but less capable) assistant.
 
-### 2. Local-First by Default
+### 2. Security Is a System, Not a Feature
 
-Core assistant behavior must run locally.
+Security cannot be a prompt instruction or an afterthought. It is enforced in code.
 
-- Local model path is first-class
-- Local tools remain functional offline
-- Cloud augmentation is optional, explicit, and scoped
+- Every proposed action passes through a **policy engine** before execution.
+- Destructive actions (delete files, kill processes, send emails) **always require user confirmation**.
+- No raw shell command execution. All system actions go through **structured, validated tool calls**.
+- API keys and credentials stored in **macOS Keychain only**. Never in files, never in UserDefaults.
+- All network traffic uses **HTTPS/TLS**. No exceptions.
+- Prompt injection defenses at every boundary where untrusted text enters the system.
 
-### 3. Transparent Planning and Execution
+### 3. User Authority Over Agent Autonomy
 
-The assistant must show intent, plan, and result.
+The user is always the boss. The AI is a powerful assistant, not an autonomous agent.
 
-- Show what it thinks the goal is
-- Show the selected tools/actions
-- Show what succeeded and what failed
-- Keep a complete action/audit trail
+- **Level 0 (default)**: AI explains what it wants to do and waits for approval before every action.
+- **Level 1**: Safe actions (read-only, non-destructive) auto-execute. Risky actions still need approval.
+- **Level 2**: Auto-execute within user-defined scopes (e.g., "you can manage files in ~/Downloads").
+- **Level 3**: Routine autonomy for scheduled/recurring tasks. Still has safety limits.
+- **No level allows silent destructive actions.** Ever.
+- **Kill switch**: User can instantly stop all agent activity at any time.
 
-### 4. Safety as a Runtime System
+### 4. Transparency Always
 
-Safety is not a prompt-only feature.
+- The AI shows what it understood ("I think you want me to...")
+- The AI shows its plan before acting ("Here's what I'll do: 1... 2... 3...")
+- The AI shows what happened ("Done. I opened Safari and moved it to the left half.")
+- If something failed, the AI explains why and what it tried.
+- Complete action history is viewable and searchable.
 
-- Policy engine evaluates every proposed action
-- Tool permissions are capability-based and revocable
-- Risk scoring determines approval path
-- Dangerous operations are blocked or escalated
+### 5. Works Offline, Better Online
 
-### 5. Memory With Boundaries
-
-Memory should help, not overreach.
-
-- Separate short-term context from long-term memory
-- Allow per-memory deletion and full wipe
-- Never retain sensitive content without explicit user consent
-
-### 6. Progressive Trust, Not Instant Full Access
-
-Trust should be earned by behavior and user decisions.
-
-- Start with minimal permissions
-- Expand access only when justified
-- Keep the permission surface understandable
+- **Offline**: Local 8B model handles simple tasks — open apps, find files, move windows, system info.
+- **Online**: Cloud brain handles complex tasks — multi-step planning, screen understanding, workflow automation.
+- The app gracefully degrades. Losing internet means losing complex features, not all features.
 
 ---
 
-## Autonomy Levels
+## Technical Identity
 
-Autonomy is explicit and user-controlled.
-
-### Level 0: Ask-First (Default)
-- Every action requires confirmation
-- Best for first-time users and risky workflows
-
-### Level 1: Safe Auto-Execute
-- Read-only and low-risk actions auto-run
-- Caution/danger actions still require confirmation
-
-### Level 2: Scoped Auto-Execute
-- Auto-execution allowed inside user-approved scopes
-- Example scope: "Finder + file organization in ~/Downloads"
-
-### Level 3: Routine Autonomy (Advanced)
-- Scheduled and recurring workflows permitted
-- Strict policy checks, audit logs, and emergency stop required
-
-No level allows silent privilege escalation.
+- **Platform**: macOS 13.0+ (native Swift + SwiftUI)
+- **Bundle ID**: com.aidaemon
+- **Distribution**: Direct download (not App Store — sandbox restrictions conflict with automation capabilities)
+- **Local AI**: LLaMA 3.1 8B (Q4_K_M quantization) via llama.cpp / LlamaSwift
+- **Cloud AI**: Pay-per-token API (Groq, Together AI, or AWS Bedrock — provider is swappable)
+- **Auto-updates**: Sparkle framework
+- **Global hotkey**: KeyboardShortcuts framework
 
 ---
 
-## Architectural Invariants
+## What This Project Is NOT
 
-These are locked unless explicitly revised here.
-
-### 1. Agent Loop Replaces Single-Shot Parsing
-
-The core interaction model is:
-
-1. Understand goal
-2. Build/adjust plan
-3. Execute step(s)
-4. Validate outcome
-5. Continue or recover
-6. Report clearly
-
-### 2. Tool Runtime Is Schema-Driven
-
-Tools are registered with explicit schemas, capabilities, and safety metadata.
-
-- No ad-hoc shell string execution path
-- Structured arguments only
-- Per-tool policy enforcement
-
-### 3. Policy Engine Sits Between Planner and Executor
-
-All proposed actions pass through policy gates before execution.
-
-### 4. Memory Is Layered
-
-- Working memory: current turn/task
-- Session memory: current session context
-- Long-term memory: user-approved durable preferences/facts
-
-### 5. Existing Milestones Are Foundational Assets
-
-Completed work M001-M024 is retained as a compatibility layer and migration base.
-
-### 6. Distribution Remains Direct (Not App Store)
-
-App Store sandbox restrictions still conflict with required automation capabilities.
-
----
-
-## Privacy Boundaries
-
-### Always Local by Default
-
-- Command content
-- Tool-call payloads
-- Action history
-- Local context snapshots
-
-### Optional Cloud Usage (Future)
-
-Cloud routing may be enabled for complex reasoning, but must be:
-- Explicitly enabled
-- Clearly indicated per request/session
-- Redactable where possible
-- Disable-able at any time
+- **NOT a chatbot.** It doesn't just answer questions — it takes actions on your computer.
+- **NOT spyware.** It never watches, records, or transmits without explicit consent.
+- **NOT cloud-dependent.** Core features work entirely offline.
+- **NOT an autonomous agent.** It proposes actions and waits for approval (by default).
+- **NOT open-source (yet).** May open-source in the future, but not a priority for v1.
 
 ---
 
 ## What Must Never Regress
 
-1. Visibility into what the assistant is about to do
-2. Explicit approval for high-impact actions
-3. Reliable kill switch / emergency stop
-4. Local-first baseline capability
-5. Action logging and explainability
-6. Deterministic safety policy behavior
-7. Permission minimalism and revocability
+These are absolute rules. If a milestone or feature would violate any of these, it must be redesigned.
+
+1. User can always see what the assistant is about to do before it does it (at autonomy level 0-1)
+2. Destructive actions always require explicit approval
+3. Kill switch / emergency stop is always available and instant
+4. Local-first baseline works without internet
+5. All actions are logged and explainable
+6. Policy engine cannot be bypassed by prompt content
+7. Credentials are never stored outside macOS Keychain
+8. Network traffic is always encrypted (HTTPS/TLS)
+9. No user data is ever used for model training
 
 ---
 
-## What Is Explicitly Forbidden
+## Development Model
 
-1. Silent destructive actions
-2. Hidden continuous surveillance modes
-3. Implicit cloud upload of private user context
-4. Prompt-only safety with no runtime enforcement
-5. Unbounded tool access without capability checks
-6. Shipping with known critical policy bypasses
+This project is built entirely by LLM agents. The owner:
+- Does NOT write code
+- DOES build in Xcode
+- DOES perform manual testing
+- DOES make product decisions
+- Has LIMITED cloud/backend experience — agents must provide step-by-step setup instructions
 
----
-
-## Success Definition (New Direction)
-
-aiDAEMON is successful when it feels like a capable desktop companion while still being auditable, interruptible, and safe.
-
-It should feel powerful, but never opaque.
+See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Restart vs Pivot Decision
+## Completed Foundation (M001-M024)
 
-**Decision**: Pivot, do not restart.
+The following capabilities already exist and should be reused, not rebuilt:
 
-Rationale:
-- M001-M024 already provide substantial reusable infrastructure (UI shell, local inference, parsing, validation, executor registry, confirmations).
-- Restarting would destroy momentum and reimplement solved primitives.
-- A staged migration preserves velocity and reduces risk.
+| Capability | Files | Status |
+|-----------|-------|--------|
+| Xcode project + signing | `aiDAEMON.xcodeproj` | Working |
+| Global hotkey (Cmd+Shift+Space) | `HotkeyManager.swift` | Working |
+| Floating window UI | `FloatingWindow.swift` | Working |
+| Text input | `CommandInputView.swift` | Working |
+| Results display | `ResultsView.swift` | Working |
+| Settings window | `SettingsView.swift` | Working |
+| Local LLM loading | `ModelLoader.swift` | Working |
+| llama.cpp bridge | `LLMBridge.swift` | Working |
+| LLM inference manager | `LLMManager.swift` | Working |
+| Prompt builder | `PromptBuilder.swift` | Working |
+| JSON command parsing | `CommandParser.swift` | Working |
+| Command registry + dispatch | `CommandRegistry.swift` | Working |
+| App launcher | `AppLauncher.swift` | Working |
+| File search (Spotlight) | `FileSearcher.swift` | Working |
+| Window management | `WindowManager.swift` | Working |
+| System info | `SystemInfo.swift` | Working |
+| Command validation | `CommandValidator.swift` | Working |
+| Confirmation dialogs | `ConfirmationDialog.swift` | Working |
 
-This decision is reflected in the updated milestones.
+This foundation is the "hands" of the assistant. The new milestones add the "brain" (cloud model + agent loop) and "eyes" (screen vision).

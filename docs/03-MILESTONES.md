@@ -1,1566 +1,1366 @@
 # 03 - MILESTONES
 
-Complete development roadmap broken into atomic milestones.
+Complete development roadmap for aiDAEMON: JARVIS-style AI companion for macOS.
 
 Last Updated: 2026-02-17
-Version: 2.0 (Strategic Pivot)
+Version: 3.0 (JARVIS Product Roadmap)
 
 ---
 
-## Milestone Structure
+## LLM Agent Workflow (MANDATORY)
 
-Milestones are intentionally granular and may be documented in one of two formats:
-- **Atomic format**: Full objective, dependencies, deliverables, success criteria, difficulty, shipping.
-- **Grouped format**: Milestone headings plus phase-level objective, deliverables, and exit criteria.
+**After completing every milestone, you MUST:**
 
-Both formats are valid as long as sequencing, ownership, and gates remain clear.
-
----
-
-## PHASE 0: SETUP & FOUNDATION
-
-### M001: Project Initialization ✅
-**Status**: COMPLETE (2026-02-15) | **Commit**: `0ff4feb`
-
-**Objective**: Create Xcode project and basic structure
-
-**Why**: Need working project before writing code
-
-**Dependencies**: None
-
-**Deliverables**:
-- [x] Xcode project created
-- [x] SwiftUI macOS app template
-- [x] Bundle identifier set: `com.aidaemon`
-- [x] Deployment target: macOS 13.0+
-- [x] Git repository initialized
-- [x] `.gitignore` configured (Xcode, Models/, build artifacts)
-
-**Success Criteria**:
-- [x] Project builds without errors (`xcodebuild` BUILD SUCCEEDED)
-- [x] App launches and shows default window with "aiDAEMON" text
-- [x] Git commit created
-
-**Testing**:
-- [x] Build succeeds
-- [x] Run shows app
-
-**Difficulty**: 1/5
-
-**Shipping**: No
+1. **Update this file** — mark the milestone complete, add commit hash, add implementation notes.
+2. **Provide manual setup steps** — tell the owner exactly what they need to do (Xcode settings, permissions, downloads, API keys, terminal commands). Assume they have zero cloud/backend experience.
+3. **Provide manual tests** — tell the owner exactly what to test, what to type/click, and what they should see. Specify pass/fail criteria.
+4. **STOP and WAIT** — do not start the next milestone until the owner tells you to.
 
 ---
 
-### M002: Documentation Integration ✅
-**Status**: COMPLETE (2026-02-15)
+## Completed Foundation (M001–M024)
 
-**Objective**: Link documentation into project
+These milestones built the foundation: Xcode project, UI shell, local LLM inference, command parsing, 4 tool executors (app launcher, file search, window manager, system info), validation, confirmation dialogs, and result display. They are complete and documented in git history.
 
-**Why**: Keep docs accessible during development
-
-**Dependencies**: M001
-
-**Deliverables**:
-- [x] `docs/` folder added to Xcode project as folder reference
-- [x] README.md added to Xcode sidebar
-- [x] QUICKSTART.md added to Xcode sidebar
-- [x] License file created (MIT)
-
-**Success Criteria**:
-- [x] Docs visible in Xcode sidebar
-- [x] Can open and read from IDE
-
-**Testing**:
-- [x] Project builds with doc references
-- [x] Files visible in Xcode sidebar
-
-**Difficulty**: 1/5
-
-**Shipping**: No
+**Summary of what exists**:
+- macOS app that launches with Cmd+Shift+Space hotkey
+- Floating window with text input
+- Local LLaMA 3.1 8B model loads and runs inference
+- User types a command → LLM parses it → executor runs it → result shown
+- Works for: opening apps/URLs, searching files, moving windows, showing system info
+- Confirmation dialogs for risky actions
+- All code compiles and runs
 
 ---
 
-### M003: LLM Model Acquisition ✅
-**Status**: COMPLETE (2026-02-15)
+## PHASE 4: HYBRID MODEL LAYER
 
-**Objective**: Download and verify LLaMA 3 8B model
-
-**Why**: Need model file before implementing inference
-
-**Dependencies**: M001
-
-**Deliverables**:
-- [x] LLaMA 3.1 8B Instruct (4-bit quantized) downloaded
-- [x] Model file placed in `Models/` directory (`Models/model.gguf`)
-- [x] GGUF format verified (magic bytes: `GGUF`)
-- [x] `.gitignore` excludes `Models/` folder and `*.gguf`
-- [x] Documentation updated with model details
-
-**Success Criteria**:
-- [x] File `Models/model.gguf` exists (4.6GB)
-- [x] SHA256: `7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c`
-- [x] Valid GGUF format confirmed
-
-**Testing**:
-- [x] Verify file integrity (GGUF header + SHA256)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: Model filename is `model.gguf` (LLaMA 3.1 8B Instruct Q4_K_M)
+*Goal: Give the assistant a smarter brain by connecting to cloud models while keeping local inference for simple tasks.*
 
 ---
 
-### M004: Swift Package Dependencies ✅
-**Status**: COMPLETE (2026-02-15)
+### M025: ModelProvider Protocol and Local Backend
 
-**Objective**: Add required third-party packages
-
-**Why**: Need external libraries for core functionality
-
-**Dependencies**: M001
-
-**Deliverables**:
-- [x] llama.cpp via `mattt/llama.swift` (LlamaSwift) @ 2.8061.0 - XCFramework wrapper
-- [x] Sparkle framework @ 2.8.1 (via SPM)
-- [x] KeyboardShortcuts @ 2.4.0 (via SPM, by sindresorhus)
-- [x] C++ interop enabled (`SWIFT_CXX_INTEROP_MODE = default`)
-
-**Success Criteria**:
-- [x] All packages resolve successfully
-- [x] Project builds with dependencies (BUILD SUCCEEDED)
-- [x] No version conflicts
-- [x] All three imports compile (`import LlamaSwift`, `import Sparkle`, `import KeyboardShortcuts`)
-
-**Testing**:
-- [x] Build project with all dependencies
-- [x] Import each package - verified all compile
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: Used `mattt/llama.swift` instead of official `ggml-org/llama.cpp` (Package.swift removed from upstream). LlamaSwift wraps llama.cpp as precompiled XCFramework, supports macOS 13.0+.
-
----
-
-## PHASE 1: CORE UI
-
-### M005: App Structure & Entry Point ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Set up app lifecycle and window management
-
-**Why**: Foundation for all UI work
-
-**Dependencies**: M001, M004
-
-**Deliverables**:
-- [x] `aiDAEMONApp.swift` - SwiftUI app entry point with `NSApplicationDelegateAdaptor`
-- [x] `AppDelegate.swift` - macOS lifecycle hooks
-- [x] Menu bar configuration (minimal: About, Quit via default SwiftUI menu)
-- [x] App activates without showing window by default (Settings scene only)
-
-**Success Criteria**:
-- [x] App launches
-- [x] No default window appears
-- [x] Menu bar shows app name + Quit option
-- [x] App stays running in background (`applicationShouldTerminateAfterLastWindowClosed` returns false)
-
-**Testing**:
-- [x] Build succeeds
-- [x] Launch app - no window should appear
-- [x] Check menu bar - app is running
-- [x] Quit from menu bar works
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M006: Global Hotkey Detection ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Detect global hotkey to toggle UI visibility
-
-**Why**: Primary user entry point
-
-**Dependencies**: M005
-
-**Deliverables**:
-- [x] `HotkeyManager.swift` class
-- [x] Register global hotkey: Cmd+Shift+Space (default toggle shortcut)
-- [x] Notification posted when hotkey pressed
-- [x] Hotkey works even when app not focused
-
-**Success Criteria**:
-- [x] Press Cmd+Shift+Space from any app
-- [x] Console logs "Hotkey pressed"
-- [x] Works regardless of focused app
-
-**Testing**:
-- [x] Focus different apps (Safari, Finder, etc.)
-- [x] Press hotkey
-- [x] Verify notification received
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M007: Floating Window UI ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Create floating input window
-
-**Why**: Primary user interface
-
-**Dependencies**: M006
-
-**Deliverables**:
-- [x] `FloatingWindow.swift` - NSWindow subclass
-- [x] Window properties:
-  - [x] Always on top (`.floating` level)
-  - [x] No title bar
-  - [x] Centered on current screen
-  - [x] Size: 400x80px
-  - [x] Rounded corners, shadow
-- [x] Window toggles on hotkey press (Cmd+Shift+Space shows/hides)
-- [x] Window hides on Escape key
-
-**Success Criteria**:
-- [x] Hotkey shows window when hidden
-- [x] Hotkey hides window when visible
-- [x] Window appears centered on screen with cursor
-- [x] Escape hides window
-- [x] Window stays above all other windows
-
-**Testing**:
-- [x] Hotkey (window hidden) → window appears
-- [x] Hotkey (window visible) → window disappears
-- [x] Escape → window disappears
-- [x] Try with multiple monitors (if available)
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M008: Text Input Field ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Add text field to floating window
-
-**Why**: User needs to type commands
-
-**Dependencies**: M007
-
-**Deliverables**:
-- [x] `CommandInputView.swift` - SwiftUI text field
-- [x] Placeholder text: "What do you want to do?"
-- [x] Auto-focus when window appears
-- [x] Enter key submits input
-- [x] Escape key clears and hides window
-
-**Success Criteria**:
-- [x] Window shows with text field focused
-- [x] Can type text
-- [x] Enter key triggers action (print to console for now)
-- [x] Escape clears text and hides window
-
-**Testing**:
-- [x] Type "hello world"
-- [x] Press Enter → see console log
-- [x] Press Escape → text clears, window hides
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M009: Results Display Area ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Show command results below input field
-
-**Why**: User needs feedback on what happened
-
-**Dependencies**: M008
-
-**Deliverables**:
-- [x] `ResultsView.swift` - displays text output
-- [x] Window expands vertically to show results
-- [x] Scrollable if output is long
-- [x] Styled text (success = green, error = red)
-
-**Success Criteria**:
-- [x] After Enter, results area appears
-- [x] Shows test output
-- [x] Window resizes smoothly
-- [x] Scrolls if content > 300px
-
-**Testing**:
-- [x] Submit command → see result
-- [x] Submit long output → verify scroll
-- [x] Test success and error styling
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-### M010: Settings Window ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Create settings interface
-
-**Why**: User needs to configure app
-
-**Dependencies**: M005
-
-**Deliverables**:
-- [x] `SettingsView.swift` - SwiftUI settings window
-- [x] Menu bar item: "Settings..." (Cmd+,)
-- [x] Tabbed interface: General, Permissions, History, About
-- [x] General tab: Hotkey selector placeholder, theme toggle (future)
-- [x] About tab: Version number, links
-
-**Success Criteria**:
-- [x] Cmd+, opens settings window
-- [x] Tabs are navigable
-- [x] Window can be closed and reopened
-- [x] Settings persist across launches (via UserDefaults)
-
-**Testing**:
-- [x] Open settings
-- [x] Navigate tabs
-- [x] Close and reopen - verify state
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
----
-
-## PHASE 2: LLM INTEGRATION
-
-### M011: LLM Model File Loader ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Load LLaMA model file into memory
-
-**Why**: Required for inference
-
-**Dependencies**: M003, M004
-
-**Deliverables**:
-- [x] `ModelLoader.swift` class
-- [x] Function: `loadModel(path:) -> ModelHandle?`
-- [x] Handles file not found error
-- [x] Handles corrupted model error
-- [x] Shows loading progress (future: progress bar)
-
-**Success Criteria**:
-- [x] Model loads successfully from `Models/` directory
-- [x] Takes <5 seconds on M1 Mac
-- [x] Error handling works (test with invalid file)
-
-**Testing**:
-- [x] Load valid model → success
-- [x] Load missing file → error message
-- [x] Load corrupted file → error message
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
----
-
-### M012: llama.cpp Swift Bridge ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Create Swift wrapper for llama.cpp C API
-
-**Why**: Swift can't directly call C++ easily
-
-**Dependencies**: M004, M011
-
-**Deliverables**:
-- [x] `LLMBridge.swift` - Swift wrapper class
-- [x] Functions exposed: `loadModel(path:)`, `generate(prompt:params:onToken:)`, `unload()`
-- [x] `GenerationParams` struct (temperature, topP, topK, repeatPenalty, maxTokens)
-- [x] Sampler chain (Top-K → Top-P → Temperature → Distribution, or Greedy)
-- [x] Async generation with `generateAsync()` and abort support
-- [x] Streaming token output via `onToken` callback
-- [x] Memory management (batch alloc/dealloc, sampler chain cleanup, ModelHandle RAII)
-
-**Success Criteria**:
-- [x] Can call llama.cpp from Swift (tokenize, decode, sample, detokenize)
-- [x] Errors are bridged properly (LLMBridgeError enum)
-- [x] Project builds without errors
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Call each function with loaded model (M013)
-- [ ] Verify memory with Instruments (M063)
-- [ ] Unload model properly (M013)
-
-**Difficulty**: 4/5 (C/Swift bridging is complex)
-
-**Shipping**: No
-
-**Notes**: Uses LlamaSwift (mattt/llama.swift) which provides C++ interop. llama_vocab and other opaque types accessed via OpaquePointer. KV cache cleared via llama_memory_clear (new API).
-
----
-
-### M013: Basic Inference Test ✅
-**Status**: COMPLETE (2026-02-15)
-
-**Objective**: Generate text from LLM
-
-**Why**: Verify model and bridge work
-
-**Dependencies**: M011, M012
-
-**Deliverables**:
-- [x] `LLMManager.swift` class (singleton, ObservableObject with state tracking)
-- [x] Function: `generate(prompt:params:onToken:completion:)` with async generation
-- [x] Model auto-loads on app launch via `AppDelegate`
-- [x] FloatingWindow wired to real LLM inference (streaming tokens to UI)
-- [x] State machine: idle → loading → ready → generating
-- [x] Model path auto-discovery (walks up from bundle to find Models/model.gguf)
-
-**Success Criteria**:
-- [x] Prompt in → text out (via FloatingWindow UI)
-- [x] Streaming token output displayed in results area
-- [x] Error states handled (model not loaded, loading, already generating)
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Run test prompt in UI (manual test with model file)
-- [ ] Verify output is sensible
-- [ ] Check performance
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: LLMManager wraps LLMBridge with state management and model path discovery. FloatingWindow now shows real LLM output instead of placeholders.
-
----
-
-### M014: Prompt Template Builder ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: Construct structured prompts for command parsing
-
-**Why**: LLM needs specific format to output valid JSON
-
-**Dependencies**: M013
-
-**Deliverables**:
-- [x] `PromptBuilder.swift` struct
-- [x] Function: `buildCommandPrompt(userInput:) -> String`
-- [x] Template as defined in `01-ARCHITECTURE.md` (7 command types, JSON output schema)
-- [x] Few-shot examples for all command types (APP_OPEN, FILE_SEARCH, WINDOW_MANAGE, SYSTEM_INFO, PROCESS_MANAGE, QUICK_ACTION)
-- [x] `commandParams` generation parameters tuned for JSON output (low temperature 0.1)
-- [x] Input sanitisation: quote escaping, control char stripping, whitespace collapsing, 500-char limit
-- [x] FloatingWindow wired to use PromptBuilder for all inference calls
-
-**Success Criteria**:
-- [x] User input "open safari" → full prompt with examples
-- [x] Prompt is properly formatted
-- [x] User input is escaped/sanitized
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Test with various user inputs (manual test with model file)
-- [ ] Verify no prompt injection possible (manual test)
-- [ ] Check output format (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: PromptBuilder is a pure struct with static methods. Uses low temperature (0.1) for deterministic JSON output. Sanitisation prevents prompt structure breakage via quote escaping and control char removal.
-
----
-
-### M015: JSON Output Parsing ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: Parse LLM JSON response into struct
-
-**Why**: Need structured data for execution
-
-**Dependencies**: M014
-
-**Deliverables**:
-- [x] `CommandParser.swift` - Parser with error handling
-- [x] `CommandType` enum - All 7 command types (APP_OPEN, FILE_SEARCH, WINDOW_MANAGE, SYSTEM_INFO, FILE_OP, PROCESS_MANAGE, QUICK_ACTION)
-- [x] `Command` struct - Codable with type, target, parameters, confidence
-- [x] `AnyCodable` helper - Type-erased wrapper for heterogeneous JSON parameters
-- [x] Function: `CommandParser.parse(json:) -> Command` (throws)
-- [x] Error handling - 5 error types (invalidJSON, missingType, unknownCommandType, missingRequiredField, invalidFormat)
-- [x] JSON cleanup - Strips markdown code fences, extracts first valid JSON object
-- [x] Field validation - Type-specific required field checks
-- [x] Convenience extensions - `stringParam()`, `intParam()`, `boolParam()`, `description`
-- [x] Debug test suite - 8 test cases covering all command types
-
-**Success Criteria**:
-- [x] Valid JSON → parsed Command struct
-- [x] Invalid JSON → error with explanation
-- [x] Missing fields → error
-- [x] Unknown command type → error
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test cases for all 7 command types (DEBUG test suite)
-- [ ] Test malformed JSON (manual test)
-- [ ] Test missing required fields (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: Parser is resilient to LLM output quirks (markdown fences, extra text). Uses AnyCodable for flexible parameter types. Type-safe convenience accessors for common parameter types.
-
----
-
-### M016: End-to-End LLM Pipeline ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: User input → LLM → parsed command
-
-**Why**: Complete parsing flow
-
-**Dependencies**: M015
-
-**Deliverables**:
-- [x] Integration: User types → prompt built → LLM infers → JSON parsed → Command displayed
-- [x] Loading indicator (spinner + "Processing" label) in UI during inference
-- [x] Streaming tokens shown during generation with loading style
-- [x] Parsed Command displayed with human-readable formatting (action type, target, parameters, confidence)
-- [x] User-friendly error messages for parse failures with recovery suggestion
-- [x] Raw output shown on parse failure for debugging
-
-**Success Criteria**:
-- [x] Type "open youtube" → parsed as APP_OPEN with target displayed
-- [x] Loading spinner shows during inference
-- [x] Errors are user-friendly with "Try rephrasing" suggestion
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Test each command type (manual test with model file)
-- [ ] Verify timing (<2 sec) (manual test)
-- [ ] Test error handling (manual test)
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: Pipeline: CommandInputView → PromptBuilder.buildCommandPrompt → LLMManager.generate (streaming) → CommandParser.parse → formatted display. Added `.loading` ResultStyle with spinner. Parse errors show user-friendly explanation + raw output for debugging.
-
----
-
-## PHASE 3: COMMAND EXECUTION
-
-### M017: Command Type Registry ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: Map command types to executor classes
-
-**Why**: Dispatching commands to correct handlers
-
-**Dependencies**: M015
-
-**Deliverables**:
-- [x] `CommandRegistry.swift` class (singleton)
-- [x] `CommandExecutor` protocol with `execute(_:completion:)` and `name`
-- [x] `ExecutionResult` struct (success/failure with message + details)
-- [x] Registry maps `CommandType` enum to executor via `executor(for:) -> CommandExecutor`
-- [x] `execute(_:completion:)` convenience method for direct dispatch
-- [x] `PlaceholderExecutor` stubs for all 7 command types (replaced as real executors are built)
-- [x] `register(_:for:)` method for swapping in real executors
-- [x] FloatingWindow wired to dispatch parsed commands through registry
-- [x] `CommandType` extended with `CaseIterable` conformance
-
-**Success Criteria**:
-- [x] All command types have executors registered (placeholder stubs)
-- [x] Registry is extensible via `register(_:for:)`
-- [x] FloatingWindow dispatches through registry after parsing
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Request executor for each type (manual test)
-- [ ] Register custom executor, verify it replaces placeholder (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: PlaceholderExecutor returns "not yet implemented" errors for all types. Real executors (M018-M021, M043-M045) will call `CommandRegistry.shared.register()` to replace placeholders.
-
----
-
-### M018: App Launcher Executor ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: Open applications and URLs
-
-**Why**: Most common command type
-
-**Dependencies**: M017
-
-**Deliverables**:
-- [x] `AppLauncher.swift` struct implementing `CommandExecutor` protocol
-- [x] URL detection (http/https prefixes, bare domain patterns like "youtube.com")
-- [x] Application opening via `NSWorkspace.openApplication(at:configuration:)` (modern API)
-- [x] Bundle ID lookup with known-app map (Safari, Chrome, Firefox, Slack, etc.)
-- [x] Filesystem search across /Applications, /System/Applications, /Utilities
-- [x] Fuzzy app name matching (e.g. "chrome" finds "Google Chrome")
-- [x] Registered in `AppDelegate` on launch via `CommandRegistry.shared.register()`
-
-**Success Criteria**:
-- [x] "open safari" → Safari opens (via bundle ID lookup)
-- [x] "open youtube.com" → YouTube opens in default browser (URL detection)
-- [x] Invalid app name → error message with suggestion
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [ ] Open various apps (Safari, Chrome, Finder) (manual test)
-- [ ] Open URLs (http, https, bare domains) (manual test)
-- [ ] Test invalid app names (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: Uses modern `NSWorkspace.openApplication(at:configuration:)` instead of deprecated `launchApplication()`. Three-tier lookup: bundle ID map → exact name match in filesystem → fuzzy/contains match. URL auto-prefixes `https://` for bare domains.
-
----
-
-### M019: File Search Executor ✅
-**Objective**: Search files using Spotlight
-
-**Why**: Second most common command
-
-**Dependencies**: M017
-
-**Deliverables**:
-- [x] `FileSearcher.swift` class
-- [x] Uses `mdfind` command (Spotlight via `kMDItemDisplayName` query)
-- [x] Parses results to array of file paths
-- [x] Displays results in UI (file name + abbreviated path, capped at 20 results)
-- [x] Kind filtering (pdf, image, video, audio, document, text, folder, etc.)
-- [x] Input sanitization to prevent mdfind injection
-- [x] Registered in CommandRegistry via AppDelegate
-
-**Success Criteria**:
-- "find tax" → lists files containing "tax"
-- Results show file name and path
-- Clickable to open in Finder (future)
-
-**Testing**:
-- [x] Search for known files — "find safari" returns Safari-related files (manual test) ✅
-- [x] Search with no results — nonsense query returns "No files found" (manual test) ✅
-- [x] Search with many results — broad query returns capped results (manual test) ✅
-- [x] Search with kind filter e.g. "pdf" (manual test) ✅
-- [x] Build succeeds (BUILD SUCCEEDED) ✅
-- [x] All 15 automated tests pass at launch ✅
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: Uses `mdfind -limit 20` with `kMDItemDisplayName` for name-based Spotlight search. Supports optional `kind` parameter mapped to UTI types (e.g. "pdf" → `com.adobe.pdf`). Results limited to 20 via mdfind `-limit` flag (prevents hanging on broad queries). Minimum 2-character query enforced. Paths abbreviated with `~` for home directory. `Command` struct extended with `query` field to match LLM output format (`FILE_SEARCH` uses `query` instead of `target`).
-
----
-
-### M019b: Search Relevance Ranking ✅
-**Objective**: Replace `mdfind` shell-out with native `NSMetadataQuery` and add relevance-based result ranking
-
-**Why**: Current mdfind returns results in arbitrary Spotlight order. Users expect the most relevant files first — exact name matches, recently used files, and files in common locations should rank higher than obscure system files.
-
-**Dependencies**: M019
-
-**Deliverables**:
-- [x] Migrated from `Process("/usr/bin/mdfind")` to `NSMetadataQuery` (native Swift Spotlight API)
-- [x] `SpotlightSearcher` wrapper class — manages NSMetadataQuery lifecycle with completion handler
-- [x] `RelevanceScorer` — weighted composite scoring system:
-  - Spotlight relevance (`kMDQueryResultContentRelevance`) — 30% weight
-  - Exact/starts-with name match — 25% weight
-  - Recency (`kMDItemLastUsedDate` with exponential decay) — 25% weight
-  - Location priority (~/Desktop, ~/Documents, ~/Downloads) — 20% weight
-- [x] Fetch 50 candidates, score and sort, display top 20
-- [x] 5-second timeout prevents hanging if Spotlight is rebuilding index
-- [x] `MockMetadataItem` for unit testing scorer in isolation
-
-**Success Criteria**:
-- "find tax" → `tax.pdf` on Desktop ranks above `/Library/Caches/something-tax-related`
-- "find screenshot" → recent screenshots rank first
-- Results feel noticeably more useful than random Spotlight order
-- No performance regression (NSMetadataQuery should be faster than Process/pipe)
-
-**Testing**:
-- [ ] Search for file with exact name match — appears first (manual test)
-- [ ] Search for common term — recent files ranked higher (manual test)
-- [ ] Search for file in ~/Documents vs /Library — Documents file ranks higher (manual test)
-- [ ] Performance: results appear within 1 second for common queries (manual test)
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 15: Exact name match scores higher than contains (automated)
-- [x] Test 16: Recent file scores higher than old file (automated)
-- [x] Test 17: ~/Documents scores higher than /usr (automated)
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: Uses `NSMetadataQuery` with notification pattern (`.NSMetadataQueryDidFinishGathering`). Query runs on main thread (run loop required). `SpotlightSearcher` is a one-shot wrapper: starts query, waits for completion or timeout, scores results, fires completion handler. Eliminated Process/pipe overhead. `kMDItem*` constants require `as String` cast in Swift with C++ interop enabled. Tests pump `RunLoop.main` to allow NSMetadataQuery callbacks during synchronous test execution.
-
----
-
-### M020: Window Manager Executor ✅
-**Status**: COMPLETE (2026-02-16)
-
-**Objective**: Resize and position windows
-
-**Why**: Power user feature
-
-**Dependencies**: M017
-
-**Deliverables**:
-- [x] `WindowManager.swift` struct implementing `CommandExecutor` protocol
-- [x] Uses Accessibility API (`AXUIElement`) to get and manipulate target app window
-- [x] `WindowPosition` enum with 10 positions: left_half, right_half, top_half, bottom_half, full_screen, center, top_left, top_right, bottom_left, bottom_right
-- [x] Position alias resolution (e.g. "left" → left_half, "maximize" → full_screen, "centered" → center)
-- [x] Handles hyphens, spaces, and case-insensitive input (e.g. "left-half", "LEFT HALF")
-- [x] Coordinate system conversion (NSScreen bottom-left → AX top-left)
-- [x] Multi-monitor support (frames respect screen origin offset)
-- [x] Accessibility permission check with `AXIsProcessTrusted()` — prompts user if not granted
-- [x] Tracks last non-aiDAEMON focused app and uses it when aiDAEMON is frontmost
-- [x] Window lookup fallback chain: focused window → main window → first window in app window list
-- [x] Registered in `AppDelegate` on launch via `CommandRegistry.shared.register()`
-
-**Success Criteria**:
-- [x] "left half" from aiDAEMON palette resizes the previously active app window (not aiDAEMON)
-- [x] "full screen" → target app window maximizes
-- [x] Works with different apps (requires Accessibility permission)
-
-**Testing**:
-- [ ] Test each position command with real windows (manual test)
-- [ ] Test with Safari, Finder, TextEdit (manual test)
-- [ ] Test Accessibility permission prompt on first use (manual test)
-- [ ] Test on multi-monitor setup if available (manual test)
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 1: Executor name is 'WindowManager' (automated)
-- [x] Test 2: All 10 position strings resolve correctly (automated)
-- [x] Test 3: All aliases resolve correctly (automated)
-- [x] Test 4: Hyphen/space/case variants resolve correctly (automated)
-- [x] Test 5: Unknown position returns nil (automated)
-- [x] Test 6: left_half frame calculation correct (automated)
-- [x] Test 7: right_half frame calculation correct (automated)
-- [x] Test 8: full_screen frame calculation correct (automated)
-- [x] Test 9: center frame calculation correct (60% of screen) (automated)
-- [x] Test 10: Quarter position frames correct (automated)
-- [x] Test 11: Multi-monitor offset screen preserves origin (automated)
-- [x] Test 12: Missing position returns error (automated)
-- [x] Test 13: End-to-end parse WINDOW_MANAGE command (automated)
-- [x] Test 14: All positions have non-empty displayName (automated)
-- [x] Test 15: Current app does not overwrite remembered external target app (automated)
-- [x] Test 16: Frontmost target aliases resolve correctly (automated)
-
-**Difficulty**: 4/5 (Accessibility API is complex)
-
-**Shipping**: No
-
-**Notes**: Uses `AXUIElement` API with target-app resolution: explicit app target (if present), otherwise frontmost non-aiDAEMON app, otherwise last remembered external app captured before the palette activates. This avoids resizing the aiDAEMON command window itself. Window selection falls back from focused → main → first window to handle apps that do not expose a focused window while inactive. Coordinate conversion needed: NSScreen uses bottom-left origin, AX API uses top-left origin relative to primary screen. Center position uses 60% of screen dimensions. Requires Accessibility permission (see M030) — gracefully prompts user and returns error if not granted. Position resolution handles LLM output quirks (hyphens, spaces, case variations). 16 automated tests run on launch covering position resolution, frame calculations, and target selection safeguards.
-
----
-
-### M021: System Info Executor ✅
-**Status**: COMPLETE (2026-02-17)
-
-**Objective**: Display system information
-
-**Why**: Quick info commands
-
-**Dependencies**: M017
-
-**Deliverables**:
-- [x] `SystemInfo.swift` struct implementing `CommandExecutor` protocol
-- [x] 8 info types: IP address, disk space, CPU usage, battery, memory, hostname, OS version, uptime
-- [x] Uses native Swift APIs (no shell commands): `getifaddrs`, `FileManager`, `host_processor_info`, `IOKit.ps`, `ProcessInfo`, `vm_statistics64`
-- [x] Public IP via `api.ipify.org` with 5-second timeout
-- [x] Alias resolution for LLM output variants (e.g. "ip" → ip_address, "ram" → memory, "storage" → disk_space, "ram_usage" → memory, "battery_status" → battery)
-- [x] Hyphen/underscore/case normalisation for target strings
-- [x] Registered in `AppDelegate` on launch via `CommandRegistry.shared.register()`
-- [x] `PromptBuilder` updated: SYSTEM_INFO/QUICK_ACTION boundary clarified, 3 extra SYSTEM_INFO examples added ("check battery", "how much ram", "disk space") to fix LLM misclassification of battery queries as QUICK_ACTION
-- [x] Test deadlock fixed: Tests 8-12 call `fetch()` directly (avoids `DispatchGroup.wait()` deadlock on main thread)
-
-**Success Criteria**:
-- [x] "what's my ip" → shows local + public IP address
-- [x] "check battery" → shows battery level/status (correctly routed as SYSTEM_INFO)
-- [x] "how much ram do i have" → shows memory details
-- [x] "disk space" → shows total/used/free with percentages
-- [x] Results formatted cleanly with labels
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 1: Executor name is 'SystemInfo' (automated)
-- [x] Test 2: All 8 canonical targets resolve (automated)
-- [x] Test 3: All aliases resolve correctly (automated)
-- [x] Test 4: Unknown target returns nil (automated)
-- [x] Test 5: Hyphen/underscore/case normalisation works (automated)
-- [x] Test 6: Missing target returns error (automated)
-- [x] Test 7: Unknown target returns descriptive error (automated)
-- [x] Test 8: Disk space returns success with details (automated)
-- [x] Test 9: OS version returns success with macOS info (automated)
-- [x] Test 10: Hostname returns non-empty result (automated)
-- [x] Test 11: Uptime returns formatted duration (automated)
-- [x] Test 12: Memory returns success with total (automated)
-- [x] Test 13: End-to-end parse SYSTEM_INFO command (automated)
-- [x] "check battery" routes to SYSTEM_INFO (verified via prompt fix)
-- [x] "how much ram do i have" routes to SYSTEM_INFO with target "memory"
-- [ ] All info types verified in live UI (manual test)
-- [ ] Test on battery and plugged in (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: Uses native Swift APIs exclusively — no shell-outs or `Process` calls. IP address uses `getifaddrs` for local IP and `URLSession` for public IP (with 5-second timeout to avoid hanging). CPU usage from `host_processor_info` (Mach kernel API). Battery via `IOKit.ps` framework (`IOPSCopyPowerSourcesInfo`). Memory via `vm_statistics64`. All queries dispatched to background queue; completion called on main queue. Tests 8-12 call `fetch()` directly to avoid main-thread deadlock (tests run on main queue, so `DispatchGroup.wait()` would block the `DispatchQueue.main.async` completion callback). Post-completion fixes: added `ram_usage` and `battery_status` aliases; updated `PromptBuilder` with SYSTEM_INFO examples and boundary clarification to prevent LLM misclassification.
-
----
-
-### M022: Command Validation Layer ✅
-**Status**: COMPLETE (2026-02-17)
-
-**Objective**: Validate commands before execution
-
-**Why**: Security and safety
-
-**Dependencies**: M017
-
-**Deliverables**:
-- [x] `CommandValidator.swift` struct with `validate(_:) -> ValidationResult` method
-- [x] `ValidationResult` enum: `.valid(Command)`, `.needsConfirmation(Command, reason:, level:)`, `.rejected(reason:)`
-- [x] `SafetyLevel` enum: `.safe`, `.caution`, `.dangerous`
-- [x] Input sanitization: strips null bytes + control chars, truncates to 500 chars per field
-- [x] Required field validation for all 7 command types with descriptive error messages
-- [x] Path traversal detection (`../`, `/..`) for FILE_OP and FILE_SEARCH commands
-- [x] Safety classification: read-only ops → `.safe`; file ops/quit → `.caution`; force kill → `.dangerous`
-- [x] Wired into `FloatingWindow.handleGenerationResult` between parse and execute
-- [x] `executeValidatedCommand()` helper extracted to clean up pipeline
-- [x] 15 automated tests covering validation, sanitization, safety classification, path traversal
-- [x] Tests wired into `AppDelegate` debug test suite
-
-**Success Criteria**:
-- [x] Valid commands pass through unchanged
-- [x] Invalid commands rejected with explanation
-- [x] Dangerous commands flagged for confirmation (M023 will add dialog)
-- [x] Path traversal attempts blocked
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 1: Valid SYSTEM_INFO is .valid (automated)
-- [x] Test 2: SYSTEM_INFO with nil target is .rejected (automated)
-- [x] Test 3: Valid APP_OPEN is .valid (automated)
-- [x] Test 4: FILE_SEARCH with 1-char query is .rejected (automated)
-- [x] Test 5: Valid FILE_SEARCH is .valid (automated)
-- [x] Test 6: Path traversal in FILE_OP target is .rejected (automated)
-- [x] Test 7: Control characters stripped from target (automated)
-- [x] Test 8: Overlong target truncated to 500 chars (automated)
-- [x] Test 9: FILE_OP delete needs .caution confirmation (automated)
-- [x] Test 10: PROCESS_MANAGE force_quit needs .dangerous confirmation (automated)
-- [x] Test 11: WINDOW_MANAGE is .valid (non-destructive) (automated)
-- [x] Test 12: WINDOW_MANAGE with blank target is .rejected (automated)
-- [x] Test 13: Confirmation reason contains target name (automated)
-- [x] Test 14: FILE_SEARCH resolves query field correctly (automated)
-- [x] Test 15: APP_OPEN with empty string target is .rejected (automated)
-
-**Difficulty**: 3/5
-
-**Shipping**: No
-
-**Notes**: Validator sits between `CommandParser.parse` and `CommandRegistry.execute`. `.needsConfirmation` cases currently log the reason and proceed (M023 will intercept these for the confirmation dialog). Sanitization runs on every command: control chars stripped, max 500 chars enforced per string field. Path traversal check covers `../` and `/..` sequences.
-
----
-
-### M023: Confirmation Dialog System ✅
-**Status**: COMPLETE (2026-02-17)
-
-**Objective**: Show confirmation for destructive actions
-
-**Why**: Prevent accidental damage
-
-**Dependencies**: M022
-
-**Deliverables**:
-- [x] `ConfirmationDialog.swift` — `ConfirmationState` observable + `ConfirmationDialogView` SwiftUI view
-- [x] `ConfirmationState` manages pending command, reason, safety level, and approve/cancel callbacks
-- [x] Inline confirmation view replaces results area in FloatingWindow when `.needsConfirmation` is returned
-- [x] Approve button executes the command; Cancel button shows "Action cancelled" message
-- [x] Visual styling: orange background/border for `.caution`, red for `.dangerous`
-- [x] Dangerous actions show "Warning" header with triangle icon and "Proceed Anyway" button (red tint)
-- [x] Caution actions show "Confirm Action" header with circle icon and "Approve" button (accent tint)
-- [x] Escape key dismisses confirmation (via existing `clearInputAndHide`)
-- [x] 8 automated tests covering state lifecycle, callbacks, and validator integration
-- [x] Tests wired into `AppDelegate` debug test suite
-
-**Success Criteria**:
-- [x] Destructive command → confirmation dialog appears inline
-- [x] Approve → command executes
-- [x] Cancel → "Action cancelled" message shown
-- [x] Safe commands bypass dialog entirely
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 1: Initial state is not presented (automated)
-- [x] Test 2: Present sets all fields correctly (automated)
-- [x] Test 3: Dismiss clears all fields and callbacks (automated)
-- [x] Test 4: onApprove callback fires (automated)
-- [x] Test 5: onCancel callback fires (automated)
-- [x] Test 6: FILE_OP delete triggers caution confirmation (automated)
-- [x] Test 7: PROCESS_MANAGE force_quit triggers dangerous confirmation (automated)
-- [x] Test 8: Safe command does not trigger confirmation (automated)
-- [ ] Test destructive commands in live UI (manual test)
-- [ ] Verify cancel shows "Action cancelled" (manual test)
-- [ ] Verify approve executes command (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: Confirmation dialog is shown inline in the floating window, replacing the results area. Uses `ConfirmationState` observable to drive visibility and button callbacks. `FloatingWindow.presentConfirmation()` sets up approve/cancel closures that dismiss the dialog and either execute or show cancellation message. Keyboard shortcuts: Enter = approve (`.defaultAction`), Escape = cancel (`.cancelAction` + existing window dismiss). Visual distinction between caution (orange) and dangerous (red) levels helps users gauge risk.
-
----
-
-### M024: Execution Result Handling ✅
-**Status**: COMPLETE (2026-02-17)
-
-**Objective**: Display execution results and errors
-
-**Why**: User feedback
-
-**Dependencies**: M018-M021
-
-**Deliverables**:
-- [x] SF Symbol icons in ResultsView header: `checkmark.circle.fill` (success), `xmark.circle.fill` (error)
-- [x] Updated labels: "Success" (was "Result"), "Error", "Processing"
-- [x] Compact result display: `"user input → Action Type"` context line + executor output
-- [x] Loading state shows `"Executing: Action Type..."` during command dispatch
-- [x] 6 automated tests covering icons, labels, state lifecycle, and color distinctness
-- [x] Tests wired into `AppDelegate` debug test suite
-
-**Success Criteria**:
-- [x] Success → green checkmark + "Success" label + message
-- [x] Error → red X + "Error" label + error description
-- [x] Output formatted with compact context line + executor results
-
-**Testing**:
-- [x] Build succeeds (BUILD SUCCEEDED)
-- [x] Test 1: Success style has checkmark icon and 'Success' label (automated)
-- [x] Test 2: Error style has xmark icon and 'Error' label (automated)
-- [x] Test 3: Loading style has 'Processing' label (automated)
-- [x] Test 4: ResultsState show/clear lifecycle works (automated)
-- [x] Test 5: All styles have distinct text colors (automated)
-- [x] Test 6: Success/error have icons, loading does not (automated)
-- [ ] Test successful commands in live UI (manual test)
-- [ ] Test failing commands in live UI (manual test)
-
-**Difficulty**: 2/5
-
-**Shipping**: No
-
-**Notes**: ResultsView now shows SF Symbol icons alongside the header label for success (green checkmark) and error (red X). Loading state retains the ProgressView spinner. Execution results display a compact `"user input → Action Type"` context line instead of the verbose command breakdown, keeping results clean and scannable.
-
----
-
-## PHASE 4: PIVOT TRANSITION
-
-### M025: Strategic Pivot Documentation Baseline ✅
-**Status**: COMPLETE (2026-02-17)
-
-**Objective**: Rewrite project documentation to reflect the companion-first vision.
-
-**Why**: The old roadmap optimized for a command launcher, not a JARVIS-style companion.
-
-**Dependencies**: M024
-
-**Deliverables**:
-- Foundation, architecture, threat model, milestones, shipping docs rewritten.
-- Completed milestones M001-M024 preserved.
-- New roadmap created with transition milestones first.
-
-**Success Criteria**:
-- Documentation consistently reflects the pivot.
-- Next milestone points to transition execution work (not legacy scope).
-
-**Difficulty**: 2/5
-**Shipping**: No
-
----
-
-### M026: Build Stability Recovery
 **Status**: PLANNED
 
-**Objective**: Return the project to a reliable build baseline before structural migration.
+**Objective**: Create an abstraction layer so the app can use either a local model or a cloud model through the same interface. Wrap the existing local LLM code behind this new interface.
 
-**Why**: Migration without a stable baseline creates false regressions and debugging noise.
+**Why this matters**: Right now the app is hardwired to use the local 8B model. We need a clean interface (`ModelProvider` protocol) so we can plug in a cloud model later without rewriting the inference pipeline. This milestone changes zero behavior — it just reorganizes the code.
+
+**Dependencies**: M024 (existing LLM pipeline)
+
+**Deliverables**:
+- [ ] `ModelProvider.swift` — Protocol definition:
+  ```swift
+  protocol ModelProvider {
+      var providerName: String { get }
+      var isAvailable: Bool { get }
+      func generate(prompt: String, params: GenerationParams) async throws -> String
+  }
+  ```
+- [ ] `LocalModelProvider.swift` — Wraps existing `LLMBridge` + `LLMManager` behind the `ModelProvider` protocol. No new logic, just adapter pattern.
+- [ ] `LLMManager.swift` updated to use `ModelProvider` instead of directly calling `LLMBridge`. Existing behavior preserved exactly.
+- [ ] Existing UI flow works identically (open app, find file, etc. still work through local model).
+
+**Success Criteria**:
+- [ ] App builds without errors
+- [ ] All existing features work exactly as before (local model handles everything)
+- [ ] `LocalModelProvider` conforms to `ModelProvider` protocol
+- [ ] No regression in any existing functionality
+
+**Difficulty**: 2/5
+
+---
+
+### M026: Cloud Model Provider (API Client)
+
+**Status**: PLANNED
+
+**Objective**: Build a cloud model client that can send prompts to a remote LLM API (Groq, Together AI, or similar) and return the response. Implements the same `ModelProvider` protocol.
+
+**Why this matters**: This is the brain upgrade. Cloud models (70B+) are dramatically smarter than the local 8B model and can handle complex multi-step planning. This client handles the network call, error handling, and response parsing.
 
 **Dependencies**: M025
 
 **Deliverables**:
-- Build succeeds in Debug and Release.
-- Existing command flows smoke-tested.
-- Build break checklist added to contributor workflow.
+- [ ] `CloudModelProvider.swift` — Implements `ModelProvider` protocol:
+  - Sends prompt to cloud API via `URLSession` over HTTPS
+  - Parses JSON response to extract generated text
+  - Handles errors: network failure, rate limiting, invalid API key, timeout
+  - 30-second request timeout
+  - Supports configurable API endpoint URL and model name
+  - Conforms to the same `ModelProvider` interface as local
+- [ ] `KeychainHelper.swift` — Secure credential storage:
+  - `save(key:value:)` — stores string in Keychain
+  - `load(key:)` — retrieves string from Keychain
+  - `delete(key:)` — removes entry from Keychain
+  - Uses `kSecClassGenericPassword` with service name `com.aidaemon`
+  - NEVER stores keys in UserDefaults, files, or source code
+- [ ] API key is read from Keychain at request time, not cached in memory
+- [ ] No API key = provider reports `isAvailable = false` gracefully
+- [ ] All requests use HTTPS. HTTP is rejected.
+
+**Security requirements** (from 02-THREAT-MODEL.md):
+- API key stored in macOS Keychain ONLY
+- All traffic over TLS (HTTPS)
+- No prompt or response data logged to cloud provider
+- API key never included in prompt context sent to model
 
 **Success Criteria**:
-- One-command build success on primary dev machine.
-- No known compile blockers in active branch.
+- [ ] App builds without errors
+- [ ] With a valid API key in Keychain, cloud provider can send a test prompt and receive a response
+- [ ] Without an API key, cloud provider reports unavailable (no crash, no error dialog)
+- [ ] Network errors produce clear error messages (not crashes)
+- [ ] API key is never visible in logs, console output, or source code
 
-**Difficulty**: 2/5
-**Shipping**: No
+**Difficulty**: 3/5
 
 ---
 
-### M027: Legacy Capability Inventory
+### M027: API Key Settings UI
+
 **Status**: PLANNED
 
-**Objective**: Produce a capability map of existing working features and known gaps.
+**Objective**: Add a UI in Settings where the user can enter, update, and remove their cloud API key. Also choose their preferred API provider.
 
-**Why**: Pivot migration requires explicit reuse versus replace decisions.
+**Why this matters**: Users need a way to activate the cloud brain. This gives them a Settings tab where they paste their API key and pick a provider (Groq, Together AI, etc.).
 
 **Dependencies**: M026
 
 **Deliverables**:
-- Matrix of supported commands, quality level, and known defects.
-- Executor maturity scoring (A/B/C).
-- Legacy-to-new architecture mapping notes.
+- [ ] New "Cloud" tab in `SettingsView.swift`:
+  - Provider picker (dropdown: Groq, Together AI, Custom)
+  - API key text field (secure/password style — shows dots, not the actual key)
+  - "Test Connection" button — sends a simple test prompt and shows success/failure
+  - "Remove Key" button — deletes key from Keychain
+  - Status indicator: "Connected" (green) / "Not configured" (gray) / "Error" (red)
+  - Help text explaining where to get an API key (with URL for each provider)
+- [ ] Provider selection stored in UserDefaults (just the provider name, NOT the key)
+- [ ] API key stored/retrieved via `KeychainHelper` (from M026)
+- [ ] Cloud indicator somewhere visible (menu bar or settings) showing whether cloud is active
 
 **Success Criteria**:
-- Inventory is complete enough to drive migration planning.
+- [ ] User can open Settings → Cloud tab
+- [ ] User can paste an API key and it's stored in Keychain
+- [ ] "Test Connection" sends a prompt and shows success/failure
+- [ ] "Remove Key" clears the key from Keychain
+- [ ] After removing key, cloud provider shows as unavailable
+- [ ] API key is never visible in plain text in the UI after entry
 
 **Difficulty**: 2/5
-**Shipping**: No
 
 ---
 
-### M028: Legacy-to-Tool Compatibility Adapter (Design)
+### M028: Model Router
+
 **Status**: PLANNED
 
-**Objective**: Define how current command dispatch maps to future tool calls.
+**Objective**: Build the routing layer that decides whether to use the local model or cloud model for each request.
 
-**Why**: We need backward compatibility while agent runtime is introduced.
+**Why this matters**: This is where the hybrid magic happens. Simple requests go to the fast local model (no network), complex requests go to the smart cloud model. The user doesn't have to think about it.
 
-**Dependencies**: M027
+**Dependencies**: M025, M026, M027
 
 **Deliverables**:
-- Adapter interface spec.
-- Mapping rules from `CommandType` to tool schemas.
-- Error and fallback behavior defined.
+- [ ] `ModelRouter.swift`:
+  - `route(input:context:) -> ModelProvider` — decides which provider to use
+  - Routing rules:
+    - If cloud is unavailable (no API key or offline) → always local
+    - If user has explicitly disabled cloud in Settings → always local
+    - If input is a simple single-action command (open app, find file, move window, system info) → local
+    - If input requires multi-step planning, complex reasoning, or screen analysis → cloud
+    - If local model fails or produces unparseable output → fallback to cloud (if available)
+  - Complexity detection heuristic:
+    - Short commands with known action words ("open", "find", "move", "show") → simple
+    - Commands with "and", "then", "after that", multiple verbs → complex
+    - Commands referencing screen content or requiring understanding of app state → complex
+- [ ] `LLMManager.swift` updated to use `ModelRouter` instead of always using local
+- [ ] UI shows which model was used for each response (e.g., small "Local" or "Cloud" badge)
+- [ ] User override in Settings: "Always use local" / "Always use cloud" / "Auto (recommended)"
 
 **Success Criteria**:
-- Design is approved and unblocks implementation milestones.
+- [ ] "open safari" → routed to local model, works as before
+- [ ] "set up a workflow that does X then Y then Z" → routed to cloud model (if available)
+- [ ] With cloud disabled, everything routes to local (no errors)
+- [ ] UI shows which model handled each request
+- [ ] Fallback works: if local fails, cloud is tried (if available)
 
 **Difficulty**: 3/5
-**Shipping**: No
 
 ---
 
-### M029: Conversation State Model (Design)
+## PHASE 5: CHAT INTERFACE
+
+*Goal: Transform the app from a single-shot command bar into a conversational chat interface.*
+
+---
+
+### M029: Conversation Data Model
+
 **Status**: PLANNED
 
-**Objective**: Define canonical conversation turn, task, and step models.
+**Objective**: Create the data structures for a conversation — messages, turns, and history. No UI changes yet, just the model layer.
 
-**Why**: Agentic behavior requires persistent structured state.
+**Why this matters**: JARVIS needs to have conversations, not just execute single commands. This milestone defines what a conversation looks like in code — a list of messages with roles (user/assistant), timestamps, and metadata.
 
 **Dependencies**: M028
 
 **Deliverables**:
-- Conversation turn schema.
-- Task/step lifecycle states.
-- Minimal storage contract.
+- [ ] `Conversation.swift`:
+  - `Message` struct: `id`, `role` (user/assistant/system), `content`, `timestamp`, `metadata` (which model was used, tool calls made, etc.)
+  - `Conversation` class (ObservableObject): ordered array of `Message`, `addMessage()`, `clearHistory()`
+  - `ConversationStore` — manages active conversation, persists session history to disk (JSON file in app support directory)
+  - Session auto-saves when window hides, auto-loads when window shows
+- [ ] Conversation context is included in prompts sent to the model:
+  - Last N messages (configurable, default 10) are prepended as context
+  - This gives the model memory of what was just discussed
+- [ ] Message metadata tracks: model used (local/cloud), tool calls, success/failure
 
 **Success Criteria**:
-- Schema supports multi-step execution and retry tracking.
+- [ ] App builds without errors
+- [ ] Messages can be created, stored, and retrieved
+- [ ] Conversation persists across window hide/show cycles
+- [ ] Conversation context is included in model prompts
 
-**Difficulty**: 3/5
-**Shipping**: No
+**Difficulty**: 2/5
 
 ---
 
-### M030: Orchestrator State Machine (Design)
+### M030: Chat UI
+
 **Status**: PLANNED
 
-**Objective**: Define orchestrator states and transition rules.
+**Objective**: Replace the single-shot command bar with a scrollable chat conversation view. User messages on the right, assistant messages on the left (or similar chat layout).
 
-**Why**: Agent loop reliability depends on deterministic state transitions.
+**Why this matters**: This is the visual transformation from "command launcher" to "JARVIS conversation." The user should feel like they're chatting with an assistant, not entering search queries.
 
 **Dependencies**: M029
 
 **Deliverables**:
-- State machine diagram.
-- Transition table with failure handling.
-- Cancellation and timeout policy.
+- [ ] `ChatView.swift` — replaces the current `ResultsView` in the floating window:
+  - Scrollable message list (newest at bottom)
+  - User messages: right-aligned, blue/accent background
+  - Assistant messages: left-aligned, gray/dark background
+  - Typing indicator when model is generating
+  - Auto-scroll to newest message
+  - Each message shows timestamp on hover
+  - Cloud/local badge on assistant messages
+- [ ] `FloatingWindow.swift` updated:
+  - Window expands taller to accommodate chat (min height ~400px when chat has messages)
+  - Input field stays at the bottom
+  - Chat history visible above input
+  - Window starts compact (just input field) when no messages yet
+- [ ] `CommandInputView.swift` updated:
+  - Enter submits message to conversation (not direct to LLM)
+  - Shift+Enter for newline (multi-line input)
+  - Up arrow to edit last message (future)
+- [ ] Escape still hides window but preserves conversation
+- [ ] "New conversation" button or shortcut (Cmd+N) clears chat
 
 **Success Criteria**:
-- All command paths map to explicit states.
+- [ ] Chat shows message history with user/assistant bubbles
+- [ ] New messages appear at bottom and auto-scroll
+- [ ] Multiple messages can be sent in sequence (conversation flows)
+- [ ] Window resizes appropriately for chat content
+- [ ] Escape hides window, reopening shows previous conversation
+- [ ] All existing features still work (open app, find file, etc.)
 
 **Difficulty**: 3/5
-**Shipping**: No
 
 ---
 
-### M031: Policy Engine v1 Ruleset (Design)
+### M031: Conversation Context in Prompts
+
 **Status**: PLANNED
 
-**Objective**: Specify baseline risk classes and approval rules.
+**Objective**: Feed conversation history into model prompts so the assistant remembers what was said earlier in the conversation.
 
-**Why**: Planning without runtime policy enforcement is unsafe.
+**Why this matters**: Without this, every message is treated independently. With this, the user can say "open Safari" then "now move it to the left" and the assistant knows "it" refers to Safari.
 
-**Dependencies**: M030
+**Dependencies**: M029, M030
 
 **Deliverables**:
-- Safe/caution/dangerous matrix by tool class.
-- Autonomy-level gating rules.
-- Deny-by-default behavior for unknown actions.
+- [ ] `PromptBuilder.swift` updated:
+  - New method `buildConversationalPrompt(messages:currentInput:)` that includes recent message history
+  - Format: system prompt + conversation history + current user input
+  - History truncated to fit within model context window (local: ~2048 tokens for history, cloud: ~4096 tokens)
+  - Token counting to prevent overflow
+- [ ] Both local and cloud model providers use conversational prompts
+- [ ] Assistant responses are stored in conversation before being displayed
 
 **Success Criteria**:
-- Ruleset is testable and implementation-ready.
+- [ ] User can say "open Safari" → "now move it to the left half" → assistant understands "it" = Safari
+- [ ] Conversation context doesn't exceed model limits (graceful truncation)
+- [ ] Each response is coherent with prior conversation
 
 **Difficulty**: 3/5
-**Shipping**: No
 
 ---
 
-### M032: Permission UX Refresh Plan
+## PHASE 6: AGENT LOOP
+
+*Goal: Build the orchestrator — the think-plan-act cycle that makes the assistant actually intelligent.*
+
+---
+
+### M032: Tool Schema System
+
 **Status**: PLANNED
 
-**Objective**: Redesign permission messaging for companion workflows.
+**Objective**: Define a formal schema for every tool the assistant can use. This replaces the ad-hoc `CommandType` enum with a structured, extensible tool definition system.
 
-**Why**: Companion scope needs clearer permission context and trust framing.
+**Why this matters**: For the AI to plan multi-step workflows, it needs to know what tools are available, what parameters they accept, and what they do. This is the "menu" the planner reads from.
 
 **Dependencies**: M031
 
 **Deliverables**:
-- Permission screens and user copy.
-- Capability-to-permission mapping.
-- Degraded-mode behavior documented.
+- [ ] `ToolDefinition.swift`:
+  ```swift
+  struct ToolDefinition {
+      let id: String              // "app_open", "file_search", etc.
+      let name: String            // "Open Application"
+      let description: String     // "Opens an application or URL"
+      let parameters: [ToolParameter]  // typed parameter definitions
+      let riskLevel: RiskLevel    // .safe, .caution, .dangerous
+      let requiredPermissions: [PermissionType]
+  }
+
+  struct ToolParameter {
+      let name: String           // "target"
+      let type: ParameterType    // .string, .int, .bool, .enum([...])
+      let description: String    // "The app name or URL to open"
+      let required: Bool
+  }
+  ```
+- [ ] `ToolRegistry.swift` — replaces `CommandRegistry.swift`:
+  - `register(tool:executor:)` — register a tool with its definition and executor
+  - `allTools() -> [ToolDefinition]` — list all registered tools (used by planner prompt)
+  - `executor(for toolId:) -> ToolExecutor?` — get executor for a tool
+  - `validate(call:) -> ValidationResult` — validate arguments against schema
+- [ ] Existing executors (AppLauncher, FileSearcher, WindowManager, SystemInfo) registered as tools with full schemas
+- [ ] `CommandRegistry.swift` kept temporarily for backward compatibility but all new code uses `ToolRegistry`
 
 **Success Criteria**:
-- Permission flow is understandable for non-technical alpha testers.
+- [ ] All 4 existing executors registered as tools with schemas
+- [ ] Tool definitions include parameter types, descriptions, and risk levels
+- [ ] Schema validation catches invalid arguments (wrong type, missing required field)
+- [ ] App builds and existing features work through both old and new registry
 
-**Difficulty**: 2/5
-**Shipping**: No
+**Difficulty**: 3/5
 
 ---
 
-### M033: Observability Baseline
+### M033: Orchestrator Skeleton
+
 **Status**: PLANNED
 
-**Objective**: Define minimum telemetry/logging for debugging agent behavior locally.
+**Objective**: Build the core agent loop — the component that takes a user goal, asks the model to plan, and executes the steps.
 
-**Why**: Multi-step systems are hard to debug without traces.
+**Why this matters**: This is the heart of JARVIS. Instead of "user types → model outputs one command → executor runs it," the flow becomes "user types → model plans multiple steps → orchestrator runs them in sequence, checking each result."
 
 **Dependencies**: M032
 
 **Deliverables**:
-- Structured local logs for plan, action, outcome.
-- Correlation IDs across a conversation turn.
-- Redaction policy for sensitive values.
+- [ ] `Orchestrator.swift`:
+  - State machine: `idle` → `understanding` → `planning` → `awaiting_approval` → `executing` → `responding`
+  - `handleUserInput(text:conversation:)` — entry point
+  - `Understanding` phase: sends user input + conversation context + available tools to model
+  - `Planning` phase: model returns a structured plan (list of tool calls)
+  - `Awaiting approval` phase: shows plan to user in chat, waits for confirmation
+  - `Executing` phase: runs each tool call in sequence via ToolRegistry
+  - `Responding` phase: summarizes what happened
+  - Error handling: if a step fails, the orchestrator tells the user what went wrong
+  - Maximum 10 steps per plan (hard limit, prevents runaway)
+  - 60-second total timeout for plan execution
+- [ ] `PlannerPrompt.swift`:
+  - Constructs the planning prompt: "You have these tools: [list]. The user wants: [goal]. Output a JSON plan."
+  - Includes tool definitions from ToolRegistry
+  - Includes conversation context
+  - Output format:
+    ```json
+    {
+      "understanding": "User wants to open Safari and move it to the left",
+      "steps": [
+        {"tool": "app_open", "args": {"target": "Safari"}},
+        {"tool": "window_manage", "args": {"target": "Safari", "position": "left_half"}}
+      ]
+    }
+    ```
+- [ ] `PlanParser.swift` — parses model's JSON plan into structured `Plan` object
+- [ ] `FloatingWindow` / chat UI updated to show:
+  - "I understand you want to..." (understanding)
+  - "Here's my plan: 1... 2... 3..." (plan preview)
+  - "Approve?" button (at autonomy level 0)
+  - Step-by-step progress as execution happens
+  - Final summary
 
 **Success Criteria**:
-- Failed workflows can be traced end-to-end from logs.
+- [ ] User says "open Safari and move it to the left" → orchestrator plans 2 steps → executes both
+- [ ] Plan is shown to user before execution (at level 0 autonomy)
+- [ ] User can approve or cancel the plan
+- [ ] If a step fails, user sees which step and why
+- [ ] Single-step commands still work (plan with 1 step)
+- [ ] 10-step limit enforced
+- [ ] Timeout enforced
 
-**Difficulty**: 3/5
-**Shipping**: No
+**Difficulty**: 5/5
 
 ---
 
-### M034: Pivot Transition Exit Gate
+### M034: Policy Engine v1
+
 **Status**: PLANNED
 
-**Objective**: Approve transition readiness before implementing the new core.
+**Objective**: Build the runtime policy engine that evaluates every planned action before execution. Replaces the existing `CommandValidator` with a more powerful, tool-aware system.
 
-**Why**: Prevent architecture churn and rework.
+**Why this matters**: The policy engine is the safety system. It sits between the planner and the executor and decides: is this action safe? Does it need confirmation? Should it be blocked?
 
-**Dependencies**: M026-M033
+**Dependencies**: M033
 
 **Deliverables**:
-- Transition review checklist completed.
-- Risks and unknowns prioritized.
-- Agent core milestone backlog confirmed.
+- [ ] `PolicyEngine.swift`:
+  - `evaluate(step:context:autonomyLevel:) -> PolicyDecision`
+  - `PolicyDecision` enum: `.allow`, `.requireConfirmation(reason:)`, `.deny(reason:)`
+  - Reads risk level from ToolDefinition
+  - Applies autonomy level rules (see 00-FOUNDATION.md):
+    - Level 0: everything needs confirmation
+    - Level 1: safe actions auto-execute
+    - Level 2: safe + scoped caution actions auto-execute
+    - Level 3: routine autonomy (still blocks dangerous)
+  - DANGEROUS actions are NEVER auto-approved regardless of level
+  - Unknown tools default to DANGEROUS
+  - Path traversal detection for file operations
+  - Input sanitization (control chars, null bytes, length limits)
+- [ ] Autonomy level stored in UserDefaults, configurable in Settings
+- [ ] `SettingsView.swift` updated: new "Safety" section with autonomy level picker and explanation of each level
+- [ ] Orchestrator calls PolicyEngine before each step execution
+- [ ] Existing `CommandValidator.swift` logic absorbed into PolicyEngine
 
 **Success Criteria**:
-- Team agrees migration can start with controlled risk.
+- [ ] At level 0: every action shows confirmation dialog
+- [ ] At level 1: "open Safari" auto-executes, "delete file" shows confirmation
+- [ ] Dangerous actions always show confirmation regardless of level
+- [ ] Unknown tool IDs are treated as dangerous
+- [ ] Path traversal attempts are blocked
+- [ ] Autonomy level is changeable in Settings
+
+**Difficulty**: 3/5
+
+---
+
+### M035: Error Recovery and Retry
+
+**Status**: PLANNED
+
+**Objective**: When a step in a plan fails, the orchestrator should attempt recovery instead of just stopping.
+
+**Why this matters**: Real-world usage will have failures — app doesn't open, file not found, window can't be moved. A good assistant adapts rather than giving up.
+
+**Dependencies**: M033, M034
+
+**Deliverables**:
+- [ ] `Orchestrator.swift` updated with recovery logic:
+  - If a step fails, ask the model: "Step N failed because [error]. What should I try instead?"
+  - Model can suggest an alternative step
+  - Maximum 2 retry attempts per step
+  - If all retries fail, report failure clearly and continue to next step (if steps are independent) or stop (if steps are dependent)
+- [ ] Step dependency tracking:
+  - Steps can be marked as dependent on previous steps
+  - If step 1 fails and step 2 depends on it, skip step 2
+  - If step 1 fails and step 2 is independent, still try step 2
+- [ ] User sees: "Step 2 failed: [reason]. I tried an alternative but it also failed. Continuing with step 3..."
+- [ ] Total plan timeout still enforced (60 seconds)
+
+**Success Criteria**:
+- [ ] If "open Chrome" fails (not installed), assistant tries "open Google Chrome" or suggests alternative
+- [ ] After max retries, clear error message shown
+- [ ] Independent steps still execute even if earlier steps fail
+- [ ] Dependent steps are skipped with explanation
+
+**Difficulty**: 3/5
+
+---
+
+## PHASE 7: COMPUTER CONTROL
+
+*Goal: Give the assistant eyes (screen vision) and hands (mouse/keyboard control) so it can interact with any app.*
+
+---
+
+### M036: Screenshot Capture
+
+**Status**: PLANNED
+
+**Objective**: Take screenshots of the user's screen programmatically, to be used for vision analysis.
+
+**Why this matters**: For the assistant to "see" what's on screen and click the right buttons, it needs screenshots. This is the foundation for screen vision.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `ScreenCapture.swift`:
+  - `captureFullScreen() -> NSImage?` — captures the entire primary display
+  - `captureWindow(of app: String) -> NSImage?` — captures a specific app's window
+  - `captureRegion(rect: CGRect) -> NSImage?` — captures a specific screen region
+  - Uses `CGWindowListCreateImage` API (requires Screen Recording permission)
+  - Returns image as NSImage, can be converted to JPEG/PNG data for cloud upload
+  - Compresses to JPEG at 80% quality to reduce upload size
+  - Maximum resolution cap (1920x1080) to limit data sent to cloud
+- [ ] Permission check: if Screen Recording not granted, returns nil with clear error
+- [ ] Permission request helper: opens System Settings → Privacy → Screen Recording
+- [ ] Screenshot tool registered in ToolRegistry:
+  - id: `screen_capture`
+  - risk level: `caution`
+  - required permission: `.screenRecording`
+
+**Security requirements**:
+- Screenshot data is ephemeral — processed and discarded, never written to disk
+- If sent to cloud for analysis, user must have opted into screen vision
+- Audit log records that a screenshot was taken (but does not store the image)
+
+**Success Criteria**:
+- [ ] With Screen Recording permission: screenshot returns valid image
+- [ ] Without permission: graceful error with instruction to grant permission
+- [ ] Screenshot quality is sufficient for reading text on screen
+- [ ] Image size is reasonable for cloud upload (< 500KB typical)
+
+**Difficulty**: 3/5
+
+---
+
+### M037: Vision Analysis (Cloud)
+
+**Status**: PLANNED
+
+**Objective**: Send screenshots to a vision-capable cloud model to understand what's on screen — identify UI elements, read text, locate buttons.
+
+**Why this matters**: This is how JARVIS "sees." It takes a screenshot, sends it to a vision model (like Claude or GPT-4V), and gets back a description of what's on screen: "I see a browser with Gmail open. The compose button is at the top left."
+
+**Dependencies**: M036, M026
+
+**Deliverables**:
+- [ ] `VisionAnalyzer.swift`:
+  - `analyze(image:prompt:) async throws -> String` — sends image + question to vision API
+  - Uses the cloud model provider's vision endpoint
+  - Prompt templates:
+    - "Describe what's on this screen"
+    - "Find the button labeled [X] and give me its approximate coordinates"
+    - "What application is in the foreground?"
+    - "Read the text in the main content area"
+  - Response parsing: extract coordinates, element descriptions, text content
+  - 10-second timeout for vision requests
+- [ ] `CloudModelProvider.swift` updated to support vision (image + text) requests
+  - Multipart request: image data + text prompt
+  - Provider-specific formatting (different APIs have different image formats)
+- [ ] Screen vision opt-in toggle in Settings:
+  - Default: OFF
+  - When enabled: clear warning about what will be sent to cloud
+  - "Screenshots are sent to [provider] for analysis. They are not stored."
+  - Visual indicator in UI when screen vision is active
+
+**Security requirements**:
+- Screen vision is OFF by default
+- Requires explicit opt-in per session (or persistent opt-in with clear toggle)
+- Screenshots sent over HTTPS, not stored by provider
+- Audit log records that vision analysis was performed
+
+**Success Criteria**:
+- [ ] With vision enabled: screenshot → cloud → description of screen content returned
+- [ ] Can identify buttons, text fields, and labels in common apps
+- [ ] Coordinate estimates are close enough for mouse clicking (within ~50px)
+- [ ] Without vision enabled: feature is completely inactive (no screenshots taken)
+- [ ] Works with at least one cloud vision provider (Groq, OpenAI, or Anthropic)
+
+**Difficulty**: 4/5
+
+---
+
+### M038: Mouse Control
+
+**Status**: PLANNED
+
+**Objective**: Programmatically move the mouse cursor and click at specific screen coordinates.
+
+**Why this matters**: Combined with screen vision, this lets the assistant click buttons, select menus, and interact with any app — even apps that don't have AppleScript support.
+
+**Dependencies**: M036
+
+**Deliverables**:
+- [ ] `MouseController.swift`:
+  - `moveTo(x:y:)` — move cursor to screen coordinates
+  - `click(x:y:)` — move cursor and left-click
+  - `doubleClick(x:y:)` — move cursor and double-click
+  - `rightClick(x:y:)` — move cursor and right-click
+  - Uses `CGEvent` API for mouse events
+  - Coordinate validation: reject negative or off-screen coordinates
+  - Small delay between move and click (50ms) for reliability
+- [ ] Mouse click tool registered in ToolRegistry:
+  - id: `mouse_click`
+  - risk level: `caution`
+  - parameters: x (int), y (int), clickType (enum: single/double/right)
+  - required permission: `.accessibility`
+- [ ] Visual feedback: brief highlight flash at click location (optional, can be disabled)
+
+**Security requirements**:
+- Click coordinates validated against screen bounds
+- Audit log records every click action with coordinates
+- Cannot click outside visible screen area
+
+**Success Criteria**:
+- [ ] `click(x:100, y:200)` moves cursor and clicks at that position
+- [ ] Clicks work in other applications (Finder, Safari, etc.)
+- [ ] Double-click and right-click work correctly
+- [ ] Off-screen coordinates are rejected with error
 
 **Difficulty**: 2/5
-**Shipping**: No
 
 ---
 
-## PHASE 5: AGENT CORE
+### M039: Keyboard Control
 
-### M035: Tool Schema Specification v1
-### M036: Tool Registry Runtime v1
-### M037: Planner Prompt Contract v1
-### M038: Step Graph Data Model
-### M039: Orchestrator Skeleton Implementation
-### M040: Step Execution Controller
-### M041: Result Normalization Layer
-### M042: Clarification Question Flow
-### M043: Retry and Recovery Strategy
-### M044: Plan Explanation Generator
-### M045: Cancellation and Interrupt Handling
-### M046: Background Task Progress Model
-### M047: Plan Confidence Scoring
-### M048: Error Taxonomy for Agent Runtime
-### M049: Planner Evaluation Harness
-### M050: Prompt Versioning and Rollback
-### M051: Legacy Pipeline Adapter v1
-### M052: Agent Core Exit Gate
+**Status**: PLANNED
 
-**Status for M035-M052**: PLANNED
+**Objective**: Programmatically type text and press keyboard shortcuts.
 
-**Phase Objective**: Deliver a working agent loop that can reason, plan, execute, recover, and explain.
+**Why this matters**: The assistant needs to type text into fields, press Enter, use Cmd+C/Cmd+V, and navigate with keyboard shortcuts. This is the other half of computer control (alongside mouse).
 
-**Phase Deliverables**:
-- Schema-based tool routing live.
-- Multi-step execution (2-5 step plans) operational.
-- User-visible planning and explanation path.
-- Legacy commands routable through adapter during migration.
+**Dependencies**: M038
 
-**Phase Exit Criteria**:
-- Core workflows can run through orchestrator path.
-- Policy hooks exist in every action path.
-- Regression risk to legacy functionality is controlled.
+**Deliverables**:
+- [ ] `KeyboardController.swift`:
+  - `typeText(text:)` — types a string character by character with brief delays
+  - `pressKey(key:modifiers:)` — presses a key with optional modifiers (Cmd, Shift, Option, Control)
+  - `pressShortcut(shortcut:)` — convenience for common shortcuts (Cmd+C, Cmd+V, Cmd+A, etc.)
+  - Uses `CGEvent` API for key events
+  - Typing speed: ~50ms between characters (fast but reliable)
+  - Special character handling: handles shift for uppercase, symbols, etc.
+- [ ] Keyboard type tool registered in ToolRegistry:
+  - id: `keyboard_type`
+  - risk level: `caution`
+  - parameters: text (string) OR key (string) + modifiers (array of strings)
+- [ ] Keyboard shortcut tool:
+  - id: `keyboard_shortcut`
+  - risk level: `caution`
+  - parameters: shortcut (string, e.g., "cmd+c", "cmd+shift+s")
 
-**Difficulty**: 5/5
-**Shipping**: No
+**Security requirements**:
+- Text content is sanitized (no control characters except explicit key presses)
+- Audit log records what was typed (content may be redacted if it looks like a password)
+- Maximum text length per type action: 1000 characters
 
----
-
-## PHASE 6: TOOL RUNTIME EXPANSION
-
-### M053: File Operations Executor v1
-### M054: Process Management Executor v1
-### M055: Quick Actions Executor v1
-### M056: Browser Control Tool v1
-### M057: Finder Selection Tool v1
-### M058: Clipboard Read/Write Tool v1
-### M059: Notification Tool v1
-### M060: Calendar Read Tool v1
-### M061: Calendar Write Tool v1
-### M062: Reminder Read/Write Tool v1
-### M063: Notes Tool v1
-### M064: Email Draft Tool v1
-### M065: Local Knowledge Index Tool v1
-### M066: Safe Terminal Task Tool v1
-### M067: Tool Permission Scoping UI
-### M068: Tool Timeout and Circuit Breakers
-### M069: Tool Error Recovery Patterns
-### M070: Tool Reliability Test Suite
-### M071: Tool Performance Budget Pass
-### M072: Tool Runtime Exit Gate
-
-**Status for M053-M072**: PLANNED
-
-**Phase Objective**: Expand from narrow command support to broad companion capabilities.
-
-**Phase Deliverables**:
-- Missing legacy executor families implemented.
-- New high-value companion tools added.
-- Tool permissions, timeouts, and resilience controls in place.
-
-**Phase Exit Criteria**:
-- At least 15 high-utility tools are production-candidate quality.
-- Tool failures degrade gracefully with recoverable messaging.
-
-**Difficulty**: 4/5
-**Shipping**: No
-
----
-
-## PHASE 7: MEMORY AND CONTEXT
-
-### M073: Working Memory Store
-### M074: Session Memory Store
-### M075: Long-Term Memory Store
-### M076: Memory Write Policy Engine
-### M077: Memory Retrieval Ranking v1
-### M078: Memory Conflict Resolution Rules
-### M079: Memory Controls UI (View/Edit/Delete)
-### M080: Memory Export and Full Wipe
-### M081: Frontmost App Context Provider
-### M082: Finder Context Provider
-### M083: Clipboard Context Provider
-### M084: Browser Tab Context Provider (Opt-In)
-### M085: Context Redaction Filters
-### M086: Memory+Context Exit Gate
-
-**Status for M073-M086**: PLANNED
-
-**Phase Objective**: Make the assistant context-aware and personalized without violating privacy boundaries.
-
-**Phase Deliverables**:
-- Tiered memory model implemented.
-- User controls for memory transparency and deletion.
-- Context providers available with trust/consent boundaries.
-
-**Phase Exit Criteria**:
-- Memory behavior is auditable and user-controllable.
-- Context improves quality without unsafe overreach.
-
-**Difficulty**: 5/5
-**Shipping**: No
-
----
-
-## PHASE 8: MULTIMODAL AND COMPANION UX
-
-### M087: Chat-First Interaction Redesign
-### M088: Conversation Timeline and Search
-### M089: Voice Input Pipeline v1
-### M090: Push-to-Talk UX
-### M091: On-Device TTS Response v1
-### M092: Voice Interrupt and Barge-In Handling
-### M093: Screen Capture Consent Flow
-### M094: Vision Context Parser v1
-### M095: Multimodal Plan Fusion
-### M096: Companion Persona Controls
-### M097: Proactive Suggestions (Non-Autonomous)
-### M098: Routine Template Library
-### M099: Accessibility and Internationalization Pass
-### M100: Companion UX Exit Gate
-
-**Status for M087-M100**: PLANNED
-
-**Phase Objective**: Deliver a companion experience that feels conversational, multimodal, and human-usable.
-
-**Phase Deliverables**:
-- Voice path usable for core tasks.
-- Optional vision/context path with strict consent.
-- Companion UX for daily usage patterns.
-
-**Phase Exit Criteria**:
-- Text + voice flows are reliable for common workflows.
-- Multimodal features respect explicit privacy controls.
-
-**Difficulty**: 4/5
-**Shipping**: No
-
----
-
-## PHASE 9: AUTONOMY AND SAFETY HARDENING
-
-### M101: Autonomy Levels Implementation (L0-L3)
-### M102: Scope-Based Auto-Approval Rules
-### M103: Time-Bound Permission Grants
-### M104: Dangerous Action Double Confirmation
-### M105: Global Kill Switch and Safe Mode
-### M106: Policy Fuzzing Harness
-### M107: Prompt/Tool Injection Red-Team Pass
-### M108: Incident Response Tooling
-### M109: External Security Review Preparation
-### M110: Safety Hardening Exit Gate
-
-**Status for M101-M110**: PLANNED
-
-**Phase Objective**: Ensure companion power does not outpace trust and safety.
-
-**Phase Deliverables**:
-- Runtime autonomy controls fully enforced.
-- Security and abuse testing integrated.
-- Emergency controls validated.
-
-**Phase Exit Criteria**:
-- No known critical policy bypasses.
-- High-risk workflows require explicit user authority.
-
-**Difficulty**: 5/5
-**Shipping**: No
-
----
-
-## PHASE 10: QUALITY, PERFORMANCE, AND RELEASE INFRA
-
-### M111: End-to-End Scenario Test Suite
-### M112: CI Pipeline and Quality Gates
-### M113: Crash Reporting Opt-In
-### M114: Performance Benchmark Suite
-### M115: Soak and Leak Testing
-### M116: Release Build Automation v2
-### M117: Notarization and Update Channel Rehearsal
-### M118: Pre-Alpha Candidate Gate
-
-**Status for M111-M118**: PLANNED
-
-**Phase Objective**: Prepare a stable release train before external testing cohorts.
-
-**Phase Deliverables**:
-- Automated quality coverage for core workflows.
-- Reproducible build and release process.
-- Known performance and stability baselines.
-
-**Phase Exit Criteria**:
-- Internal dogfood can run daily without major blockers.
-- Release candidate quality is sufficient for alpha users.
-
-**Difficulty**: 4/5
-**Shipping**: No
-
----
-
-## PHASE 11: ALPHA PROGRAM (EXTERNAL)
-
-**Planned Window**: 2026-05-11 to 2026-06-26
-
-### M119: Alpha Cohort Recruitment and Onboarding (2026-05-11)
-### M120: Alpha Wave 1 (2026-05-18 to 2026-05-29)
-### M121: Alpha Triage Sprint (2026-06-01 to 2026-06-05)
-### M122: Alpha Wave 2 Verification (2026-06-08 to 2026-06-19)
-### M123: Alpha Exit Gate (2026-06-22 to 2026-06-26)
-
-**Status for M119-M123**: PLANNED
-
-**Phase Objective**: Validate real-world usability and uncover architectural edge cases early.
-
-**Phase Deliverables**:
-- 15-30 alpha testers across varied hardware profiles.
-- Structured feedback and issue triage loops.
-- High-priority alpha defects resolved or mitigated.
-
-**Phase Exit Criteria**:
-- No unresolved critical defects.
-- Weekly active usage signal from alpha cohort.
-- Clear readiness for beta scale-up.
+**Success Criteria**:
+- [ ] `typeText("Hello World")` types the text into the currently focused field
+- [ ] `pressShortcut("cmd+c")` triggers copy
+- [ ] Works in various apps (TextEdit, Safari address bar, etc.)
+- [ ] Special characters (!, @, #, etc.) type correctly
 
 **Difficulty**: 3/5
-**Shipping**: No
 
 ---
 
-## PHASE 12: BETA PROGRAM (BROADER)
+### M040: Integrated Computer Control Flow
 
-**Planned Window**: 2026-07-06 to 2026-08-21
+**Status**: PLANNED
 
-### M124: Beta Infrastructure and Waitlist Prep (2026-06-29)
-### M125: Beta Launch Wave (2026-07-06)
-### M126: Beta Stabilization Sprint 1 (2026-07-20)
-### M127: Beta Stabilization Sprint 2 (2026-08-03)
-### M128: Beta Exit Gate (2026-08-17 to 2026-08-21)
+**Objective**: Connect screenshot → vision → mouse/keyboard into a working flow where the assistant can see the screen, decide what to click, and click it.
 
-**Status for M124-M128**: PLANNED
+**Why this matters**: This is the milestone where the assistant can actually "drive" the computer — look at the screen, understand it, and take action. This is the JARVIS moment.
 
-**Phase Objective**: Validate stability, reliability, and supportability at broader scale.
+**Dependencies**: M037, M038, M039
 
-**Phase Deliverables**:
-- 100+ beta participants.
-- Release updates shipped during beta with low friction.
-- Performance, crash, and task-success metrics tracked.
+**Deliverables**:
+- [ ] `ComputerControl.swift` — high-level coordinator:
+  - `performAction(description:) async throws` — "click the compose button in Gmail"
+  - Flow: capture screenshot → send to vision model → get element location → move mouse → click
+  - Verification: after clicking, capture new screenshot → verify screen changed as expected
+  - Retry: if click missed (screen didn't change), try again with adjusted coordinates
+  - Maximum 3 attempts per action
+- [ ] Orchestrator updated to support computer control steps in plans:
+  - New step type: `{"tool": "computer_action", "args": {"action": "click the New Workflow button"}}`
+  - Orchestrator calls ComputerControl for these steps
+- [ ] Wait-for-change capability: after an action, wait up to 5 seconds for the screen to update before proceeding to next step
+- [ ] User sees: real-time updates of what the assistant is seeing and doing
+  - "I see the Gmail inbox. Looking for the Compose button..."
+  - "Found it at (150, 300). Clicking..."
+  - "Compose window opened. Typing the recipient..."
 
-**Phase Exit Criteria**:
-- Crash-free sessions meet target.
-- Task completion quality meets launch thresholds.
-- Support burden remains manageable.
+**Security requirements**:
+- Every computer control action logged in audit
+- User can interrupt at any time (kill switch pauses execution)
+- Screen vision must be opted-in
+- Dangerous-looking actions (typing passwords, clicking "Delete") require confirmation
+
+**Success Criteria**:
+- [ ] Assistant can open Safari, navigate to a URL, and click a specific link
+- [ ] Assistant can open TextEdit and type a paragraph of text
+- [ ] Verification catches missed clicks and retries
+- [ ] User can see what the assistant is doing in real-time
+- [ ] Kill switch stops execution immediately
+
+**Difficulty**: 5/5
+
+---
+
+## PHASE 8: ESSENTIAL TOOLS
+
+*Goal: Build out the most useful tools beyond the existing 4.*
+
+---
+
+### M041: Clipboard Tool
+
+**Status**: PLANNED
+
+**Objective**: Read from and write to the macOS clipboard.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `ClipboardTool.swift`:
+  - `read() -> String?` — reads current clipboard text content
+  - `write(text:)` — writes text to clipboard
+  - Uses `NSPasteboard.general`
+  - Handles: plain text, rich text (strips to plain), URLs
+- [ ] Registered in ToolRegistry:
+  - `clipboard_read`: risk level `safe`
+  - `clipboard_write`: risk level `caution`
+
+**Success Criteria**:
+- [ ] Copy text in another app → assistant can read it
+- [ ] Assistant writes to clipboard → user can paste it
+
+**Difficulty**: 1/5
+
+---
+
+### M042: File Operations Tool
+
+**Status**: PLANNED
+
+**Objective**: Copy, move, rename, and delete files and folders.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `FileOperations.swift`:
+  - `copy(from:to:)` — copies file or folder
+  - `move(from:to:)` — moves file or folder
+  - `rename(path:newName:)` — renames file or folder
+  - `delete(path:)` — moves to Trash (NOT permanent delete)
+  - `createFolder(path:)` — creates new directory
+  - Uses `FileManager` API exclusively (no shell commands)
+  - Path validation: no traversal, no system directories, must be within user's home
+  - Scope restriction: by default, only operates within ~/Desktop, ~/Documents, ~/Downloads. Configurable.
+- [ ] Registered in ToolRegistry:
+  - `file_copy`, `file_move`, `file_rename`: risk level `caution`
+  - `file_delete`: risk level `dangerous` (even though it's Trash, not permanent)
+  - `folder_create`: risk level `caution`
+
+**Security requirements**:
+- Path traversal blocked (../../ etc.)
+- System directories blocked (/System, /Library, /usr, etc.)
+- Delete moves to Trash, NEVER uses permanent delete
+- All operations logged in audit
+
+**Success Criteria**:
+- [ ] "copy my resume from Downloads to Documents" works
+- [ ] "delete the old report on my Desktop" moves it to Trash
+- [ ] Attempting to access /System returns error
+- [ ] Path traversal attempts are blocked
 
 **Difficulty**: 3/5
-**Shipping**: No
 
 ---
 
-## PHASE 13: PUBLIC LAUNCH
+### M043: Browser Navigation Tool
 
-**Planned Window**: 2026-09-07 to 2026-10-05
+**Status**: PLANNED
 
-### M129: Release Candidate Freeze (2026-09-07)
-### M130: Launch Readiness Audit (2026-09-14)
-### M131: Public Rollout (2026-09-28)
-### M132: Week-1 Patch Planning and Rollout (2026-10-05)
+**Objective**: Open URLs in the user's preferred browser and control basic browser navigation via AppleScript.
 
-**Status for M129-M132**: PLANNED
+**Dependencies**: M034
 
-**Phase Objective**: Ship a trustworthy companion release and respond fast post-launch.
+**Deliverables**:
+- [ ] `BrowserTool.swift`:
+  - `openURL(url:browser:)` — opens URL in specified or default browser
+  - `getCurrentURL(browser:) -> String?` — reads current tab URL (via AppleScript)
+  - `getCurrentTitle(browser:) -> String?` — reads current tab title
+  - `newTab(url:browser:)` — opens URL in new tab
+  - Supports Safari and Chrome via AppleScript
+  - Falls back to `NSWorkspace.shared.open(url)` for other browsers
+- [ ] Registered in ToolRegistry:
+  - `browser_open`: risk level `safe`
+  - `browser_read_url`: risk level `safe`
+  - `browser_new_tab`: risk level `caution`
 
-**Phase Deliverables**:
-- Signed, notarized, update-enabled public build.
-- Launch checklist completed.
-- Week-1 issue response plan executed.
-
-**Phase Exit Criteria**:
-- Public users can install, trust, and use core companion workflows.
-- No launch-blocking regressions remain open.
+**Success Criteria**:
+- [ ] "open youtube.com" opens it in default browser
+- [ ] "what page am I on?" reads current Safari/Chrome tab URL and title
+- [ ] Works with both Safari and Chrome
 
 **Difficulty**: 3/5
-**Shipping**: YES (M131)
 
 ---
 
-## FUTURE PHASES (POST-V1)
+### M044: Notification Tool
 
-### Phase 14: Ecosystem and Extensibility
-- M133: Plugin SDK Design
-- M134: Plugin Capability Sandbox
-- M135: Community Plugin Distribution Model
-- M136: Enterprise Policy Pack
+**Status**: PLANNED
 
-### Phase 15: Hybrid Intelligence
-- M137: Optional Cloud Reasoning Router
-- M138: Privacy-Preserving Prompt Redaction Pipeline
-- M139: Cross-Device Companion Sync (Opt-In)
-- M140: Team Companion Workspaces
+**Objective**: Show macOS system notifications on behalf of the assistant.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `NotificationTool.swift`:
+  - `notify(title:body:)` — shows macOS notification via `UNUserNotificationCenter`
+  - Notification actions: dismiss (default), open aiDAEMON
+  - Request notification permission on first use
+- [ ] Registered in ToolRegistry:
+  - `notification_send`: risk level `caution`
+
+**Success Criteria**:
+- [ ] "remind me in 5 minutes" → notification appears after 5 minutes
+- [ ] Notification shows aiDAEMON icon and custom message
+
+**Difficulty**: 2/5
+
+---
+
+### M045: Safe Terminal Tool
+
+**Status**: PLANNED
+
+**Objective**: Execute terminal commands in a sandboxed environment with strict allowlisting.
+
+**Why this matters**: Some tasks genuinely need terminal commands (git status, npm install, brew update). But unrestricted terminal access is extremely dangerous. This tool provides a safe middle ground.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `TerminalTool.swift`:
+  - `execute(command:workingDirectory:) -> (stdout:String, stderr:String, exitCode:Int)`
+  - **ALLOWLISTED commands only**. Anything not on the list is rejected:
+    - `git` (status, log, diff, add, commit, push, pull, branch, checkout)
+    - `ls`, `pwd`, `which`, `whoami`
+    - `brew` (list, info, install, update)
+    - `npm` / `yarn` / `pnpm` (install, run, build, test, list)
+    - `python3` / `node` (script execution with file path, not inline code)
+    - `cat`, `head`, `tail`, `wc` (read-only file inspection)
+    - `curl` (GET requests only, no POST/PUT/DELETE)
+    - `ping`, `dig`, `nslookup` (network diagnostics)
+  - **BLOCKED patterns** (hard-coded, cannot be overridden):
+    - `rm -rf`, `rm -r`, `sudo`, `chmod`, `chown`, `dd`, `mkfs`
+    - Pipe to `sh`, `bash`, `zsh`, `eval`
+    - Redirect to system files
+    - Any command containing `$()` or backtick substitution
+  - Uses `Process` with argument arrays (no shell interpolation)
+  - Working directory restricted to user's home and subdirectories
+  - 30-second timeout per command
+  - Output truncated to 10,000 characters
+- [ ] Registered in ToolRegistry:
+  - `terminal_run`: risk level `dangerous` (always requires confirmation)
+
+**Security requirements**:
+- NEVER uses `Process("/bin/sh", ["-c", ...])` — always direct command execution
+- Arguments passed as array, never string interpolation
+- Allowlist is hardcoded, not configurable by model
+- Every execution logged with full command and output
+
+**Success Criteria**:
+- [ ] `git status` executes and returns output
+- [ ] `rm -rf /` is rejected immediately
+- [ ] `sudo anything` is rejected
+- [ ] Unknown commands are rejected
+- [ ] 30-second timeout works (test with `sleep 60`)
+- [ ] Output truncation works for very long output
+
+**Difficulty**: 4/5
+
+---
+
+## PHASE 9: MEMORY AND CONTEXT
+
+*Goal: Make the assistant context-aware and able to remember user preferences.*
+
+---
+
+### M046: Working and Session Memory
+
+**Status**: PLANNED
+
+**Objective**: Implement the first two memory tiers — working memory (current task) and session memory (current conversation).
+
+**Dependencies**: M035
+
+**Deliverables**:
+- [ ] `MemoryManager.swift`:
+  - Working memory: key-value store for current task context (cleared when task completes)
+    - e.g., "current_app" = "Safari", "last_search_results" = [...]
+  - Session memory: conversation history + context gathered during session
+    - Persisted to disk between window hide/show
+    - Cleared on "new conversation" or app quit
+  - `store(key:value:tier:)`, `recall(key:tier:)`, `clear(tier:)`
+- [ ] Context providers (integrated into orchestrator):
+  - Frontmost app detector: `NSWorkspace.shared.frontmostApplication`
+  - Clipboard reader: current clipboard text (with permission)
+  - These context values are included in planner prompts automatically
+
+**Success Criteria**:
+- [ ] Assistant remembers what was discussed earlier in the session
+- [ ] Context about frontmost app is available to the planner
+- [ ] Working memory clears between tasks
+- [ ] Session memory persists across window toggles
+
+**Difficulty**: 3/5
+
+---
+
+### M047: Long-Term Memory
+
+**Status**: PLANNED
+
+**Objective**: Add persistent memory that survives across sessions. User preferences, facts, and habits.
+
+**Dependencies**: M046
+
+**Deliverables**:
+- [ ] Long-term memory store:
+  - Stored as encrypted JSON file in app support directory
+  - Entries: `{ key, value, category, created, lastUsed }`
+  - Categories: preference, fact, habit, instruction
+  - Examples: "I prefer Chrome over Safari", "My project folder is ~/code/myapp", "I use n8n for automation"
+- [ ] Memory write requires user confirmation:
+  - Assistant: "I'd like to remember that you prefer Chrome. OK?"
+  - User approves → stored
+  - User denies → not stored
+- [ ] Blocked categories (NEVER stored):
+  - Passwords, API keys, tokens, private keys
+  - Social security numbers, credit card numbers
+  - Medical information
+  - Pattern matching to detect and block these
+- [ ] Memory included in planner prompts:
+  - "User preferences: [list of long-term memories]"
+  - Relevant memories selected based on current query
+
+**Success Criteria**:
+- [ ] User says "I always use Chrome" → assistant asks to remember → user approves → remembered across sessions
+- [ ] Next session: "open my browser" → opens Chrome (because it remembered)
+- [ ] User tries to store a password → blocked with explanation
+- [ ] Memory persists after app quit and restart
+
+**Difficulty**: 3/5
+
+---
+
+### M048: Memory Management UI
+
+**Status**: PLANNED
+
+**Objective**: Let users view, edit, and delete their stored memories.
+
+**Dependencies**: M047
+
+**Deliverables**:
+- [ ] New "Memory" tab in Settings:
+  - List of all long-term memories with category, value, and dates
+  - Delete individual memories (swipe or button)
+  - Edit memory values
+  - "Delete All Memories" button with confirmation
+  - Search/filter memories
+  - Memory count and storage size shown
+- [ ] In-chat memory commands:
+  - "what do you remember about me?" → lists relevant memories
+  - "forget that I like Chrome" → deletes specific memory
+
+**Success Criteria**:
+- [ ] All memories visible in Settings
+- [ ] Individual memories can be deleted
+- [ ] "Delete All" wipes everything with confirmation
+- [ ] Memory count updates in real-time
+
+**Difficulty**: 2/5
+
+---
+
+## PHASE 10: VOICE INTERFACE
+
+*Goal: Talk to JARVIS instead of typing.*
+
+---
+
+### M049: Speech-to-Text Input
+
+**Status**: PLANNED
+
+**Objective**: Add voice input using Apple's on-device Speech framework.
+
+**Why this matters**: Typing is fine, but talking to your computer like JARVIS is the dream. Apple's Speech framework runs on-device (no cloud, perfect privacy) and is free.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `SpeechInput.swift`:
+  - Uses `SFSpeechRecognizer` with on-device recognition
+  - `startListening()` / `stopListening()`
+  - Real-time transcription shown in input field as user speaks
+  - Auto-stop after 3 seconds of silence
+  - Language: English (US) — expandable later
+- [ ] Microphone permission request with clear explanation
+- [ ] Push-to-talk UX:
+  - Hold a hotkey (e.g., Cmd+Shift+Space long press) to speak
+  - Release to submit
+  - Or: click a microphone button in the input field
+- [ ] Voice input treated identically to text input (goes through same pipeline)
+- [ ] Visual indicator: pulsing microphone icon while listening
+
+**Success Criteria**:
+- [ ] Hold hotkey → speak "open Safari" → release → Safari opens
+- [ ] Transcription appears in real-time in the input field
+- [ ] Auto-stops after silence
+- [ ] Works without internet (on-device recognition)
+
+**Difficulty**: 3/5
+
+---
+
+### M050: Text-to-Speech Output
+
+**Status**: PLANNED
+
+**Objective**: The assistant speaks its responses aloud.
+
+**Dependencies**: M049
+
+**Deliverables**:
+- [ ] `SpeechOutput.swift`:
+  - Uses `AVSpeechSynthesizer` for on-device TTS
+  - Speaks assistant responses when voice mode is active
+  - Voice selection in Settings (system voices)
+  - Speech rate configurable
+  - Can be interrupted by new user input
+- [ ] Voice mode toggle: when on, both input and output are voice
+- [ ] Text responses still shown in chat alongside speech
+- [ ] Mute button to temporarily silence TTS
+
+**Success Criteria**:
+- [ ] Assistant speaks its response aloud
+- [ ] Works without internet (on-device TTS)
+- [ ] User can interrupt by speaking or pressing a key
+- [ ] Mute button stops speech immediately
+
+**Difficulty**: 2/5
+
+---
+
+## PHASE 11: SAFETY AND POLISH
+
+*Goal: Harden security, build trust, and polish the experience.*
+
+---
+
+### M051: Audit Log System
+
+**Status**: PLANNED
+
+**Objective**: Build a comprehensive, user-viewable log of every action the assistant takes.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `AuditLog.swift`:
+  - Every action recorded: timestamp, tool, arguments, result, model used, cloud/local
+  - Stored as JSON files in app support directory (one file per day)
+  - Retention: 30 days by default (configurable)
+  - Sensitive fields automatically redacted in log (passwords, API keys detected by pattern)
+- [ ] Audit viewer in Settings:
+  - Timeline view of actions
+  - Filter by date, tool, success/failure
+  - Expand to see full details
+  - "What was sent to cloud?" filter
+  - Export to JSON
+  - "Delete All Logs" button
+
+**Success Criteria**:
+- [ ] Every tool execution creates an audit entry
+- [ ] Cloud requests show what was sent (prompt text, whether screenshot included)
+- [ ] User can view, filter, and export logs
+- [ ] Sensitive data is redacted in logs
+
+**Difficulty**: 3/5
+
+---
+
+### M052: Kill Switch and Emergency Stop
+
+**Status**: PLANNED
+
+**Objective**: Instant, reliable way to stop all assistant activity.
+
+**Dependencies**: M033
+
+**Deliverables**:
+- [ ] Global kill switch hotkey (e.g., Cmd+Shift+Escape):
+  - Immediately stops all orchestrator execution
+  - Cancels any in-progress tool calls
+  - Stops mouse/keyboard automation
+  - Shows "Stopped" message
+  - Does NOT quit the app — just stops the current activity
+- [ ] Kill switch button in the floating window UI (always visible during execution)
+- [ ] Kill switch in menu bar dropdown
+- [ ] After kill switch: assistant enters idle state, asks user what to do
+
+**Success Criteria**:
+- [ ] During multi-step execution, kill switch stops everything within 500ms
+- [ ] Mouse/keyboard control stops immediately
+- [ ] No half-completed actions after kill switch (or they're safely rolled back)
+- [ ] Assistant remains usable after kill switch (doesn't crash or lock up)
+
+**Difficulty**: 3/5
+
+---
+
+### M053: Permission Management UI
+
+**Status**: PLANNED
+
+**Objective**: Clear, user-friendly interface showing what permissions the app has and why.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] "Permissions" tab in Settings:
+  - List of all macOS permissions (Accessibility, Automation, Microphone, Screen Recording)
+  - Status for each: Granted / Not Granted / Not Requested
+  - "Why needed" explanation for each
+  - "Open System Settings" button for each permission
+  - Visual warning for missing critical permissions (Accessibility)
+- [ ] Autonomy level controls (moved here from Safety section):
+  - Clear explanation of each level with examples
+  - Current level highlighted
+  - Scope management for Level 2 (which folders/apps are auto-approved)
+- [ ] Cloud settings summary:
+  - Is cloud enabled?
+  - Is screen vision enabled?
+  - What provider is connected?
+  - Quick toggle to disable cloud entirely
+
+**Success Criteria**:
+- [ ] All permission states accurately shown
+- [ ] "Open System Settings" links work for each permission
+- [ ] Autonomy level is clearly explained and changeable
+- [ ] Cloud status is visible at a glance
+
+**Difficulty**: 2/5
+
+---
+
+### M054: Security Hardening Pass
+
+**Status**: PLANNED
+
+**Objective**: Comprehensive security review and hardening of all code written so far.
+
+**Dependencies**: M040, M045 (all tools built)
+
+**Deliverables**:
+- [ ] Code audit for:
+  - Command injection vulnerabilities
+  - Path traversal vulnerabilities
+  - Unvalidated inputs
+  - Hardcoded secrets
+  - Insecure network calls
+  - Memory leaks of sensitive data
+- [ ] Prompt injection testing:
+  - Test clipboard injection scenarios
+  - Test file name injection scenarios
+  - Test model output injection scenarios
+  - Document findings and fixes
+- [ ] Terminal tool audit:
+  - Verify allowlist cannot be bypassed
+  - Test edge cases (unicode, long strings, special characters)
+- [ ] Screen vision audit:
+  - Verify screenshots are not persisted to disk
+  - Verify opt-in flow cannot be bypassed
+
+**Success Criteria**:
+- [ ] No known command injection vulnerabilities
+- [ ] No known path traversal vulnerabilities
+- [ ] No hardcoded secrets in codebase
+- [ ] All network calls use HTTPS
+- [ ] All credentials in Keychain only
+- [ ] Prompt injection test suite passes
+
+**Difficulty**: 4/5
+
+---
+
+## PHASE 12: PRODUCT LAUNCH
+
+*Goal: Package and ship the product.*
+
+---
+
+### M055: User Onboarding Flow
+
+**Status**: PLANNED
+
+**Objective**: First-launch experience that guides users through setup.
+
+**Dependencies**: M053
+
+**Deliverables**:
+- [ ] Welcome screen on first launch:
+  - "Welcome to aiDAEMON — your AI companion for Mac"
+  - Brief explanation (3-4 slides) of what it can do
+  - Permission requests with clear explanations (Accessibility, etc.)
+  - Optional: set up cloud brain (enter API key) or skip for local-only
+  - Optional: enable voice input
+  - Hotkey tutorial: "Press Cmd+Shift+Space to summon me anytime"
+- [ ] Setup state tracking: remembers where user left off, doesn't re-show completed steps
+
+**Success Criteria**:
+- [ ] New user goes from install to working assistant in < 3 minutes
+- [ ] All permissions explained clearly before requesting
+- [ ] Users who skip cloud setup get a working local-only assistant
+
+**Difficulty**: 3/5
+
+---
+
+### M056: Auto-Update System
+
+**Status**: PLANNED
+
+**Objective**: Ship updates to users automatically using Sparkle.
+
+**Dependencies**: M055
+
+**Deliverables**:
+- [ ] Sparkle integration configured:
+  - Appcast XML hosted (location TBD — GitHub releases or S3)
+  - Automatic update check on launch (configurable frequency)
+  - User prompt for available updates
+  - Background download and install on quit
+- [ ] Code signing and notarization:
+  - Developer ID certificate configured
+  - Build signed for distribution
+  - Notarized with Apple for Gatekeeper
+- [ ] Update settings in Settings:
+  - "Check for updates automatically" toggle
+  - "Check now" button
+  - Current version displayed
+
+**Success Criteria**:
+- [ ] App checks for updates on launch
+- [ ] When update available, user is prompted
+- [ ] Update installs cleanly
+- [ ] Notarized build passes Gatekeeper
+
+**Difficulty**: 3/5
+
+---
+
+### M057: Performance Optimization
+
+**Status**: PLANNED
+
+**Objective**: Profile and optimize the app for daily use.
+
+**Dependencies**: M056
+
+**Deliverables**:
+- [ ] Profile with Instruments:
+  - Memory usage (target: < 200MB idle, < 5GB with model loaded)
+  - CPU usage when idle (target: < 1%)
+  - Launch time (target: < 3 seconds)
+  - Model load time (target: < 5 seconds)
+- [ ] Optimize identified bottlenecks
+- [ ] Lazy model loading (don't load model until first use)
+- [ ] Memory cleanup when window is hidden (release non-essential resources)
+
+**Success Criteria**:
+- [ ] App meets performance targets
+- [ ] No memory leaks over extended use (1 hour)
+- [ ] App feels responsive — no noticeable lag in UI
+
+**Difficulty**: 3/5
+
+---
+
+### M058: Beta Build and Distribution
+
+**Status**: PLANNED
+
+**Objective**: Create a distributable beta build and share with initial testers.
+
+**Dependencies**: M057
+
+**Deliverables**:
+- [ ] Signed, notarized .dmg installer
+- [ ] Installation instructions document
+- [ ] Beta feedback mechanism (link to form or GitHub issues)
+- [ ] Known issues document
+- [ ] Distribute to 5-10 beta testers
+
+**Success Criteria**:
+- [ ] Beta testers can install and run the app
+- [ ] Core workflows work (open apps, find files, manage windows, chat, voice)
+- [ ] Cloud brain works for beta testers with API keys
+- [ ] Feedback received and triaged
+
+**Difficulty**: 3/5
+
+---
+
+### M059: Public Launch
+
+**Status**: PLANNED
+
+**Objective**: Ship v1.0 to the public.
+
+**Dependencies**: M058 + all beta feedback addressed
+
+**Deliverables**:
+- [ ] Landing page / website
+- [ ] Download link (direct .dmg)
+- [ ] Documentation / FAQ
+- [ ] Pricing page (free tier vs paid tier)
+- [ ] Payment integration for paid tier (Stripe or similar)
+- [ ] Support channel (email or Discord)
+
+**Success Criteria**:
+- [ ] Users can discover, download, install, and use the app
+- [ ] Free tier works without payment
+- [ ] Paid tier activates with payment
+- [ ] No critical bugs in first week
+
+**Difficulty**: 4/5
 
 ---
 
 ## Milestone Summary
 
-**Completed Milestones**: M001-M025
+**Completed**: M001–M024 (foundation)
 
-**Total Milestones (Current + Planned)**: 140
-- Foundation through launch: M001-M132
-- Future/post-v1: M133-M140
+**Remaining**: M025–M059 (35 milestones)
 
-**MVP/Launch Candidate Scope**: M001-M132
+| Phase | Milestones | What It Delivers |
+|-------|-----------|-----------------|
+| Phase 4: Hybrid Model | M025–M028 | Local + cloud AI, API key management, smart routing |
+| Phase 5: Chat Interface | M029–M031 | Conversational UI, message history, context |
+| Phase 6: Agent Loop | M032–M035 | Tool schemas, orchestrator, policy engine, error recovery |
+| Phase 7: Computer Control | M036–M040 | Screenshots, vision, mouse, keyboard, integrated control |
+| Phase 8: Essential Tools | M041–M045 | Clipboard, files, browser, notifications, terminal |
+| Phase 9: Memory | M046–M048 | Working/session/long-term memory, memory UI |
+| Phase 10: Voice | M049–M050 | Speech input and output |
+| Phase 11: Safety & Polish | M051–M054 | Audit log, kill switch, permissions UI, security hardening |
+| Phase 12: Product Launch | M055–M059 | Onboarding, updates, optimization, beta, public launch |
 
-**By Phase (Updated)**:
-- Phase 0-3 (legacy foundation): 25 milestones complete (M001-M025)
-- Phase 4 (pivot transition): 9 planned milestones (M026-M034)
-- Phase 5 (agent core): 18 planned milestones (M035-M052)
-- Phase 6 (tool expansion): 20 planned milestones (M053-M072)
-- Phase 7 (memory/context): 14 planned milestones (M073-M086)
-- Phase 8 (multimodal/UX): 14 planned milestones (M087-M100)
-- Phase 9 (autonomy/safety): 10 planned milestones (M101-M110)
-- Phase 10 (quality/release infra): 8 planned milestones (M111-M118)
-- Phase 11 (alpha): 5 planned milestones (M119-M123)
-- Phase 12 (beta): 5 planned milestones (M124-M128)
-- Phase 13 (public launch): 4 planned milestones (M129-M132)
-- Phase 14-15 future: 8 milestones (M133-M140)
-
-**Planned External Testing Windows**:
-- Alpha: 2026-05-11 to 2026-06-26
-- Beta: 2026-07-06 to 2026-08-21
-- Public Launch Window: 2026-09-07 to 2026-10-05
-
-**Critical Path (Pivoted)**:
-M026 -> M034 -> M039 -> M052 -> M072 -> M086 -> M100 -> M110 -> M118 -> M123 -> M128 -> M131
+**Critical Path**:
+M025 → M026 → M028 → M032 → M033 → M034 → M040 → M054 → M058 → M059
 
 ---
 
-## Next Actions
+## Next Action
 
-1. Complete M026 (Build Stability Recovery).
-2. Complete M027 (Legacy Capability Inventory).
-3. Complete M028-M031 (transition designs for adapter, state model, orchestrator, policy).
-4. Use M034 exit gate to approve implementation start for agent core.
-
----
-
-**Read Next**: `04-SHIPPING.md` for detailed stage gates and testing operations.
+Start with **M025: ModelProvider Protocol and Local Backend**.

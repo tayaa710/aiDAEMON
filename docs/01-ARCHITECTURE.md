@@ -1,307 +1,345 @@
 # 01 - ARCHITECTURE
 
-Complete system architecture for the pivoted aiDAEMON companion runtime.
+System architecture for aiDAEMON: a hybrid local/cloud AI companion for macOS.
 
 Last Updated: 2026-02-17
-Version: 2.0 (Agent Architecture)
+Version: 3.0 (Hybrid JARVIS Architecture)
 
 ---
 
-## System Overview
+## How It Works (Simple Version)
 
 ```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                   USER                                    │
-│            Text / Hotkey / Voice / (Future) Vision + Context             │
-└───────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                        Interaction & Conversation Layer                    │
-│  - Floating Command UI                                                     │
-│  - Chat transcript                                                         │
-│  - Conversation state and turn history                                     │
-└───────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                         Orchestrator (Agent Loop)                          │
-│  Understand Goal -> Plan -> Policy Check -> Execute -> Reflect -> Respond  │
-└───────────────────────────────────────────────────────────────────────────┘
-                │                      │                        │
-                ▼                      ▼                        ▼
-┌───────────────────────┐   ┌──────────────────────┐   ┌─────────────────────┐
-│   Planning Engine     │   │    Policy Engine     │   │   Memory Engine      │
-│  - Task decomposition │   │  - Risk scoring      │   │  - Working memory    │
-│  - Tool selection     │   │  - Capability checks │   │  - Session memory    │
-│  - Retry strategy     │   │  - Approval gating   │   │  - Long-term memory  │
-└───────────────────────┘   └──────────────────────┘   └─────────────────────┘
-                                      │
-                                      ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                            Tool Runtime / Router                           │
-│  - Schema-based tool definitions                                            │
-│  - Tool capability metadata                                                  │
-│  - Invocation dispatcher                                                     │
-└───────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                Tool Executors                              │
-│  App, Files, Windows, System, Process, Quick Actions, Browser, Finder...  │
-└───────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                         Audit, Telemetry, and Replay                        │
-│  - Action log                                                               │
-│  - Plan trace                                                               │
-│  - Approval/denial history                                                   │
-│  - Failure diagnostics                                                       │
-└───────────────────────────────────────────────────────────────────────────┘
+You say: "Set up an n8n workflow that watches my email"
+
+                    ┌─────────────────────────┐
+                    │     Your Mac (the app)   │
+                    │                          │
+  You ──────────── │  1. Hear/read your input  │
+  (voice or text)  │  2. Is this simple?       │
+                    │     YES → local AI does it│
+                    │     NO  → send to cloud   │──── encrypted ───→ Cloud Brain
+                    │  3. Get plan back         │←── plan comes back (nothing stored)
+                    │  4. Show you the plan     │
+                    │  5. You approve           │
+                    │  6. Execute steps         │  ← controls your Mac
+                    │  7. Show you results      │
+                    └─────────────────────────┘
+```
+
+**Key point**: The cloud brain only does the *thinking*. All the *doing* happens locally on your Mac. The cloud never touches your files, apps, or screen directly.
+
+---
+
+## System Layers
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        USER                              │
+│              Text / Voice / (Future: gesture)            │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                  INTERACTION LAYER                        │
+│  Chat UI • Input capture • Response display              │
+│  Plan preview • Approval dialogs • Action history        │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                   MODEL ROUTER                           │
+│  Decides: local model or cloud model?                    │
+│  Simple task → local 8B  |  Complex task → cloud API     │
+└─────────────────────────────────────────────────────────┘
+              │                           │
+              ▼                           ▼
+┌──────────────────────┐    ┌──────────────────────────┐
+│   LOCAL MODEL        │    │     CLOUD MODEL          │
+│   LLaMA 3.1 8B      │    │     (Groq/Together/AWS)  │
+│   via llama.cpp      │    │     via HTTPS API        │
+│   On-device, instant │    │     Encrypted, ephemeral │
+└──────────────────────┘    └──────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                  ORCHESTRATOR (Agent Loop)                │
+│  Understand → Plan → Policy Check → Execute → Verify    │
+└─────────────────────────────────────────────────────────┘
+         │                │                │
+         ▼                ▼                ▼
+┌───────────────┐  ┌────────────┐  ┌──────────────┐
+│ POLICY ENGINE │  │   MEMORY   │  │  AUDIT LOG   │
+│ Risk scoring  │  │ Working    │  │ Every action │
+│ Approval gate │  │ Session    │  │ is recorded  │
+│ Safety rules  │  │ Long-term  │  │ and viewable │
+└───────────────┘  └────────────┘  └──────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                     TOOL RUNTIME                         │
+│  Schema-validated tool calls with structured arguments   │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                    TOOL EXECUTORS                         │
+│  Apps • Files • Windows • Browser • Clipboard • Screen  │
+│  Terminal • Calendar • Email • System • Mouse/Keyboard   │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Architectural Layers
+## Layer Details
 
 ### 1. Interaction Layer
 
-Responsibilities:
-- Capture user intent in conversation form
-- Maintain transcript and turn context
-- Display plan previews, approvals, and outcomes
+What the user sees and touches.
 
-Current assets reused:
-- `FloatingWindow.swift`
-- `CommandInputView.swift`
-- `ResultsView.swift`
-- `ConfirmationDialog.swift`
+**Current assets (reused from M001-M024)**:
+- `FloatingWindow.swift` — the hovering command palette (will evolve into chat window)
+- `CommandInputView.swift` — text input field
+- `ResultsView.swift` — displays results
+- `ConfirmationDialog.swift` — approval prompts for risky actions
 
-### 2. Conversation & Context Layer
+**Future additions**:
+- Chat conversation view (scrollable message history)
+- Plan preview cards (shows steps before execution)
+- Voice input indicator
+- Action history browser
 
-Responsibilities:
-- Maintain turn-by-turn context
-- Normalize user intent into task frames
-- Pull real-time environment context (frontmost app, clipboard, selection)
+### 2. Model Router
 
-Core concept:
-- The assistant interprets goals with context, not one-shot command strings.
+Decides whether to use the local model or the cloud model for each request.
 
-### 3. Orchestrator Layer
+**Routing logic**:
+- Single-action commands (open app, find file, move window) → **local model**
+- Multi-step tasks, complex planning, screen understanding → **cloud model**
+- User has no API key / is offline → **always local model**
+- User explicitly chooses → **respect user choice**
 
-Responsibilities:
-- Runs the agent loop
-- Tracks step state and retries
-- Coordinates planner, policy, and tool runtime
+**Implementation**: `ModelRouter.swift` with a `ModelProvider` protocol that both local and cloud backends conform to.
 
-Loop states:
-1. `idle`
-2. `understanding`
-3. `planning`
-4. `awaiting_approval`
-5. `executing`
-6. `verifying`
-7. `responding`
-8. `failed`
-
-### 4. Planner Layer
-
-Responsibilities:
-- Convert goals into executable step graphs
-- Select tools and parameter candidates
-- Emit fallback paths
-
-Planner output (example):
-```json
-{
-  "goal": "Prepare my standup update from yesterday's git activity",
-  "steps": [
-    {"tool": "git_activity", "args": {"window": "yesterday"}},
-    {"tool": "summarize", "args": {"style": "brief"}},
-    {"tool": "notes_append", "args": {"target": "Daily Standup"}}
-  ],
-  "risk_level": "caution"
+```swift
+protocol ModelProvider {
+    func generate(prompt: String, params: GenerationParams) async throws -> String
+    var isAvailable: Bool { get }
+    var providerName: String { get }
 }
 ```
 
-### 5. Policy Layer
+### 3. Local Model Backend
 
-Responsibilities:
-- Validate every planned step against policy rules
-- Apply autonomy-level gating
-- Trigger approvals or deny execution
+What exists today. Runs inference on-device using llama.cpp.
 
-Policy dimensions:
-- Data sensitivity
-- Destructiveness
-- Reversibility
-- Permission scope
-- User autonomy level
+**Current assets (reused)**:
+- `ModelLoader.swift` — loads GGUF model into memory
+- `LLMBridge.swift` — Swift wrapper for llama.cpp C API
+- `LLMManager.swift` — state management and inference coordination
 
-### 6. Tool Runtime Layer
+**Characteristics**:
+- Zero network traffic
+- ~1-3 second inference for simple commands
+- Good for: open app, find file, move window, system info
+- Struggles with: multi-step planning, complex reasoning, screen understanding
 
-Responsibilities:
-- Register tools with schemas
-- Validate arguments
-- Route invocations to executors
-- Return structured results
+### 4. Cloud Model Backend
 
-Tool contract (target shape):
+New. Sends prompts to a remote model API over encrypted HTTPS.
+
+**Privacy architecture**:
+- Prompts sent over TLS 1.3 (encrypted in transit)
+- API provider does NOT train on data (contractual)
+- No prompts, responses, or context stored server-side
+- API key stored in macOS Keychain (never in code or config files)
+- User can view what was sent in the local audit log
+- User can disable cloud entirely in Settings
+
+**Provider options (swappable)**:
+- Groq (fast, cheap, ~$3-5/month for personal use)
+- Together AI (similar pricing)
+- AWS Bedrock (more enterprise, user's own AWS account)
+
+**Implementation**: `CloudModelProvider.swift` conforming to `ModelProvider` protocol.
+
+### 5. Orchestrator (Agent Loop)
+
+The brain's decision-making cycle. Takes a user goal and breaks it into executable steps.
+
+**States**:
+```
+idle → understanding → planning → awaiting_approval → executing → verifying → responding
+                                                                       ↓
+                                                                    failed → recovering
+```
+
+**What each state does**:
+1. `understanding` — Parse what the user wants. Pull context (frontmost app, clipboard, etc.)
+2. `planning` — Ask the model to decompose the goal into tool calls
+3. `awaiting_approval` — Show the plan to the user. Wait for approval (at autonomy levels 0-1)
+4. `executing` — Run each tool call in sequence
+5. `verifying` — Check if the action succeeded (e.g., did the window actually move?)
+6. `responding` — Show the user what happened
+7. `failed` / `recovering` — Something went wrong. Try an alternative or ask the user.
+
+### 6. Policy Engine
+
+Sits between the planner and executor. Every proposed action must pass through policy.
+
+**Risk classification**:
+- `safe` — read-only, non-destructive (show system info, search files, read clipboard)
+- `caution` — modifies state but reversible (move files, close apps, change settings)
+- `dangerous` — destructive or irreversible (delete files, send emails, kill processes, terminal commands)
+
+**Rules**:
+- `safe` actions can auto-execute at autonomy level 1+
+- `caution` actions need confirmation at level 0, auto-execute at level 2+ within approved scopes
+- `dangerous` actions ALWAYS need explicit confirmation. No exceptions. No autonomy level bypasses this.
+- Unknown/unclassified actions are treated as `dangerous` by default
+
+### 7. Tool Runtime
+
+Validates and dispatches tool calls. Every tool has a schema.
+
+**Tool definition shape**:
 ```swift
 struct ToolDefinition {
-    let id: String
-    let description: String
-    let inputSchema: JSONSchema
-    let capability: CapabilityClass
-    let riskLevel: RiskLevel
+    let id: String           // e.g., "app_open"
+    let name: String         // e.g., "Open Application"
+    let description: String  // Human-readable description
+    let inputSchema: [ParameterDef]  // Required and optional parameters
+    let riskLevel: RiskLevel // safe, caution, or dangerous
+    let requiresPermission: [PermissionType]  // e.g., [.accessibility]
 }
 ```
 
-### 7. Executor Layer
+**Current tools (from M001-M024, reused)**:
+- `app_open` — Open apps and URLs (AppLauncher.swift)
+- `file_search` — Search files via Spotlight (FileSearcher.swift)
+- `window_manage` — Move/resize windows (WindowManager.swift)
+- `system_info` — Battery, disk, IP, etc. (SystemInfo.swift)
 
-Responsibilities:
-- Execute system actions through native APIs
-- Return deterministic and parseable outputs
-- Never bypass policy or schema checks
-
-Legacy compatibility:
-- Existing `CommandRegistry` and implemented executors remain active while tool runtime is introduced.
+**New tools (to be built)**:
+- `screen_capture` — Take screenshot for vision analysis
+- `mouse_click` — Click at screen coordinates
+- `keyboard_type` — Type text
+- `keyboard_shortcut` — Press key combination
+- `browser_navigate` — Open URL in browser
+- `clipboard_read` — Read clipboard contents
+- `clipboard_write` — Write to clipboard
+- `file_operation` — Copy, move, rename, delete files
+- `terminal_run` — Execute sandboxed terminal commands
+- `notification_send` — Show system notification
 
 ### 8. Memory Layer
 
-Responsibilities:
-- Store relevant history and preferences
-- Support recall without over-retention
-- Respect memory boundaries and deletion controls
+Helps the assistant remember context and preferences.
 
-Memory tiers:
-- Working: task-local scratch data
-- Session: same-run context
-- Long-term: explicit user-approved memories
+**Memory tiers**:
+- **Working memory** — current task only. What steps have been done, what's next. Cleared when task ends.
+- **Session memory** — current conversation. Previous messages and context. Cleared when window closes.
+- **Long-term memory** — user-approved preferences. "I always use Chrome." "My project folder is ~/code." Persists across sessions.
 
-### 9. Audit & Replay Layer
+**Privacy rules**:
+- Long-term memory writes require user confirmation
+- User can view, edit, and delete any memory
+- Full wipe available in Settings
+- Passwords, tokens, and secrets are NEVER stored in memory (blocked by category filter)
+- Memory is stored locally in encrypted format. Never sent to cloud.
 
-Responsibilities:
-- Persist step-by-step execution traces
-- Support debugging and user trust
-- Enable "why did it do that" introspection
+### 9. Audit Log
 
----
+Records every action the assistant takes. This is how users can trust the system.
 
-## Compatibility and Migration Plan
+**Logged per action**:
+- Timestamp
+- What the user asked
+- What the AI understood
+- What plan was generated
+- Whether approval was given
+- What tool was called with what arguments
+- Whether it succeeded or failed
+- Whether cloud model was used (and what was sent)
 
-### Why a Migration Layer Exists
-
-The app currently runs a parser -> validator -> registry -> executor flow.
-That stack is useful and should not be discarded immediately.
-
-### Migration strategy
-
-1. Keep existing command pipeline operational.
-2. Introduce tool runtime in parallel.
-3. Add orchestrator that can call either:
-   - Legacy command dispatch
-   - New tool-call dispatch
-4. Gradually retire one-shot-only pathways.
-
-### Immediate bridge milestones
-
-- M025-M032 are transition milestones.
-- They stabilize current code and introduce agent scaffolding without destructive rewrites.
+**Storage**: Local only. JSON files in app support directory. User can export or delete.
 
 ---
 
-## Data Model Targets
+## Data Flow: Simple Task (Local)
 
-### Conversation Turn
-
-```json
-{
-  "turn_id": "uuid",
-  "timestamp": "ISO8601",
-  "user_input": "string",
-  "assistant_goal": "string",
-  "plan": [],
-  "actions": [],
-  "result": "string",
-  "status": "success|partial|failed"
-}
+```
+User: "open safari"
+  → Input captured by CommandInputView
+  → ModelRouter: simple task → local model
+  → Local LLM generates: {"tool": "app_open", "target": "Safari"}
+  → Policy engine: app_open is "safe" → auto-execute
+  → AppLauncher opens Safari
+  → Result shown: "Opened Safari"
+  → Audit log entry written
+  → Total time: ~1-2 seconds, zero network
 ```
 
-### Action Record
+## Data Flow: Complex Task (Cloud)
 
-```json
-{
-  "action_id": "uuid",
-  "tool": "string",
-  "args": {},
-  "risk": "safe|caution|dangerous",
-  "approval": "auto|manual|denied",
-  "outcome": "success|error",
-  "details": "string"
-}
 ```
+User: "set up an n8n workflow that watches my gmail"
+  → Input captured
+  → ModelRouter: multi-step task → cloud model
+  → Prompt sent to Groq API over HTTPS (encrypted)
+  → Cloud model returns plan:
+      Step 1: Open browser to n8n dashboard
+      Step 2: Click "New Workflow"
+      Step 3: Add Gmail trigger node
+      Step 4: Configure trigger settings
+      ...
+  → Plan shown to user for approval
+  → User approves
+  → Steps executed one by one (with screen vision for verification)
+  → Each step logged in audit
+  → Total time: 15-60 seconds depending on complexity
+  → Cloud saw: the prompt text only. Never the screen, files, or credentials.
+```
+
+---
+
+## Permissions Required
+
+| Permission | Why | When Asked |
+|-----------|-----|-----------|
+| Accessibility | Control other apps (move windows, click buttons, read UI elements) | First launch |
+| Automation (Apple Events) | Send commands to apps (AppleScript) | First use of app control |
+| Microphone | Voice input | When user enables voice |
+| Screen Recording | Screenshot for vision features | When user enables screen vision |
+
+Each permission is requested only when needed, with a clear explanation of why.
 
 ---
 
 ## Performance Targets
 
-### Interaction
-- Hotkey to visible UI: <150 ms
-- Text submit to first token: <700 ms (steady-state)
-
-### Planning
-- Basic plan generation: <1.5 s (local)
-- Complex multi-step plan: <3.0 s target
-
-### Execution
-- Safe single tool action: <1.0 s median
-- Multi-step workflow (3-5 steps): <8.0 s median
-
-### Stability
-- Crash-free sessions in beta: >=99.5%
-- Tool-call success for supported tasks: >=92%
+| Metric | Target |
+|--------|--------|
+| Hotkey to visible UI | < 150ms |
+| Simple task (local model) | < 2 seconds |
+| Complex task (cloud model) | < 5 seconds for plan, varies for execution |
+| Screen capture + vision analysis | < 3 seconds |
+| App memory usage (idle) | < 200MB |
+| App memory usage (model loaded) | < 5GB |
 
 ---
 
-## Permissions and Capabilities
+## Technology Stack
 
-### Required now
-- Accessibility
-- Automation (Apple Events)
-
-### Optional later (explicitly gated)
-- Microphone (voice input)
-- Screen Recording (vision/context features)
-
-Each permission must map to user-visible value and policy enforcement.
-
----
-
-## Release Readiness Architecture Gates
-
-### Alpha Gate
-- Orchestrator + tool runtime functional for core workflows
-- Policy engine v1 active for all actions
-- Memory tiering functional (working + session)
-
-### Beta Gate
-- Long-term memory controls complete
-- Multimodal path stable (voice minimum)
-- Recovery and retry strategies validated
-
-### Public Gate
-- Full audit/replay reliability
-- Security hardening complete
-- Clear autonomy UX and fail-safe controls
-
----
-
-## Architecture Decision Summary
-
-1. Pivot is an additive migration, not a restart.
-2. Agent loop is the new core execution model.
-3. Policy engine is mandatory runtime infrastructure.
-4. Tool schemas replace ad-hoc command dispatch over time.
-5. Existing completed milestones are foundational migration assets.
+| Component | Technology | Why |
+|-----------|-----------|-----|
+| App framework | SwiftUI + AppKit | Native macOS, best system integration |
+| Local LLM | llama.cpp via LlamaSwift (mattt/llama.swift) | Best local inference for Apple Silicon |
+| Cloud LLM | HTTPS API (Groq/Together/Bedrock) | Cheap, fast, provider-swappable |
+| Global hotkey | KeyboardShortcuts (sindresorhus) | Reliable, well-maintained |
+| Auto-updates | Sparkle | Standard for non-App Store Mac apps |
+| Credential storage | macOS Keychain | OS-level encryption, best practice |
+| Screen control | Accessibility API (AXUIElement) | Native, no third-party dependency |
+| Keyboard/mouse | CGEvent API | System-level, reliable |
+| Speech-to-text | Apple Speech framework | On-device, private, free |
+| Text-to-speech | AVSpeechSynthesizer | On-device, private, free |
