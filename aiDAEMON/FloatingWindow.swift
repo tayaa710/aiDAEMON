@@ -7,6 +7,7 @@ final class FloatingWindow: NSWindow {
 
     private let commandInputState = CommandInputState()
     private let resultsState = ResultsState()
+    private let confirmationState = ConfirmationState()
 
     init() {
         super.init(
@@ -68,6 +69,7 @@ final class FloatingWindow: NSWindow {
             rootView: FloatingWindowShellView(
                 commandInputState: commandInputState,
                 resultsState: resultsState,
+                confirmationState: confirmationState,
                 onSubmit: { [weak self] command in
                     self?.handleSubmit(command)
                 }
@@ -106,8 +108,32 @@ final class FloatingWindow: NSWindow {
     private func clearInputAndHide() {
         commandInputState.clear()
         resultsState.clear()
+        confirmationState.dismiss()
         resizeForResultsVisibility(hasResults: false, animated: false)
         hideWindow()
+    }
+
+    private func presentConfirmation(command: Command, userInput: String, reason: String, level: SafetyLevel) {
+        NSLog("CommandValidator: needsConfirmation (%@) — %@",
+              level == .dangerous ? "dangerous" : "caution", reason)
+
+        // Clear results area so only the confirmation dialog shows
+        resultsState.clear()
+        resizeForResultsVisibility(hasResults: true)
+
+        confirmationState.present(command: command, userInput: userInput, reason: reason, level: level)
+
+        confirmationState.onApprove = { [weak self] in
+            guard let self else { return }
+            self.confirmationState.dismiss()
+            self.executeValidatedCommand(command, userInput: userInput)
+        }
+
+        confirmationState.onCancel = { [weak self] in
+            guard let self else { return }
+            self.confirmationState.dismiss()
+            self.resultsState.show("Action cancelled.", style: .error)
+        }
     }
 
     private func handleSubmit(_ command: String) {
@@ -178,10 +204,8 @@ final class FloatingWindow: NSWindow {
                     resizeForResultsVisibility(hasResults: true)
                     return
 
-                case .needsConfirmation(let validCmd, let reason, _):
-                    // M023 will add a real confirmation dialog; for now, show reason and proceed
-                    NSLog("CommandValidator: needsConfirmation — %@", reason)
-                    executeValidatedCommand(validCmd, userInput: userInput)
+                case .needsConfirmation(let validCmd, let reason, let level):
+                    presentConfirmation(command: validCmd, userInput: userInput, reason: reason, level: level)
 
                 case .valid(let validCmd):
                     executeValidatedCommand(validCmd, userInput: userInput)
@@ -307,6 +331,7 @@ final class FloatingWindow: NSWindow {
 private struct FloatingWindowShellView: View {
     @ObservedObject var commandInputState: CommandInputState
     @ObservedObject var resultsState: ResultsState
+    @ObservedObject var confirmationState: ConfirmationState
 
     let onSubmit: (String) -> Void
 
@@ -329,7 +354,9 @@ private struct FloatingWindowShellView: View {
                     )
                 }
 
-                if let output = resultsState.output {
+                if confirmationState.isPresented {
+                    ConfirmationDialogView(state: confirmationState)
+                } else if let output = resultsState.output {
                     ResultsView(output: output, style: resultsState.style)
                 }
             }
@@ -337,6 +364,7 @@ private struct FloatingWindowShellView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.18), value: resultsState.hasResults)
+        .animation(.easeInOut(duration: 0.18), value: confirmationState.isPresented)
     }
 }
 

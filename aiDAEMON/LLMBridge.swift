@@ -68,7 +68,7 @@ public final class LLMBridge {
         }
 
         let vocab = llama_model_get_vocab(handle.model)
-        let contextSize = llama_context_default_params().n_ctx
+        let contextSize = llama_n_ctx(handle.context)
 
         // Tokenize the prompt
         let tokens = try tokenize(prompt: prompt, vocab: vocab, addBOS: true)

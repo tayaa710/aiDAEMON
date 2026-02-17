@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         WindowManager.runTests()
         SystemInfo.runTests()
         CommandValidator.runTests()
+        ConfirmationState.runTests()
         #endif
 
         HotkeyManager.shared.startListening()
