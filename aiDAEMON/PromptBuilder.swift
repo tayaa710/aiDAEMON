@@ -21,11 +21,13 @@ public struct PromptBuilder {
         Available command types:
         - APP_OPEN: Open an application or URL
         - FILE_SEARCH: Find files using Spotlight
-        - WINDOW_MANAGE: Resize, move, or close windows
+        - WINDOW_MANAGE: Move or resize a window (left_half, right_half, full_screen, etc.) — does NOT quit apps
         - SYSTEM_INFO: Check or show system status (ip, disk, cpu, battery, memory, hostname, os version, uptime)
         - FILE_OP: File operations (move, rename, delete, create)
-        - PROCESS_MANAGE: Quit, restart, or kill processes
+        - PROCESS_MANAGE: Quit, restart, or kill a running app or process
         - QUICK_ACTION: Perform system actions (screenshot, empty trash, DND, lock screen)
+
+        IMPORTANT: Use PROCESS_MANAGE (not WINDOW_MANAGE) when the user says "close", "quit", or "exit" an app.
 
         Use SYSTEM_INFO for questions about system status. Use QUICK_ACTION only for actions that change something.
         SYSTEM_INFO targets: ip_address, disk_space, cpu_usage, battery, battery_time, memory, hostname, os_version, uptime.
@@ -64,6 +66,12 @@ public struct PromptBuilder {
         User: "quit chrome"
         {"type": "PROCESS_MANAGE", "target": "Google Chrome", "parameters": {"action": "quit"}, "confidence": 0.90}
 
+        User: "close notes"
+        {"type": "PROCESS_MANAGE", "target": "Notes", "parameters": {"action": "quit"}, "confidence": 0.95}
+
+        User: "close safari"
+        {"type": "PROCESS_MANAGE", "target": "Safari", "parameters": {"action": "quit"}, "confidence": 0.95}
+
         User: "take a screenshot"
         {"type": "QUICK_ACTION", "target": "screenshot", "confidence": 0.95}
 
@@ -85,8 +93,14 @@ public struct PromptBuilder {
     /// - Parameters:
     ///   - messages: Recent conversation messages to include as context.
     ///   - currentInput: The new user input to respond to.
+    ///   - maxHistoryChars: Character budget for history (default 6000 ≈ 2048 tokens for local;
+    ///                      pass 12000 for cloud where a larger context is available).
     /// - Returns: A formatted prompt with conversation context + current input.
-    public static func buildConversationalPrompt(messages: [Message], currentInput: String) -> String {
+    public static func buildConversationalPrompt(
+        messages: [Message],
+        currentInput: String,
+        maxHistoryChars: Int = 6000
+    ) -> String {
         let sanitizedInput = sanitize(currentInput)
 
         // If no history, fall back to the simple prompt
@@ -99,10 +113,9 @@ public struct PromptBuilder {
         // Add conversation context header
         prompt += "Recent conversation (for context — use this to resolve references like \"it\", \"that\", etc.):\n"
 
-        // Append each message as context, with a character budget to avoid overflowing
-        // Local model: ~2048 tokens for history (~6000 chars at ~3 chars/token)
-        // Cloud model: more generous, but we cap the same for simplicity
-        let maxHistoryChars = 6000
+        // Append each message as context, respecting the per-provider character budget:
+        //   Local model  → maxHistoryChars 6000  ≈ 2048 tokens (preserves JSON output quality)
+        //   Cloud model  → maxHistoryChars 12000 ≈ 4096 tokens (more context, smarter model)
         var historyChars = 0
 
         for message in messages {
@@ -117,7 +130,7 @@ public struct PromptBuilder {
             historyChars += line.count
         }
 
-        prompt += "\nNow respond to this new input. Output JSON only, no explanation.\n"
+        prompt += "\nNow respond to this new input. Resolve any pronouns (it, that, them, this) using the conversation above. Output JSON only, no explanation.\n"
         prompt += "User: \"\(sanitizedInput)\"\n"
 
         return prompt

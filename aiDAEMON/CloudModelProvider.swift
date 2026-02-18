@@ -116,28 +116,21 @@ public final class CloudModelProvider: ModelProvider {
         "\(providerType.rawValue) Cloud"
     }
 
-    /// Cached result of the Keychain check, with a timestamp.
-    /// This avoids hitting macOS Keychain on every isAvailable call,
-    /// which triggers a "wants to use your confidential information" system prompt.
-    private var cachedKeyExists: Bool = false
-    private var cacheTimestamp: Date = .distantPast
-    private static let cacheTTL: TimeInterval = 30 // re-check every 30 seconds
+    /// Session-level cache of whether an API key exists in Keychain.
+    /// Set once in init() — never re-checked on a timer. Only refreshAvailability()
+    /// can update it. This eliminates repeated Keychain prompts during routing checks.
+    ///
+    /// Note: generate() still reads the actual key from Keychain at call time
+    /// (security requirement). Once the user grants "Always Allow" in the Keychain
+    /// dialog, that generate() access becomes silent and no prompts appear.
+    private var cachedKeyExists: Bool
 
     /// True when an API key exists in the Keychain for this provider.
-    /// Uses a short-lived cache to avoid repeated Keychain access prompts.
-    public var isAvailable: Bool {
-        let now = Date()
-        if now.timeIntervalSince(cacheTimestamp) > Self.cacheTTL {
-            cachedKeyExists = KeychainHelper.load(key: providerType.keychainKey) != nil
-            cacheTimestamp = now
-        }
-        return cachedKeyExists
-    }
+    public var isAvailable: Bool { cachedKeyExists }
 
-    /// Force refresh the cached availability (call after saving/removing a key in Settings).
+    /// Refresh the cached availability. Call this after saving or removing an API key in Settings.
     public func refreshAvailability() {
         cachedKeyExists = KeychainHelper.load(key: providerType.keychainKey) != nil
-        cacheTimestamp = Date()
     }
 
     /// In-flight Task, held so abort() can cancel it.
@@ -145,9 +138,11 @@ public final class CloudModelProvider: ModelProvider {
 
     public init(providerType: CloudProviderType = .current) {
         self.providerType = providerType
-        // Check once at init so the first isAvailable call is cached
+        // Read Keychain once at init to seed the session cache.
+        // This is the only automatic Keychain read — all subsequent isAvailable checks
+        // use the cached value. rebuildRouter() creates a new instance, so startup
+        // still triggers one read, which is acceptable.
         cachedKeyExists = KeychainHelper.load(key: providerType.keychainKey) != nil
-        cacheTimestamp = Date()
     }
 
     // MARK: - ModelProvider

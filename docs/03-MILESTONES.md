@@ -307,9 +307,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M031: Conversation Context in Prompts
+### M031: Conversation Context in Prompts ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-18)
 
 **Objective**: Feed conversation history into model prompts so the assistant remembers what was said earlier in the conversation.
 
@@ -318,20 +318,32 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M029, M030
 
 **Deliverables**:
-- [ ] `PromptBuilder.swift` updated:
-  - New method `buildConversationalPrompt(messages:currentInput:)` that includes recent message history
-  - Format: system prompt + conversation history + current user input
-  - History truncated to fit within model context window (local: ~2048 tokens for history, cloud: ~4096 tokens)
-  - Token counting to prevent overflow
-- [ ] Both local and cloud model providers use conversational prompts
-- [ ] Assistant responses are stored in conversation before being displayed
+- [x] `PromptBuilder.swift` updated:
+  - `buildConversationalPrompt(messages:currentInput:maxHistoryChars:)` — added `maxHistoryChars` parameter (default 6000 ≈ 2048 tokens for local; pass 12000 ≈ 4096 tokens for cloud)
+  - Format: system prompt + `[User]`/`[Assistant]` conversation history + current user input
+  - History truncated by character budget to prevent model context overflow
+  - Char-based approximation (3 chars ≈ 1 token) is accurate enough for LLaMA 3.1 8B
+- [x] Both local and cloud model providers now use conversational prompts — removed the `routingDecision?.isCloud == true` restriction in `FloatingWindow.swift`
+- [x] Per-provider history budget: local 6000 chars (~2048 tokens), cloud 12000 chars (~4096 tokens)
+- [x] First message (no history) falls back to simple `buildCommandPrompt` — no regression
+- [x] Assistant responses were already stored in conversation (done in M030)
 
 **Success Criteria**:
-- [ ] User can say "open Safari" → "now move it to the left half" → assistant understands "it" = Safari
-- [ ] Conversation context doesn't exceed model limits (graceful truncation)
-- [ ] Each response is coherent with prior conversation
+- [x] User can say "open Safari" → "now move it to the left half" → assistant understands "it" = Safari
+- [x] Conversation context doesn't exceed model limits (graceful truncation via char budget)
+- [x] Each response is coherent with prior conversation
 
 **Difficulty**: 3/5
+
+**Notes**: The core code change is two lines in `FloatingWindow.swift` — removing `(routingDecision?.isCloud == true) &&` from the `useConversationalPrompt` condition, and passing `maxHistoryChars` based on the routing decision. `PromptBuilder.buildConversationalPrompt` already existed from M029 and needed only a parameter addition. Log message updated to include `cloud=yes/no` for debugging. Next pbxproj UUIDs: `A1B2C3D4000000D2+` (unchanged — no new files this milestone).
+
+**Bug fixes applied post-M031 (verified working):**
+
+1. **Keychain prompt on every message** (`CloudModelProvider.swift`): Replaced the 30-second TTL cache with a session-level cache. `isAvailable` now reads Keychain once at `init()` and never re-checks automatically — only when `refreshAvailability()` is explicitly called (e.g. after saving/removing a key in Settings). The `generate()` call still reads Keychain at call time (security requirement), but after the user grants "Always Allow" once that access is silent. Reduces prompts from 3+ per interaction to 1 per cloud call max.
+
+2. **"close notes" mapped to WINDOW_MANAGE** (`PromptBuilder.swift`): Updated `WINDOW_MANAGE` description to clarify it does NOT quit apps. Added `IMPORTANT` rule: use `PROCESS_MANAGE` for "close", "quit", "exit". Added explicit `"close notes"` and `"close safari"` examples. Verified working.
+
+3. **Pronoun resolution hint** (`PromptBuilder.swift`): Updated the conversational prompt instruction to say "Resolve any pronouns (it, that, them, this) using the conversation above." to give the model a clearer directive when history is present.
 
 ---
 
@@ -1378,9 +1390,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ## Milestone Summary
 
-**Completed**: M001–M030 (foundation + hybrid model layer + conversation data model + chat UI)
+**Completed**: M001–M031 (foundation + hybrid model layer + conversation data model + chat UI + conversation context in prompts)
 
-**Remaining**: M031–M059 (29 milestones)
+**Remaining**: M032–M059 (28 milestones)
 
 | Phase | Milestones | What It Delivers |
 |-------|-----------|-----------------|
@@ -1401,4 +1413,4 @@ M025 → M026 → M028 → M032 → M033 → M034 → M040 → M054 → M058 →
 
 ## Next Action
 
-Start with **M030: Chat UI**.
+Start with **M032: Tool Schema System**.

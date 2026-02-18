@@ -247,20 +247,29 @@ final class FloatingWindow: NSWindow {
         chatState.isGenerating = true
         resizeToChat()
 
-        // Build prompt — only include conversation context for the cloud model.
+        // Build prompt — include conversation history for both local and cloud providers.
+        // Local model gets a smaller history budget to preserve JSON output quality;
+        // cloud model gets a larger budget since it can handle more context.
         let recentMessages = conversationStore.conversation.recentMessages()
         let routingDecision = manager.router?.route(input: command)
-        let useConversationalPrompt = (routingDecision?.isCloud == true) && recentMessages.count > 1
+        let useConversationalPrompt = recentMessages.count > 1
 
         let prompt: String
         if useConversationalPrompt {
             let historyMessages = Array(recentMessages.dropLast())
-            prompt = PromptBuilder.buildConversationalPrompt(messages: historyMessages, currentInput: command)
+            let isCloud = routingDecision?.isCloud == true
+            let historyBudget = isCloud ? 12000 : 6000   // cloud: ~4096 tokens, local: ~2048 tokens
+            prompt = PromptBuilder.buildConversationalPrompt(
+                messages: historyMessages,
+                currentInput: command,
+                maxHistoryChars: historyBudget
+            )
         } else {
             prompt = PromptBuilder.buildCommandPrompt(userInput: command)
         }
-        NSLog("Prompt built (%d chars, %d history msgs, conversational=%@) for input: %@",
-              prompt.count, recentMessages.count - 1, useConversationalPrompt ? "yes" : "no", command)
+        NSLog("Prompt built (%d chars, %d history msgs, conversational=%@, cloud=%@) for input: %@",
+              prompt.count, recentMessages.count - 1, useConversationalPrompt ? "yes" : "no",
+              routingDecision?.isCloud == true ? "yes" : "no", command)
 
         let routedProviderName = routingDecision?.provider.providerName ?? "Local"
         let routedWasCloud = routingDecision?.isCloud ?? false
