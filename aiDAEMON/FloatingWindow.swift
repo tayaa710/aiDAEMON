@@ -60,13 +60,17 @@ final class FloatingWindow: NSWindow {
             return
         }
 
+        super.keyDown(with: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // Cmd+N: new conversation
         if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "n" {
             startNewConversation()
-            return
+            return true
         }
 
-        super.keyDown(with: event)
+        return super.performKeyEquivalent(with: event)
     }
 
     override func cancelOperation(_ sender: Any?) {

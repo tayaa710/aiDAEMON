@@ -158,8 +158,12 @@ struct ChatView: View {
 
                     if isGenerating {
                         TypingIndicator()
-                            .id("typing-indicator")
                     }
+
+                    // Invisible anchor at the very bottom for reliable scrolling
+                    Color.clear
+                        .frame(height: 1)
+                        .id("scroll-anchor")
                 }
                 .padding(.vertical, 8)
             }
@@ -178,11 +182,7 @@ struct ChatView: View {
     private func scrollToBottom(proxy: ScrollViewProxy) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             withAnimation(.easeOut(duration: 0.2)) {
-                if isGenerating {
-                    proxy.scrollTo("typing-indicator", anchor: .bottom)
-                } else if let lastMessage = conversation.messages.last {
-                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                }
+                proxy.scrollTo("scroll-anchor", anchor: .bottom)
             }
         }
     }

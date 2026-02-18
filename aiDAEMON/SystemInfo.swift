@@ -14,6 +14,7 @@ public struct SystemInfo: CommandExecutor {
         case diskSpace      = "disk_space"
         case cpuUsage       = "cpu_usage"
         case battery        = "battery"
+        case batteryTime    = "battery_time"
         case memory         = "memory"
         case hostname       = "hostname"
         case osVersion      = "os_version"
@@ -44,6 +45,15 @@ public struct SystemInfo: CommandExecutor {
         map["battery level"]  = .battery
         map["battery status"] = .battery
         map["power"]          = .battery
+        map["battery_time_remaining"] = .batteryTime
+        map["battery time remaining"] = .batteryTime
+        map["battery time"]           = .batteryTime
+        map["time remaining"]         = .batteryTime
+        map["time to full"]           = .batteryTime
+        map["time to charge"]         = .batteryTime
+        map["charging time"]          = .batteryTime
+        map["time to empty"]          = .batteryTime
+        map["how long to charge"]     = .batteryTime
         map["ram"]          = .memory
         map["ram usage"]    = .memory
         map["memory"]       = .memory
@@ -74,13 +84,13 @@ public struct SystemInfo: CommandExecutor {
     public func execute(_ command: Command, completion: @escaping (ExecutionResult) -> Void) {
         guard let rawTarget = command.target, !rawTarget.isEmpty else {
             completion(.error("No system info type specified.",
-                              details: "Supported: ip address, disk space, cpu usage, battery, memory, hostname, os version, uptime"))
+                              details: "Supported: ip address, disk space, cpu usage, battery, battery time, memory, hostname, os version, uptime"))
             return
         }
 
         guard let infoType = SystemInfo.resolve(rawTarget) else {
             completion(.error("Unknown system info type: \(rawTarget)",
-                              details: "Supported: ip address, disk space, cpu usage, battery, memory, hostname, os version, uptime"))
+                              details: "Supported: ip address, disk space, cpu usage, battery, battery time, memory, hostname, os version, uptime"))
             return
         }
 
@@ -101,6 +111,7 @@ public struct SystemInfo: CommandExecutor {
         case .diskSpace:   return fetchDiskSpace()
         case .cpuUsage:    return fetchCPUUsage()
         case .battery:     return fetchBattery()
+        case .batteryTime: return fetchBatteryTime()
         case .memory:      return fetchMemory()
         case .hostname:    return fetchHostname()
         case .osVersion:   return fetchOSVersion()
@@ -248,6 +259,50 @@ public struct SystemInfo: CommandExecutor {
         }
 
         return .ok("Battery", details: details)
+    }
+
+    // MARK: - Battery Time Remaining / Time to Full Charge
+
+    private func fetchBatteryTime() -> ExecutionResult {
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef],
+              let first = sources.first,
+              let desc = IOPSGetPowerSourceDescription(snapshot, first)?.takeUnretainedValue() as? [String: Any] else {
+            return .ok("Battery Time", details: "No battery detected (desktop Mac)")
+        }
+
+        let isCharging = (desc[kIOPSIsChargingKey as String] as? Bool) ?? false
+        let source = (desc[kIOPSPowerSourceStateKey as String] as? String) ?? ""
+        let capacity = desc[kIOPSCurrentCapacityKey as String] as? Int ?? -1
+
+        // Fully charged on AC power
+        if source == kIOPSACPowerValue as String && !isCharging {
+            return .ok("Battery Time", details: "Fully charged (\(capacity)%) — plugged in.")
+        }
+
+        if isCharging {
+            // Time to full charge
+            let timeToFull = desc[kIOPSTimeToFullChargeKey as String] as? Int ?? -1
+            if timeToFull > 0 {
+                let hours = timeToFull / 60
+                let mins = timeToFull % 60
+                let timeStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
+                return .ok("Battery Time", details: "Charging — \(timeStr) until fully charged (\(capacity)% now).")
+            } else {
+                return .ok("Battery Time", details: "Charging (\(capacity)%) — time to full not available yet.")
+            }
+        } else {
+            // Time remaining on battery
+            let timeToEmpty = desc[kIOPSTimeToEmptyKey as String] as? Int ?? -1
+            if timeToEmpty > 0 {
+                let hours = timeToEmpty / 60
+                let mins = timeToEmpty % 60
+                let timeStr = hours > 0 ? "\(hours)h \(mins)m" : "\(mins)m"
+                return .ok("Battery Time", details: "On battery — \(timeStr) remaining (\(capacity)%).")
+            } else {
+                return .ok("Battery Time", details: "On battery (\(capacity)%) — time estimate not available yet.")
+            }
+        }
     }
 
     // MARK: - Memory

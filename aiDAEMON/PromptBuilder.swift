@@ -28,7 +28,8 @@ public struct PromptBuilder {
         - QUICK_ACTION: Perform system actions (screenshot, empty trash, DND, lock screen)
 
         Use SYSTEM_INFO for questions about system status. Use QUICK_ACTION only for actions that change something.
-        SYSTEM_INFO targets: ip_address, disk_space, cpu_usage, battery, memory, hostname, os_version, uptime.
+        SYSTEM_INFO targets: ip_address, disk_space, cpu_usage, battery, battery_time, memory, hostname, os_version, uptime.
+        Use battery_time when asking about time remaining, time to charge, or how long until fully charged.
 
         Output JSON only, no explanation.
 
@@ -47,6 +48,12 @@ public struct PromptBuilder {
 
         User: "check battery"
         {"type": "SYSTEM_INFO", "target": "battery", "confidence": 0.95}
+
+        User: "how long till fully charged"
+        {"type": "SYSTEM_INFO", "target": "battery_time", "confidence": 0.95}
+
+        User: "how much time remaining on battery"
+        {"type": "SYSTEM_INFO", "target": "battery_time", "confidence": 0.95}
 
         User: "how much ram do i have"
         {"type": "SYSTEM_INFO", "target": "memory", "confidence": 0.95}
