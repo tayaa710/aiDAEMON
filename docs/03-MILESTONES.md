@@ -2,8 +2,8 @@
 
 Complete development roadmap for aiDAEMON: JARVIS-style AI companion for macOS.
 
-Last Updated: 2026-02-17
-Version: 3.0 (JARVIS Product Roadmap)
+Last Updated: 2026-02-18
+Version: 3.1 (Capability-First Roadmap)
 
 ---
 
@@ -353,9 +353,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M032: Tool Schema System
+### M032: Tool Schema System ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-18)
 
 **Objective**: Define a formal schema for every tool the assistant can use. This replaces the ad-hoc `CommandType` enum with a structured, extensible tool definition system.
 
@@ -364,67 +364,67 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M031
 
 **Deliverables**:
-- [ ] `ToolDefinition.swift`:
-  ```swift
-  struct ToolDefinition {
-      let id: String              // "app_open", "file_search", etc.
-      let name: String            // "Open Application"
-      let description: String     // "Opens an application or URL"
-      let parameters: [ToolParameter]  // typed parameter definitions
-      let riskLevel: RiskLevel    // .safe, .caution, .dangerous
-      let requiredPermissions: [PermissionType]
-  }
-
-  struct ToolParameter {
-      let name: String           // "target"
-      let type: ParameterType    // .string, .int, .bool, .enum([...])
-      let description: String    // "The app name or URL to open"
-      let required: Bool
-  }
-  ```
-- [ ] `ToolRegistry.swift` — replaces `CommandRegistry.swift`:
-  - `register(tool:executor:)` — register a tool with its definition and executor
-  - `allTools() -> [ToolDefinition]` — list all registered tools (used by planner prompt)
-  - `executor(for toolId:) -> ToolExecutor?` — get executor for a tool
-  - `validate(call:) -> ValidationResult` — validate arguments against schema
-- [ ] Existing executors (AppLauncher, FileSearcher, WindowManager, SystemInfo) registered as tools with full schemas
-- [ ] `CommandRegistry.swift` kept temporarily for backward compatibility but all new code uses `ToolRegistry`
+- [x] `ToolDefinition.swift`:
+  - `ToolDefinition` struct: `id`, `name`, `description`, `parameters`, `riskLevel`, `requiredPermissions`
+  - `ToolParameter` struct: `name`, `type` (ParameterType), `description`, `required`
+  - `ParameterType` enum: `.string`, `.int`, `.bool`, `.double`, `.enumeration([String])` — all Codable
+  - `RiskLevel` enum: `.safe`, `.caution`, `.dangerous` — maps to 02-THREAT-MODEL.md risk matrix
+  - `PermissionType` enum: `.accessibility`, `.automation`, `.microphone`, `.screenRecording`
+  - `ToolCall` struct: `toolId` + `arguments` for parsed model output
+  - `ToolValidationResult` enum: `.valid` or `.invalid(reason:)`
+  - Static definitions for all 4 existing tools: `.appOpen`, `.fileSearch`, `.windowManage`, `.systemInfo`
+  - 6 debug tests
+- [x] `ToolRegistry.swift`:
+  - `ToolExecutor` protocol: `execute(arguments:completion:)`
+  - `CommandExecutorAdapter`: bridges existing `CommandExecutor` to `ToolExecutor`
+  - `register(tool:executor:)`, `register(tool:commandType:commandExecutor:)` — registration
+  - `allTools()`, `executor(for:)`, `definition(for:)`, `isRegistered(_:)` — queries
+  - `validate(call:)` — schema validation (required params, types, enum values)
+  - `execute(call:completion:)` — dispatches to executor
+  - `toolDescriptionsForPrompt()` — generates tool list text for planner prompts
+  - 12 debug tests
+- [x] All 4 existing executors registered as tools in `AppDelegate.swift`
+- [x] `CommandRegistry.swift` kept for backward compatibility — both registries populated at startup
+- [x] Both files added to pbxproj (UUIDs D2-D5)
 
 **Success Criteria**:
-- [ ] All 4 existing executors registered as tools with schemas
-- [ ] Tool definitions include parameter types, descriptions, and risk levels
-- [ ] Schema validation catches invalid arguments (wrong type, missing required field)
-- [ ] App builds and existing features work through both old and new registry
+- [x] All 4 existing executors registered as tools with schemas
+- [x] Tool definitions include parameter types, descriptions, and risk levels
+- [x] Schema validation catches invalid arguments (wrong type, missing required field, invalid enum value, unknown tool)
+- [x] App builds and existing features work through both old and new registry
 
 **Difficulty**: 3/5
 
+**Notes**: `ToolRegistry` and `CommandRegistry` run in parallel — both populated at startup. `CommandExecutorAdapter` bridges between the two so existing executors work unchanged. `toolDescriptionsForPrompt()` generates text for planner prompts (used in M033). New tools in future milestones should implement `ToolExecutor` directly. Next pbxproj UUIDs: `A1B2C3D4000000D6+`.
+
 ---
 
-### M033: Orchestrator Skeleton
+### M033: Orchestrator + MCP Client
 
 **Status**: PLANNED
 
-**Objective**: Build the core agent loop — the component that takes a user goal, asks the model to plan, and executes the steps.
+**Objective**: Build the core agent loop — the component that takes a user goal, plans, and executes steps — with MCP (Model Context Protocol) as the tool integration standard for extensibility.
 
-**Why this matters**: This is the heart of JARVIS. Instead of "user types → model outputs one command → executor runs it," the flow becomes "user types → model plans multiple steps → orchestrator runs them in sequence, checking each result."
+**Why this matters**: This is the heart of JARVIS. The flow becomes "user types → model plans steps using available tools → orchestrator runs them." MCP gives access to 2,800+ community tools and makes every future tool integration trivial.
 
 **Dependencies**: M032
 
 **Deliverables**:
 - [ ] `Orchestrator.swift`:
-  - State machine: `idle` → `understanding` → `planning` → `awaiting_approval` → `executing` → `responding`
+  - State machine: `idle` → `understanding` → `planning` → `executing` → `responding`
   - `handleUserInput(text:conversation:)` — entry point
-  - `Understanding` phase: sends user input + conversation context + available tools to model
-  - `Planning` phase: model returns a structured plan (list of tool calls)
-  - `Awaiting approval` phase: shows plan to user in chat, waits for confirmation
-  - `Executing` phase: runs each tool call in sequence via ToolRegistry
-  - `Responding` phase: summarizes what happened
-  - Error handling: if a step fails, the orchestrator tells the user what went wrong
-  - Maximum 10 steps per plan (hard limit, prevents runaway)
+  - `Understanding` phase: sends user input + conversation context + available tools to cloud model
+  - `Planning` phase: model returns a structured plan (list of tool calls in JSON)
+  - `Executing` phase: runs each step in sequence via ToolRegistry (or MCP if MCP tool)
+    - At Level 1 (default): safe steps execute automatically, risky steps pause for confirmation
+    - At Level 0: all steps pause for user approval before executing
+  - `Responding` phase: summarizes what happened in chat
+  - Error handling: if a step fails, the orchestrator tells the user what went wrong and continues
+  - Maximum 10 steps per plan (hard limit)
   - 60-second total timeout for plan execution
 - [ ] `PlannerPrompt.swift`:
   - Constructs the planning prompt: "You have these tools: [list]. The user wants: [goal]. Output a JSON plan."
-  - Includes tool definitions from ToolRegistry
+  - Includes tool definitions from ToolRegistry AND any MCP-discovered tools
   - Includes conversation context
   - Output format:
     ```json
@@ -437,19 +437,24 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
     }
     ```
 - [ ] `PlanParser.swift` — parses model's JSON plan into structured `Plan` object
+- [ ] `MCPClient.swift` — MCP protocol client:
+  - Connects to local MCP servers (via stdio or HTTP)
+  - Discovers available tools via MCP tool discovery protocol
+  - Executes tool calls and returns results
+  - Initial support: filesystem MCP server + fetch MCP server
+  - Tools discovered via MCP are automatically available to the planner
 - [ ] `FloatingWindow` / chat UI updated to show:
-  - "I understand you want to..." (understanding)
-  - "Here's my plan: 1... 2... 3..." (plan preview)
-  - "Approve?" button (at autonomy level 0)
-  - Step-by-step progress as execution happens
-  - Final summary
+  - "I understand you want to..." (understanding phase)
+  - At Level 0: "Here's my plan — approve?" shown before executing
+  - At Level 1: executes immediately, shows step-by-step progress
+  - Final summary of what was done
 
 **Success Criteria**:
-- [ ] User says "open Safari and move it to the left" → orchestrator plans 2 steps → executes both
-- [ ] Plan is shown to user before execution (at level 0 autonomy)
-- [ ] User can approve or cancel the plan
+- [ ] User says "open Safari and move it to the left" → orchestrator plans 2 steps → executes both automatically (Level 1)
+- [ ] At Level 0: plan is shown to user before execution, user can approve or cancel
+- [ ] At Level 1: safe steps execute automatically without asking
+- [ ] MCP client can connect to at least one MCP server and execute a tool
 - [ ] If a step fails, user sees which step and why
-- [ ] Single-step commands still work (plan with 1 step)
 - [ ] 10-step limit enforced
 - [ ] Timeout enforced
 
@@ -473,15 +478,15 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
   - `PolicyDecision` enum: `.allow`, `.requireConfirmation(reason:)`, `.deny(reason:)`
   - Reads risk level from ToolDefinition
   - Applies autonomy level rules (see 00-FOUNDATION.md):
-    - Level 0: everything needs confirmation
-    - Level 1: safe actions auto-execute
+    - Level 1 (DEFAULT): safe actions auto-execute, risky actions need confirmation
+    - Level 0: everything needs confirmation (opt-in for users who want full control)
     - Level 2: safe + scoped caution actions auto-execute
     - Level 3: routine autonomy (still blocks dangerous)
   - DANGEROUS actions are NEVER auto-approved regardless of level
   - Unknown tools default to DANGEROUS
   - Path traversal detection for file operations
   - Input sanitization (control chars, null bytes, length limits)
-- [ ] Autonomy level stored in UserDefaults, configurable in Settings
+- [ ] Autonomy level stored in UserDefaults, **defaulting to Level 1**, configurable in Settings
 - [ ] `SettingsView.swift` updated: new "Safety" section with autonomy level picker and explanation of each level
 - [ ] Orchestrator calls PolicyEngine before each step execution
 - [ ] Existing `CommandValidator.swift` logic absorbed into PolicyEngine
@@ -585,6 +590,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Objective**: Send screenshots to a vision-capable cloud model to understand what's on screen — identify UI elements, read text, locate buttons.
 
 **Why this matters**: This is how JARVIS "sees." It takes a screenshot, sends it to a vision model (like Claude or GPT-4V), and gets back a description of what's on screen: "I see a browser with Gmail open. The compose button is at the top left."
+
+**YC Resource Options**: **Anthropic Claude** (best-in-class vision, excellent at screenshot analysis and UI element detection), **OpenAI GPT-4V** (already configured as provider), **Roboflow** (alternative for structured UI element detection). Recommend trying Claude first for vision — its spatial reasoning on screenshots is superior.
 
 **Dependencies**: M036, M026
 
@@ -716,6 +723,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Why this matters**: This is the milestone where the assistant can actually "drive" the computer — look at the screen, understand it, and take action. This is the JARVIS moment.
 
+**YC Resource Options**: **Browser Use** (AI browser automation SDK — could complement or replace custom browser automation for web-specific tasks), **Anthropic Claude** (vision model for screenshot understanding).
+
 **Dependencies**: M037, M038, M039
 
 **Deliverables**:
@@ -822,26 +831,41 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M043: Browser Navigation Tool
+### M043: Browser Navigation Tool (CDP-Powered)
 
 **Status**: PLANNED
 
-**Objective**: Open URLs in the user's preferred browser and control basic browser navigation via AppleScript.
+**Objective**: Full browser automation via CDP (Chrome DevTools Protocol) — far more powerful than AppleScript. Can navigate pages, click elements, fill forms, read page content, and run JavaScript in any Chromium browser.
+
+**Why CDP over AppleScript**: CDP provides programmatic access to the browser DOM, network, JavaScript runtime, and accessibility tree. AppleScript can only do basic URL navigation. CDP enables the kind of browser automation seen in OpenClaw and Playwright.
+
+**YC Resource Options**: **Firecrawl** (web scraping API — "read this webpage" without browser automation), **Browser Use** (AI browser automation SDK — could complement CDP for high-level tasks).
 
 **Dependencies**: M034
 
 **Deliverables**:
 - [ ] `BrowserTool.swift`:
-  - `openURL(url:browser:)` — opens URL in specified or default browser
-  - `getCurrentURL(browser:) -> String?` — reads current tab URL (via AppleScript)
-  - `getCurrentTitle(browser:) -> String?` — reads current tab title
-  - `newTab(url:browser:)` — opens URL in new tab
-  - Supports Safari and Chrome via AppleScript
-  - Falls back to `NSWorkspace.shared.open(url)` for other browsers
+  - `openURL(url:)` — opens URL in Chrome/Chromium (via CDP) or Safari (via NSWorkspace fallback)
+  - `getCurrentURL() -> String?` — reads current tab URL via CDP
+  - `getCurrentTitle() -> String?` — reads current tab title
+  - `getPageText() -> String?` — extracts visible text content from page DOM
+  - `clickElement(selector:)` — clicks a DOM element by CSS selector
+  - `fillInput(selector:value:)` — types into a text field
+  - `runJavaScript(script:) -> String?` — executes JS and returns result
+  - `newTab(url:)` — opens URL in new tab
+- [ ] `CDPClient.swift` — Chrome DevTools Protocol client:
+  - Launches Chrome with `--remote-debugging-port=9222` (or connects to existing instance)
+  - WebSocket connection to CDP endpoint
+  - Implements: `Target.activateTarget`, `Page.navigate`, `Runtime.evaluate`, `DOM.querySelector`, `Input.dispatchMouseEvent`
+  - Returns structured results, not raw JSON
 - [ ] Registered in ToolRegistry:
   - `browser_open`: risk level `safe`
   - `browser_read_url`: risk level `safe`
+  - `browser_get_text`: risk level `safe`
+  - `browser_click`: risk level `caution`
+  - `browser_fill`: risk level `caution`
   - `browser_new_tab`: risk level `caution`
+  - `browser_run_js`: risk level `dangerous`
 
 **Success Criteria**:
 - [ ] "open youtube.com" opens it in default browser
@@ -1046,6 +1070,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Why this matters**: Typing is fine, but talking to your computer like JARVIS is the dream. Apple's Speech framework runs on-device (no cloud, perfect privacy) and is free.
 
+**YC Resource Options**: **Deepgram ($15K credits)** — higher accuracy STT than Apple's on-device framework, supports real-time streaming. Tradeoff: requires internet (Apple's is offline). Could offer both: Apple on-device as default, Deepgram as optional "cloud voice" upgrade for better accuracy.
+
 **Dependencies**: M034
 
 **Deliverables**:
@@ -1078,6 +1104,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Status**: PLANNED
 
 **Objective**: The assistant speaks its responses aloud.
+
+**YC Resource Options**: **Deepgram ($15K credits)** — also offers TTS API with more natural-sounding voices than Apple's built-in `AVSpeechSynthesizer`. Same tradeoff: better quality but requires internet. Could offer both options.
 
 **Dependencies**: M049
 
@@ -1283,6 +1311,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Objective**: Ship updates to users automatically using Sparkle.
 
+**YC Resource Options**: **AWS ($10K credits)** — host appcast XML and .dmg files on S3 + CloudFront CDN. Alternatively use GitHub Releases (free) for simpler setup.
+
 **Dependencies**: M055
 
 **Deliverables**:
@@ -1368,6 +1398,8 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Objective**: Ship v1.0 to the public.
 
+**YC Resource Options**: **AWS ($10K credits)** — host landing page, CDN for downloads, S3 for .dmg hosting. **Microsoft Azure** — alternative hosting. **Fireworks AI** — production inference provider for paid tier users (fast, cheap, many models).
+
 **Dependencies**: M058 + all beta feedback addressed
 
 **Deliverables**:
@@ -1390,9 +1422,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ## Milestone Summary
 
-**Completed**: M001–M031 (foundation + hybrid model layer + conversation data model + chat UI + conversation context in prompts)
+**Completed**: M001–M032 (foundation + hybrid model layer + chat interface + tool schema system)
 
-**Remaining**: M032–M059 (28 milestones)
+**Remaining**: M033–M059 (27 milestones)
 
 | Phase | Milestones | What It Delivers |
 |-------|-----------|-----------------|
@@ -1411,6 +1443,29 @@ M025 → M026 → M028 → M032 → M033 → M034 → M040 → M054 → M058 →
 
 ---
 
+## Available YC Resources (Free Deals)
+
+The owner has access to the following free resources via YC. Each is noted in the relevant milestone where it could be useful.
+
+| Resource | What It Is | Relevant Milestones |
+|----------|-----------|-------------------|
+| **OpenAI ($2,500 credits)** | GPT-4o / GPT-4o-mini API. Currently used as cloud brain. | M026-M028 (in use), M033-M035, M037 (vision via GPT-4V) |
+| **Anthropic (Claude API)** | Claude Sonnet/Opus. Best-in-class vision + reasoning. | M037 (vision — Claude excels at screenshot analysis), M033-M035 (planning) |
+| **xAI / Grok ($2,500 credits)** | Grok API. Fast inference, another cloud brain option. | M026-M028 (add as provider), M033-M035 |
+| **AWS ($10K credits)** | EC2, S3, CloudFront, etc. | M056 (host Sparkle appcast), M059 (landing page, CDN) |
+| **Microsoft Azure** | Compute, storage, hosting. | M056-M059 (alternative to AWS) |
+| **Fireworks AI** | Fast multi-model inference. 100+ models. | M026-M028 (production provider option), M033-M035 |
+| **Deepgram ($15K credits)** | High-quality STT and TTS APIs (cloud-based). | M049 (speech-to-text — higher quality than Apple on-device), M050 (TTS) |
+| **Firecrawl** | Web scraping / page content extraction API. | M043 (browser tool — read page content), future web tools |
+| **Browser Use (W25)** | AI browser automation SDK. | M040 (computer control — could complement or replace custom browser automation) |
+| **Cursor** | AI code editor. | Already using for development |
+| **Greptile** | AI PR review. | Dev workflow improvement |
+| **Roboflow** | Computer vision platform. | M037 (potential alternative for UI element detection) |
+
+**Not relevant to this project**: Crypto deals (Coinbase, Circle, Allium, Helius), AgentMail, Vapi, sync., Gumloop, Langfuse, Keywords AI, Infisical, Blaxel, Tavus.
+
+---
+
 ## Next Action
 
-Start with **M032: Tool Schema System**.
+Start with **M033: Orchestrator Skeleton**.

@@ -4,8 +4,8 @@
 
 When in doubt, this file overrides issues, chat messages, code comments, and secondary docs.
 
-Last Updated: 2026-02-17
-Version: 3.0 (JARVIS Product Vision)
+Last Updated: 2026-02-18
+Version: 3.1 (Capability-First Pivot)
 
 ---
 
@@ -25,18 +25,27 @@ The app runs natively on macOS. A small local AI handles simple tasks instantly.
 
 ## Product Principles
 
-### 1. Privacy Is Sacred
+### 1. Capability First
 
-Users are trusting this app with access to their entire computer. That trust must never be violated.
+The primary goal is to be the most capable AI companion on macOS. Users want an assistant that actually *does* things — autonomously, intelligently, without friction.
 
-- **Simple tasks never leave the Mac.** Local model handles them entirely.
-- **Complex tasks go to the cloud brain, but data is encrypted in transit and never stored.**
-- **No telemetry, no analytics, no tracking** unless the user explicitly opts in.
-- **No training on user data.** Ever. By anyone. This is contractual, not just a promise.
-- **Users can see exactly what was sent to the cloud** in an audit log.
-- **Users can disable cloud entirely** and still have a functional (but less capable) assistant.
+- **Cloud is the default brain.** Local model handles simple tasks instantly; cloud handles everything complex. Users get the best result by default.
+- **MCP (Model Context Protocol)** is the tool integration standard. It gives access to 2,800+ community-built tools and lets the assistant connect to virtually any service.
+- **The assistant acts; users review.** By default (Level 1 autonomy), safe actions execute automatically. The assistant does the work and reports back. Only dangerous or ambiguous actions pause for confirmation.
+- **Minimal friction.** No plan previews for simple requests. No excessive confirmation dialogs. JARVIS doesn't ask permission to turn on the lights.
+- **Maximum intelligence.** Claude (Anthropic) is the preferred cloud brain for complex reasoning, planning, and vision. OpenAI GPT-4o as fallback.
 
-### 2. Security Is a System, Not a Feature
+### 2. Responsible Defaults, Not Privacy-First
+
+Users trust this app with their computer. We take that seriously — but we don't let privacy concerns prevent building capable software.
+
+- **Simple tasks process locally** when the local model is sufficient.
+- **Cloud tasks are encrypted in transit.** Data is not stored by the provider.
+- **Users can audit what was sent** to the cloud via the action log.
+- **Screen vision is opt-in** (required for the model to see the screen).
+- **API keys live in macOS Keychain only.** Never in files, never in UserDefaults.
+
+### 3. Security Is a System, Not a Feature
 
 Security cannot be a prompt instruction or an afterthought. It is enforced in code.
 
@@ -47,26 +56,27 @@ Security cannot be a prompt instruction or an afterthought. It is enforced in co
 - All network traffic uses **HTTPS/TLS**. No exceptions.
 - Prompt injection defenses at every boundary where untrusted text enters the system.
 
-### 3. User Authority Over Agent Autonomy
+### 4. User Authority Over Agent Autonomy
 
-The user is always the boss. The AI is a powerful assistant, not an autonomous agent.
+The user is always the boss. The AI acts on the user's behalf and can be stopped at any time.
 
-- **Level 0 (default)**: AI explains what it wants to do and waits for approval before every action.
-- **Level 1**: Safe actions (read-only, non-destructive) auto-execute. Risky actions still need approval.
+- **Level 1 (default)**: Safe actions (read-only, non-destructive, reversible) auto-execute without asking. Risky actions still need approval. This is the standard experience.
+- **Level 0**: AI explains what it wants to do and waits for approval before every action. Opt-in for users who want full control.
 - **Level 2**: Auto-execute within user-defined scopes (e.g., "you can manage files in ~/Downloads").
 - **Level 3**: Routine autonomy for scheduled/recurring tasks. Still has safety limits.
 - **No level allows silent destructive actions.** Ever.
 - **Kill switch**: User can instantly stop all agent activity at any time.
 
-### 4. Transparency Always
+### 5. Transparency Always
 
 - The AI shows what it understood ("I think you want me to...")
-- The AI shows its plan before acting ("Here's what I'll do: 1... 2... 3...")
-- The AI shows what happened ("Done. I opened Safari and moved it to the left half.")
+- For multi-step plans at Level 0: the AI shows its plan before acting.
+- For simple tasks at Level 1: the AI acts immediately and reports what it did.
+- The AI shows what happened ("Done. Opened Safari and moved it to the left half.")
 - If something failed, the AI explains why and what it tried.
 - Complete action history is viewable and searchable.
 
-### 5. Works Offline, Better Online
+### 6. Works Offline, Better Online
 
 - **Offline**: Local 8B model handles simple tasks — open apps, find files, move windows, system info.
 - **Online**: Cloud brain handles complex tasks — multi-step planning, screen understanding, workflow automation.
@@ -80,7 +90,9 @@ The user is always the boss. The AI is a powerful assistant, not an autonomous a
 - **Bundle ID**: com.aidaemon
 - **Distribution**: Direct download (not App Store — sandbox restrictions conflict with automation capabilities)
 - **Local AI**: LLaMA 3.1 8B (Q4_K_M quantization) via llama.cpp / LlamaSwift
-- **Cloud AI**: Pay-per-token API (Groq, Together AI, or AWS Bedrock — provider is swappable)
+- **Cloud AI**: Anthropic Claude (preferred) + OpenAI GPT-4o + Groq — provider is swappable
+- **Tool Protocol**: MCP (Model Context Protocol) — industry standard, 2,800+ community tools
+- **Browser Control**: CDP (Chrome DevTools Protocol) — far more powerful than AppleScript
 - **Auto-updates**: Sparkle framework
 - **Global hotkey**: KeyboardShortcuts framework
 
@@ -89,9 +101,9 @@ The user is always the boss. The AI is a powerful assistant, not an autonomous a
 ## What This Project Is NOT
 
 - **NOT a chatbot.** It doesn't just answer questions — it takes actions on your computer.
-- **NOT spyware.** It never watches, records, or transmits without explicit consent.
-- **NOT cloud-dependent.** Core features work entirely offline.
-- **NOT an autonomous agent.** It proposes actions and waits for approval (by default).
+- **NOT passive.** It acts. At Level 1 (default), safe tasks execute immediately without asking.
+- **NOT cloud-dependent.** Core features work entirely offline with the local model.
+- **NOT locked to one AI provider.** Claude, OpenAI, Groq, and local are all supported and swappable.
 - **NOT open-source (yet).** May open-source in the future, but not a priority for v1.
 
 ---
@@ -100,8 +112,8 @@ The user is always the boss. The AI is a powerful assistant, not an autonomous a
 
 These are absolute rules. If a milestone or feature would violate any of these, it must be redesigned.
 
-1. User can always see what the assistant is about to do before it does it (at autonomy level 0-1)
-2. Destructive actions always require explicit approval
+1. At autonomy Level 0, user sees every action before it executes
+2. Destructive actions always require explicit approval (no exceptions, at any level)
 3. Kill switch / emergency stop is always available and instant
 4. Local-first baseline works without internet
 5. All actions are logged and explainable
@@ -125,7 +137,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M030)
+## Completed Foundation (M001-M032)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -156,5 +168,6 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Model routing (local/cloud) | `ModelRouter.swift` | Working |
 | Conversation data model | `Conversation.swift` | Working |
 | Chat conversation UI | `ChatView.swift` | Working |
+| Tool schema system | `ToolDefinition.swift`, `ToolRegistry.swift` | Working |
 
 This foundation is the "hands" of the assistant. The new milestones add the "brain" (cloud model + agent loop) and "eyes" (screen vision).

@@ -2,42 +2,47 @@
 
 Security boundaries, privacy guarantees, and attack mitigations for aiDAEMON.
 
-Last Updated: 2026-02-17
-Version: 3.0 (Hybrid Cloud/Local)
+Last Updated: 2026-02-18
+Version: 3.1 (Capability-First)
 
 ---
 
 ## Why This Document Matters
 
-aiDAEMON has deep access to the user's computer — it can read the screen, click buttons, type text, open apps, move files, and execute commands. This level of access demands exceptional security discipline.
+aiDAEMON has deep access to the user's computer — it can read the screen, click buttons, type text, open apps, move files, and execute commands. This level of access demands security discipline.
 
-**Every LLM agent working on this project must read and follow this document.** If a feature cannot be built securely, it must be redesigned until it can.
+**Every LLM agent working on this project must read and follow this document.** The goal is maximum capability delivered securely — if a feature has a safer implementation path, take it. But security concerns should not block capability development; they should shape how it's built.
 
 ---
 
-## Core Privacy Guarantees
+## Core Security & Privacy Principles
 
-These are promises to the user. Violating any of them is a shipping blocker.
+These guide the implementation. Security rules (marked **HARD**) are non-negotiable. Privacy guidelines (marked **GUIDELINE**) represent good defaults that may be adjusted for capability.
 
-### 1. Local by Default
-- Simple tasks (open app, find file, move window, system info) are processed entirely on-device.
-- No network traffic occurs for local-model tasks. Zero bytes sent.
+### 1. Cloud Is the Default Brain [GUIDELINE]
+- Cloud model is used by default for complex tasks — this is the best experience.
+- Simple tasks (open app, find file, move window) can run locally for speed.
+- Users can disable cloud in Settings if they prefer local-only.
 
-### 2. Cloud Data Is Ephemeral
-- When the cloud model is used, only the prompt text is sent (over TLS 1.3).
-- The cloud provider does NOT store prompts or responses.
-- The cloud provider does NOT train on user data (contractual guarantee with provider).
-- Screenshots, file contents, and credentials are NEVER sent to the cloud model.
-  - Exception: If screen vision is enabled, a screenshot may be sent to the cloud for analysis. This requires explicit user opt-in per session, and the screenshot is not stored.
+### 2. Cloud Data Is Ephemeral [HARD]
+- All cloud requests use HTTPS/TLS. No exceptions.
+- API keys are stored in macOS Keychain ONLY. Never in files, UserDefaults, or source code.
+- Prompt text is sent to cloud providers over encrypted channels.
+- Cloud providers used (Anthropic, OpenAI, Groq) do not train on user data by policy.
 
-### 3. Nothing Is Hidden
+### 3. Screen Vision Requires Opt-In [HARD]
+- Screenshots are NOT sent to the cloud unless screen vision is explicitly enabled.
+- When enabled, screenshots are sent for analysis and not stored server-side.
+- File contents and credentials are NEVER sent to the cloud.
+
+### 4. Audit Everything [HARD]
 - A local audit log records every action, including what was sent to the cloud.
 - Users can inspect the audit log at any time.
-- Cloud usage is visually indicated in the UI (e.g., a cloud icon next to the response).
+- Cloud usage is visually indicated in the UI (cloud icon next to response).
 
-### 4. User Controls Everything
+### 5. User Controls the Kill Switch [HARD]
+- Users can stop all agent activity instantly at any time.
 - Cloud features can be fully disabled in Settings.
-- All memory can be viewed, edited, and wiped.
 - All permissions can be revoked at any time.
 - The app degrades gracefully without any permission or cloud access.
 
@@ -193,13 +198,15 @@ When writing code for aiDAEMON, you MUST follow these rules:
 
 ## Risk Classification Matrix
 
-| Tool | Risk Level | Requires Confirmation (L0) | Auto at L1 | Auto at L2 |
+Level 1 is the **default** autonomy level. Users can change this in Settings.
+
+| Tool | Risk Level | Requires Confirmation (L0) | Auto at L1 (DEFAULT) | Auto at L2 |
 |------|-----------|---------------------------|-----------|-----------|
-| system_info | safe | Yes | Yes | Yes |
-| file_search | safe | Yes | Yes | Yes |
-| clipboard_read | safe | Yes | Yes | Yes |
-| app_open | safe | Yes | Yes | Yes |
-| window_manage | safe | Yes | Yes | Yes |
+| system_info | safe | Yes | **Yes (auto)** | Yes |
+| file_search | safe | Yes | **Yes (auto)** | Yes |
+| clipboard_read | safe | Yes | **Yes (auto)** | Yes |
+| app_open | safe | Yes | **Yes (auto)** | Yes |
+| window_manage | safe | Yes | **Yes (auto)** | Yes |
 | screen_capture | caution | Yes | No | Scoped |
 | browser_navigate | caution | Yes | No | Scoped |
 | clipboard_write | caution | Yes | No | Scoped |

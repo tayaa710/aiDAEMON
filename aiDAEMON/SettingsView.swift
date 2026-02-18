@@ -138,7 +138,7 @@ private struct CloudSettingsTab: View {
 
     // Provider choice (non-secret — safe in UserDefaults)
     @AppStorage("cloud.provider")
-    private var providerRawValue: String = CloudProviderType.groq.rawValue
+    private var providerRawValue: String = CloudProviderType.openAI.rawValue
 
     // Custom provider configuration (non-secret)
     @AppStorage("cloud.customEndpoint")
@@ -287,6 +287,10 @@ private struct CloudSettingsTab: View {
     @ViewBuilder
     private var providerHelpLink: some View {
         switch selectedProvider {
+        case .anthropic:
+            Link("Get an API key at console.anthropic.com →",
+                 destination: URL(string: "https://console.anthropic.com/settings/keys")!)
+                .font(.footnote)
         case .openAI:
             Link("Get an API key at platform.openai.com →",
                  destination: URL(string: "https://platform.openai.com/api-keys")!)
