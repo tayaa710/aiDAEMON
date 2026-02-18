@@ -25,7 +25,7 @@ public struct FileSearcher: CommandExecutor {
             ?? command.stringParam("query")
             ?? ""
 
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {move window to bottom left
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             completion(.error("No search query specified."))
             return
         }

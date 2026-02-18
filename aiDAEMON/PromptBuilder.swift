@@ -72,6 +72,50 @@ public struct PromptBuilder {
         return systemPrompt + "User: \"\(sanitized)\"\n"
     }
 
+    /// Builds a prompt that includes recent conversation history for context.
+    /// This lets the model understand references like "it", "that app", etc.
+    ///
+    /// - Parameters:
+    ///   - messages: Recent conversation messages to include as context.
+    ///   - currentInput: The new user input to respond to.
+    /// - Returns: A formatted prompt with conversation context + current input.
+    public static func buildConversationalPrompt(messages: [Message], currentInput: String) -> String {
+        let sanitizedInput = sanitize(currentInput)
+
+        // If no history, fall back to the simple prompt
+        guard !messages.isEmpty else {
+            return systemPrompt + "User: \"\(sanitizedInput)\"\n"
+        }
+
+        var prompt = systemPrompt
+
+        // Add conversation context header
+        prompt += "Recent conversation (for context — use this to resolve references like \"it\", \"that\", etc.):\n"
+
+        // Append each message as context, with a character budget to avoid overflowing
+        // Local model: ~2048 tokens for history (~6000 chars at ~3 chars/token)
+        // Cloud model: more generous, but we cap the same for simplicity
+        let maxHistoryChars = 6000
+        var historyChars = 0
+
+        for message in messages {
+            let role = message.role == .user ? "User" : "Assistant"
+            let content = sanitize(message.content)
+            let line = "[\(role)]: \(content)\n"
+
+            if historyChars + line.count > maxHistoryChars {
+                break
+            }
+            prompt += line
+            historyChars += line.count
+        }
+
+        prompt += "\nNow respond to this new input. Output JSON only, no explanation.\n"
+        prompt += "User: \"\(sanitizedInput)\"\n"
+
+        return prompt
+    }
+
     // MARK: - Input sanitisation
 
     /// Removes characters that could break the prompt structure.

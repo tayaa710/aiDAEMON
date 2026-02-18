@@ -58,6 +58,8 @@ enum ResultStyle {
 final class ResultsState: ObservableObject {
     @Published var output: String?
     @Published var style: ResultStyle = .success
+    @Published var modelBadge: String? = nil
+    @Published var isCloudModel: Bool = false
 
     var hasResults: Bool {
         guard let output else { return false }
@@ -69,15 +71,26 @@ final class ResultsState: ObservableObject {
         self.style = style
     }
 
+    func showWithBadge(_ output: String, style: ResultStyle, providerName: String, isCloud: Bool) {
+        self.output = output
+        self.style = style
+        self.modelBadge = isCloud ? "Cloud" : "Local"
+        self.isCloudModel = isCloud
+    }
+
     func clear() {
         output = nil
         style = .success
+        modelBadge = nil
+        isCloudModel = false
     }
 }
 
 struct ResultsView: View {
     let output: String
     let style: ResultStyle
+    var modelBadge: String? = nil
+    var isCloudModel: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -93,6 +106,24 @@ struct ResultsView: View {
                 Text(style.label)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(style.textColor)
+
+                Spacer()
+
+                if let badge = modelBadge, style != .loading {
+                    HStack(spacing: 3) {
+                        Image(systemName: isCloudModel ? "cloud.fill" : "desktopcomputer")
+                            .font(.system(size: 9))
+                        Text(badge)
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(isCloudModel ? .blue : .secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill((isCloudModel ? Color.blue : Color.secondary).opacity(0.12))
+                    )
+                }
             }
 
             ScrollView {

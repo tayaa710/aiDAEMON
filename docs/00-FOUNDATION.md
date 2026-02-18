@@ -125,7 +125,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M024)
+## Completed Foundation (M001-M030)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -135,7 +135,7 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Global hotkey (Cmd+Shift+Space) | `HotkeyManager.swift` | Working |
 | Floating window UI | `FloatingWindow.swift` | Working |
 | Text input | `CommandInputView.swift` | Working |
-| Results display | `ResultsView.swift` | Working |
+| Results display + model badge | `ResultsView.swift` | Working |
 | Settings window | `SettingsView.swift` | Working |
 | Local LLM loading | `ModelLoader.swift` | Working |
 | llama.cpp bridge | `LLMBridge.swift` | Working |
@@ -149,5 +149,12 @@ The following capabilities already exist and should be reused, not rebuilt:
 | System info | `SystemInfo.swift` | Working |
 | Command validation | `CommandValidator.swift` | Working |
 | Confirmation dialogs | `ConfirmationDialog.swift` | Working |
+| ModelProvider protocol | `ModelProvider.swift` | Working |
+| Local model backend | `LocalModelProvider.swift` | Working |
+| Cloud model backend | `CloudModelProvider.swift` | Working |
+| Keychain credential storage | `KeychainHelper.swift` | Working |
+| Model routing (local/cloud) | `ModelRouter.swift` | Working |
+| Conversation data model | `Conversation.swift` | Working |
+| Chat conversation UI | `ChatView.swift` | Working |
 
 This foundation is the "hands" of the assistant. The new milestones add the "brain" (cloud model + agent loop) and "eyes" (screen vision).

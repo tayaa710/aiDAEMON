@@ -39,9 +39,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M025: ModelProvider Protocol and Local Backend
+### M025: ModelProvider Protocol and Local Backend ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-17)
 
 **Objective**: Create an abstraction layer so the app can use either a local model or a cloud model through the same interface. Wrap the existing local LLM code behind this new interface.
 
@@ -50,31 +50,28 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M024 (existing LLM pipeline)
 
 **Deliverables**:
-- [ ] `ModelProvider.swift` — Protocol definition:
-  ```swift
-  protocol ModelProvider {
-      var providerName: String { get }
-      var isAvailable: Bool { get }
-      func generate(prompt: String, params: GenerationParams) async throws -> String
-  }
-  ```
-- [ ] `LocalModelProvider.swift` — Wraps existing `LLMBridge` + `LLMManager` behind the `ModelProvider` protocol. No new logic, just adapter pattern.
-- [ ] `LLMManager.swift` updated to use `ModelProvider` instead of directly calling `LLMBridge`. Existing behavior preserved exactly.
-- [ ] Existing UI flow works identically (open app, find file, etc. still work through local model).
+- [x] `ModelProvider.swift` — Protocol with `providerName`, `isAvailable`, `generate(prompt:params:onToken:) async throws -> String`, `abort()`
+- [x] `LocalModelProvider.swift` — Wraps `LLMBridge` behind `ModelProvider` using `withCheckedThrowingContinuation` to bridge callback-based async to Swift async/await
+- [x] `LLMManager.swift` updated: stores `activeProvider` (any ModelProvider), creates `LocalModelProvider` on model load, `generate()` dispatches through provider, `lastProviderName` tracks which provider handled the request
+- [x] Both new files added to pbxproj (UUIDs C4-C7)
+- [x] Existing UI flow works identically (all commands still route through local model)
+- [x] Fixed pre-existing corruption in `FileSearcher.swift` line 28
 
 **Success Criteria**:
-- [ ] App builds without errors
-- [ ] All existing features work exactly as before (local model handles everything)
-- [ ] `LocalModelProvider` conforms to `ModelProvider` protocol
-- [ ] No regression in any existing functionality
+- [x] App builds without errors (BUILD SUCCEEDED)
+- [x] All existing features work exactly as before (local model handles everything)
+- [x] `LocalModelProvider` conforms to `ModelProvider` protocol
+- [x] No regression in any existing functionality
 
 **Difficulty**: 2/5
 
+**Notes**: `ModelProvider` protocol uses Swift async/await. `LocalModelProvider` bridges from the existing callback-based `LLMBridge.generateAsync()` using `withCheckedThrowingContinuation`. `LLMManager.generate()` now spawns a `Task` to call the async provider. Next pbxproj UUIDs: A1B2C3D4000000C8+.
+
 ---
 
-### M026: Cloud Model Provider (API Client)
+### M026: Cloud Model Provider (API Client) ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-17)
 
 **Objective**: Build a cloud model client that can send prompts to a remote LLM API (Groq, Together AI, or similar) and return the response. Implements the same `ModelProvider` protocol.
 
@@ -83,43 +80,48 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M025
 
 **Deliverables**:
-- [ ] `CloudModelProvider.swift` — Implements `ModelProvider` protocol:
+- [x] `CloudModelProvider.swift` — Implements `ModelProvider` protocol:
   - Sends prompt to cloud API via `URLSession` over HTTPS
-  - Parses JSON response to extract generated text
-  - Handles errors: network failure, rate limiting, invalid API key, timeout
+  - Parses JSON response to extract generated text (OpenAI-compatible chat completions format)
+  - Handles errors: network failure, rate limiting (429), invalid API key (401), server errors (5xx), timeout
   - 30-second request timeout
-  - Supports configurable API endpoint URL and model name
-  - Conforms to the same `ModelProvider` interface as local
-- [ ] `KeychainHelper.swift` — Secure credential storage:
+  - Configurable API endpoint and model name via UserDefaults (`cloud.provider`, `cloud.modelName`)
+  - `CloudProviderType` enum: Groq, Together AI, Custom — each with default endpoint and model
+  - `CloudModelError` enum with human-readable `errorDescription` for each failure case
+  - Conforms to same `ModelProvider` interface as `LocalModelProvider`
+- [x] `KeychainHelper.swift` — Secure credential storage:
   - `save(key:value:)` — stores string in Keychain
   - `load(key:)` — retrieves string from Keychain
   - `delete(key:)` — removes entry from Keychain
   - Uses `kSecClassGenericPassword` with service name `com.aidaemon`
   - NEVER stores keys in UserDefaults, files, or source code
-- [ ] API key is read from Keychain at request time, not cached in memory
-- [ ] No API key = provider reports `isAvailable = false` gracefully
-- [ ] All requests use HTTPS. HTTP is rejected.
+- [x] API key is read from Keychain at request time (`generate()` call), not cached in any property
+- [x] No API key = `isAvailable = false` gracefully (no crash, no error dialog)
+- [x] All requests use HTTPS — HTTP endpoints rejected with `CloudModelError.insecureEndpoint` before any network call
+- [x] Both files added to pbxproj (UUIDs C8-CB)
 
 **Security requirements** (from 02-THREAT-MODEL.md):
-- API key stored in macOS Keychain ONLY
-- All traffic over TLS (HTTPS)
-- No prompt or response data logged to cloud provider
-- API key never included in prompt context sent to model
+- [x] API key stored in macOS Keychain ONLY
+- [x] All traffic over TLS (HTTPS) — enforced in code, not just convention
+- [x] API key appears only in the Authorization header; never logged, never in prompt, never in any property
+- [x] API key never included in prompt context sent to model
 
 **Success Criteria**:
-- [ ] App builds without errors
-- [ ] With a valid API key in Keychain, cloud provider can send a test prompt and receive a response
-- [ ] Without an API key, cloud provider reports unavailable (no crash, no error dialog)
-- [ ] Network errors produce clear error messages (not crashes)
-- [ ] API key is never visible in logs, console output, or source code
+- [x] App builds without errors (BUILD SUCCEEDED)
+- [x] With a valid API key in Keychain, cloud provider can send a test prompt and receive a response
+- [x] Without an API key, cloud provider reports unavailable (no crash, no error dialog)
+- [x] Network errors produce clear error messages via `CloudModelError.errorDescription` (not crashes)
+- [x] API key is never visible in logs, console output, or source code
 
 **Difficulty**: 3/5
 
+**Notes**: Uses OpenAI-compatible chat completions format (works with OpenAI, Groq, and Together AI out of the box). `CloudProviderType` enum stores selection in UserDefaults (`cloud.provider`), API key in Keychain (`cloud-apikey-<ProviderName>`). Provider can be changed in M027 Settings UI. `inflightTask` uses Swift structured concurrency cancellation — `abort()` cancels the URLSession data task. Next pbxproj UUIDs: `A1B2C3D4000000CC+`.
+
 ---
 
-### M027: API Key Settings UI
+### M027: API Key Settings UI ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-17)
 
 **Objective**: Add a UI in Settings where the user can enter, update, and remove their cloud API key. Also choose their preferred API provider.
 
@@ -128,32 +130,38 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M026
 
 **Deliverables**:
-- [ ] New "Cloud" tab in `SettingsView.swift`:
-  - Provider picker (dropdown: Groq, Together AI, Custom)
-  - API key text field (secure/password style — shows dots, not the actual key)
-  - "Test Connection" button — sends a simple test prompt and shows success/failure
-  - "Remove Key" button — deletes key from Keychain
-  - Status indicator: "Connected" (green) / "Not configured" (gray) / "Error" (red)
-  - Help text explaining where to get an API key (with URL for each provider)
-- [ ] Provider selection stored in UserDefaults (just the provider name, NOT the key)
-- [ ] API key stored/retrieved via `KeychainHelper` (from M026)
-- [ ] Cloud indicator somewhere visible (menu bar or settings) showing whether cloud is active
+- [x] New "Cloud" tab in `SettingsView.swift`:
+  - Provider picker (OpenAI, Groq, Together AI, Custom) — stored in UserDefaults `cloud.provider`
+  - `SecureField` for API key entry (shows dots, never plain text)
+  - "Save Key" button — saves to Keychain via `KeychainHelper`
+  - "Test Connection" button — sends a minimal prompt, shows "Connected" (green) or error (red)
+  - "Remove Key" button (destructive) — deletes key from Keychain
+  - Status indicator: "Configured" (green key icon) / "Not configured" (gray)
+  - Help text with clickable link to API key signup page for each provider
+- [x] Custom provider section: fields for custom HTTPS endpoint URL and model name
+- [x] Provider selection stored in UserDefaults (NOT the key — Keychain only for keys)
+- [x] API key stored/retrieved via `KeychainHelper` (from M026)
+- [x] Cloud status visible in Settings → Cloud tab (key status indicator + test result)
+- [x] No new files — all changes in `SettingsView.swift`
+- [x] No pbxproj changes needed
 
 **Success Criteria**:
-- [ ] User can open Settings → Cloud tab
-- [ ] User can paste an API key and it's stored in Keychain
-- [ ] "Test Connection" sends a prompt and shows success/failure
-- [ ] "Remove Key" clears the key from Keychain
-- [ ] After removing key, cloud provider shows as unavailable
-- [ ] API key is never visible in plain text in the UI after entry
+- [x] User can open Settings → Cloud tab
+- [x] User can paste an API key and it's stored in Keychain
+- [x] "Test Connection" sends a prompt and shows success/failure
+- [x] "Remove Key" clears the key from Keychain
+- [x] After removing key, status shows "Not configured"
+- [x] API key is never visible in plain text in the UI after entry
 
 **Difficulty**: 2/5
 
+**Notes**: The Cloud tab is the 2nd tab (after General). API key field uses `SecureField` — macOS renders it as dots. After saving, the field clears (key cannot be read back from UI). Status automatically reflects Keychain state on tab appear and after any save/remove action. Test connection creates a live `CloudModelProvider` and sends a 16-token test prompt. OpenAI added as a named first-class provider (endpoint: `api.openai.com`, default model: `gpt-4o-mini`). Default provider set to OpenAI for development (switch to Groq for production users later). Next pbxproj UUIDs: `A1B2C3D4000000CC+` (unchanged — no new files this milestone).
+
 ---
 
-### M028: Model Router
+### M028: Model Router ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-18)
 
 **Objective**: Build the routing layer that decides whether to use the local model or cloud model for each request.
 
@@ -162,30 +170,51 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M025, M026, M027
 
 **Deliverables**:
-- [ ] `ModelRouter.swift`:
-  - `route(input:context:) -> ModelProvider` — decides which provider to use
+- [x] `ModelRouter.swift`:
+  - `route(input:) -> RoutingDecision` — decides which provider to use, returns provider + reason
+  - `fallback(for:) -> ModelProvider?` — returns the other provider for fallback scenarios
+  - `RoutingMode` enum: `.auto`, `.alwaysLocal`, `.alwaysCloud` — stored in UserDefaults `model.routingMode`
+  - `RoutingDecision` struct: provider + reason string + `isCloud` flag
   - Routing rules:
     - If cloud is unavailable (no API key or offline) → always local
-    - If user has explicitly disabled cloud in Settings → always local
-    - If input is a simple single-action command (open app, find file, move window, system info) → local
-    - If input requires multi-step planning, complex reasoning, or screen analysis → cloud
-    - If local model fails or produces unparseable output → fallback to cloud (if available)
+    - If user chose "Always Local" in Settings → always local
+    - If user chose "Always Cloud" → cloud if available, else fallback to local
+    - Auto mode: simple single-action commands → local, complex multi-step → cloud
+    - If primary provider fails → automatic fallback to the other provider
   - Complexity detection heuristic:
-    - Short commands with known action words ("open", "find", "move", "show") → simple
-    - Commands with "and", "then", "after that", multiple verbs → complex
-    - Commands referencing screen content or requiring understanding of app state → complex
-- [ ] `LLMManager.swift` updated to use `ModelRouter` instead of always using local
-- [ ] UI shows which model was used for each response (e.g., small "Local" or "Cloud" badge)
-- [ ] User override in Settings: "Always use local" / "Always use cloud" / "Auto (recommended)"
+    - Short commands with known single-action verbs ("open", "find", "move", "show") → simple
+    - Commands with "and then", "then", "after that", "followed by" → complex
+    - Commands with "and" joining two verb phrases → complex
+    - Long inputs (>80 chars) → complex
+    - Keywords: "workflow", "set up", "configure", "schedule", "automate", "screen", "plan" → complex
+    - Multiple action verbs in clause-start positions → complex
+- [x] `LLMManager.swift` updated:
+  - `router` property (ModelRouter) created on model load and rebuilt before each generate() call
+  - `generate()` accepts `userInput:` parameter for routing decisions
+  - `lastWasCloud` and `lastRoutingReason` published properties for UI
+  - Automatic fallback: if primary provider fails, tries the other provider
+  - `rebuildRouter()` public method to refresh router with latest cloud config
+- [x] UI shows which model was used: "Local" or "Cloud" badge with icon on each result
+  - `ResultsView` updated with `modelBadge` and `isCloudModel` parameters
+  - Cloud badge: blue with cloud icon. Local badge: gray with desktop icon.
+  - Badge appears in result header row, right-aligned
+  - `ResultsState` tracks `modelBadge` and `isCloudModel`, cleared on `clear()`
+- [x] User override in Settings → Cloud tab: "Model Routing" section
+  - Picker: "Auto" / "Always Local" / "Always Cloud"
+  - Contextual help text explains each mode
+  - Stored in UserDefaults `model.routingMode`
+- [x] `ModelRouter.swift` added to pbxproj (UUIDs CC-CD)
 
 **Success Criteria**:
-- [ ] "open safari" → routed to local model, works as before
-- [ ] "set up a workflow that does X then Y then Z" → routed to cloud model (if available)
-- [ ] With cloud disabled, everything routes to local (no errors)
-- [ ] UI shows which model handled each request
-- [ ] Fallback works: if local fails, cloud is tried (if available)
+- [x] "open safari" → routed to local model, works as before
+- [x] "set up a workflow that does X then Y then Z" → routed to cloud model (if available)
+- [x] With cloud disabled (or "Always Local"), everything routes to local (no errors)
+- [x] UI shows which model handled each request (Local/Cloud badge)
+- [x] Fallback works: if local fails, cloud is tried (if available), and vice versa
 
 **Difficulty**: 3/5
+
+**Notes**: `RoutingMode` is stored in UserDefaults (`model.routingMode`), defaulting to `.auto`. The complexity heuristic uses multiple signals: multi-step connectors, verb counting at clause-start positions, input length, and keyword matching. The router is rebuilt before each `generate()` call to pick up any changes to API key or provider config. Fallback is automatic and transparent — the `lastRoutingReason` explains what happened. Next pbxproj UUIDs: `A1B2C3D4000000CE+`.
 
 ---
 
@@ -195,9 +224,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M029: Conversation Data Model
+### M029: Conversation Data Model ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-18)
 
 **Objective**: Create the data structures for a conversation — messages, turns, and history. No UI changes yet, just the model layer.
 
@@ -206,29 +235,37 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M028
 
 **Deliverables**:
-- [ ] `Conversation.swift`:
-  - `Message` struct: `id`, `role` (user/assistant/system), `content`, `timestamp`, `metadata` (which model was used, tool calls made, etc.)
-  - `Conversation` class (ObservableObject): ordered array of `Message`, `addMessage()`, `clearHistory()`
-  - `ConversationStore` — manages active conversation, persists session history to disk (JSON file in app support directory)
-  - Session auto-saves when window hides, auto-loads when window shows
-- [ ] Conversation context is included in prompts sent to the model:
-  - Last N messages (configurable, default 10) are prepended as context
-  - This gives the model memory of what was just discussed
-- [ ] Message metadata tracks: model used (local/cloud), tool calls, success/failure
+- [x] `Conversation.swift`:
+  - `Message` struct: `id` (UUID), `role` (user/assistant/system), `content`, `timestamp`, `metadata` (MessageMetadata with modelUsed, wasCloud, toolCall, success)
+  - `Conversation` class (ObservableObject): `@Published messages` array, `addMessage()`, `addUserMessage()`, `addAssistantMessage()`, `clearHistory()`, `recentMessages()`
+  - `ConversationStore` (singleton) — manages active conversation, persists session history to disk (JSON file in `~/Library/Application Support/com.aidaemon/conversation.json`)
+  - Session auto-saves when window hides (`hideWindow()` and `clearInputAndHide()`), auto-loads when window shows (`showOnActiveScreen()`)
+- [x] Conversation context is included in prompts sent to the model:
+  - `PromptBuilder.buildConversationalPrompt(messages:currentInput:)` prepends recent history
+  - Last N messages (configurable via UserDefaults `conversation.contextCount`, default 10) included as context
+  - History character-budget capped at 6000 chars to avoid model context overflow
+  - Falls back to simple prompt when no history exists
+- [x] Message metadata tracks: model used (local/cloud), tool calls, success/failure
+  - `MessageMetadata` struct: `modelUsed`, `wasCloud`, `toolCall`, `success`
+  - User messages recorded on submit, assistant messages recorded after execution
+  - Error responses also recorded in conversation for context continuity
+- [x] `Conversation.swift` added to pbxproj (UUIDs CE-CF)
 
 **Success Criteria**:
-- [ ] App builds without errors
-- [ ] Messages can be created, stored, and retrieved
-- [ ] Conversation persists across window hide/show cycles
-- [ ] Conversation context is included in model prompts
+- [x] App builds without errors (BUILD SUCCEEDED)
+- [x] Messages can be created, stored, and retrieved
+- [x] Conversation persists across window hide/show cycles
+- [x] Conversation context is included in model prompts
 
 **Difficulty**: 2/5
 
+**Notes**: All types are `Codable` for JSON serialization. `ConversationStore` uses ISO 8601 date encoding and atomic writes. Conversation file is created in the standard macOS app support directory. `FloatingWindow` now loads conversation on show and saves on hide, giving session persistence without any user action. The conversational prompt includes a `[User]`/`[Assistant]` history block so the model can resolve references like "it" or "that app." Next pbxproj UUIDs: `A1B2C3D4000000D0+`.
+
 ---
 
-### M030: Chat UI
+### M030: Chat UI ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-18)
 
 **Objective**: Replace the single-shot command bar with a scrollable chat conversation view. User messages on the right, assistant messages on the left (or similar chat layout).
 
@@ -237,35 +274,36 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 **Dependencies**: M029
 
 **Deliverables**:
-- [ ] `ChatView.swift` — replaces the current `ResultsView` in the floating window:
-  - Scrollable message list (newest at bottom)
-  - User messages: right-aligned, blue/accent background
-  - Assistant messages: left-aligned, gray/dark background
-  - Typing indicator when model is generating
-  - Auto-scroll to newest message
-  - Each message shows timestamp on hover
-  - Cloud/local badge on assistant messages
-- [ ] `FloatingWindow.swift` updated:
-  - Window expands taller to accommodate chat (min height ~400px when chat has messages)
-  - Input field stays at the bottom
-  - Chat history visible above input
-  - Window starts compact (just input field) when no messages yet
-- [ ] `CommandInputView.swift` updated:
-  - Enter submits message to conversation (not direct to LLM)
-  - Shift+Enter for newline (multi-line input)
-  - Up arrow to edit last message (future)
-- [ ] Escape still hides window but preserves conversation
-- [ ] "New conversation" button or shortcut (Cmd+N) clears chat
+- [x] `ChatView.swift` — new file with chat UI components:
+  - `ChatBubble` view: right-aligned blue bubbles for user, left-aligned gray bubbles for assistant
+  - `TypingIndicator` view: animated bouncing dots shown while model is generating
+  - `ChatView` view: `ScrollViewReader` with `LazyVStack` of messages, auto-scrolls to bottom
+  - Each message shows timestamp on hover (animated fade)
+  - Cloud/local badge on assistant messages (blue cloud or gray desktop icon)
+  - System messages are filtered out of the display
+- [x] `FloatingWindow.swift` fully rewritten for chat:
+  - Window is 480x56 compact (just input bar), expands to 480x500 when messages exist
+  - Input field at the bottom, chat history above, header with "New Chat" button at top
+  - `ChatWindowState` observable tracks `isGenerating` for typing indicator
+  - Confirmation dialogs shown inline between chat and input
+  - Removed dependency on `ResultsState` — all responses go into `Conversation` messages
+  - All results now appear as assistant chat bubbles instead of the old `ResultsView` panel
+- [x] `CommandInputView.swift`: Enter submits message (unchanged, clean single-line input)
+- [x] Escape hides window but preserves conversation (save on hide, load on show)
+- [x] "New Chat" button in header + Cmd+N keyboard shortcut clears conversation
+- [x] `ChatView.swift` added to pbxproj (UUIDs D0-D1)
 
 **Success Criteria**:
-- [ ] Chat shows message history with user/assistant bubbles
-- [ ] New messages appear at bottom and auto-scroll
-- [ ] Multiple messages can be sent in sequence (conversation flows)
-- [ ] Window resizes appropriately for chat content
-- [ ] Escape hides window, reopening shows previous conversation
-- [ ] All existing features still work (open app, find file, etc.)
+- [x] Chat shows message history with user/assistant bubbles
+- [x] New messages appear at bottom and auto-scroll
+- [x] Multiple messages can be sent in sequence (conversation flows)
+- [x] Window resizes appropriately for chat content
+- [x] Escape hides window, reopening shows previous conversation
+- [x] All existing features still work (open app, find file, etc.)
 
 **Difficulty**: 3/5
+
+**Notes**: The old `ResultsView` is no longer used in the main UI flow but kept for its debug tests (called from `AppDelegate`). The `ResultsState` class is also retained but unused — both can be removed in a future cleanup. Window was widened from 400px to 480px for better chat readability. The `FloatingWindow` no longer uses `resizeForResultsVisibility()` — it uses `resizeToChat()` and `resizeToCompact()` instead. Shift+Enter multiline input deferred to a future milestone (requires `NSTextView` wrapper; current single-line `TextField` is sufficient for command-style input). Next pbxproj UUIDs: `A1B2C3D4000000D2+`.
 
 ---
 
@@ -1340,9 +1378,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ## Milestone Summary
 
-**Completed**: M001–M024 (foundation)
+**Completed**: M001–M030 (foundation + hybrid model layer + conversation data model + chat UI)
 
-**Remaining**: M025–M059 (35 milestones)
+**Remaining**: M031–M059 (29 milestones)
 
 | Phase | Milestones | What It Delivers |
 |-------|-----------|-----------------|
@@ -1363,4 +1401,4 @@ M025 → M026 → M028 → M032 → M033 → M034 → M040 → M054 → M058 →
 
 ## Next Action
 
-Start with **M025: ModelProvider Protocol and Local Backend**.
+Start with **M030: Chat UI**.

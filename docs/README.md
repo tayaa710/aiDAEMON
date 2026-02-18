@@ -56,5 +56,5 @@
 
 ## Current Status
 
-**Completed**: M001–M024 (foundation, UI, local LLM, command executors)
+**Completed**: M001–M030 (foundation, UI, local LLM, command executors, hybrid model layer, conversation data model, chat UI)
 **Next**: See 03-MILESTONES.md for the current milestone

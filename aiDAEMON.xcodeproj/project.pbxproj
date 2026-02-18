@@ -31,6 +31,13 @@
 		A1B2C3D4000000BF /* SystemInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000BE /* SystemInfo.swift */; };
 		A1B2C3D4000000C1 /* CommandValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000C0 /* CommandValidator.swift */; };
 		A1B2C3D4000000C3 /* ConfirmationDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000C2 /* ConfirmationDialog.swift */; };
+		A1B2C3D4000000C5 /* ModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000C4 /* ModelProvider.swift */; };
+		A1B2C3D4000000C7 /* LocalModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000C6 /* LocalModelProvider.swift */; };
+		A1B2C3D4000000C9 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000C8 /* KeychainHelper.swift */; };
+		A1B2C3D4000000CB /* CloudModelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000CA /* CloudModelProvider.swift */; };
+		A1B2C3D4000000CD /* ModelRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000CC /* ModelRouter.swift */; };
+		A1B2C3D4000000CF /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000CE /* Conversation.swift */; };
+		A1B2C3D4000000D1 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000D0 /* ChatView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +68,13 @@
 		A1B2C3D4000000BE /* SystemInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemInfo.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000C0 /* CommandValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandValidator.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000C2 /* ConfirmationDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationDialog.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000C4 /* ModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000C6 /* LocalModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000C8 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000CA /* CloudModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudModelProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000CC /* ModelRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelRouter.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000CE /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		A1B2C3D4000000D0 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +125,13 @@
 				A1B2C3D4000000BE /* SystemInfo.swift */,
 				A1B2C3D4000000C0 /* CommandValidator.swift */,
 				A1B2C3D4000000C2 /* ConfirmationDialog.swift */,
+				A1B2C3D4000000C4 /* ModelProvider.swift */,
+				A1B2C3D4000000C6 /* LocalModelProvider.swift */,
+				A1B2C3D4000000C8 /* KeychainHelper.swift */,
+				A1B2C3D4000000CA /* CloudModelProvider.swift */,
+				A1B2C3D4000000CC /* ModelRouter.swift */,
+				A1B2C3D4000000CE /* Conversation.swift */,
+				A1B2C3D4000000D0 /* ChatView.swift */,
 				A1B2C3D400000004 /* ContentView.swift */,
 				A1B2C3D400000006 /* Assets.xcassets */,
 				A1B2C3D400000007 /* aiDAEMON.entitlements */,
@@ -224,6 +245,13 @@
 				A1B2C3D4000000BF /* SystemInfo.swift in Sources */,
 				A1B2C3D4000000C1 /* CommandValidator.swift in Sources */,
 				A1B2C3D4000000C3 /* ConfirmationDialog.swift in Sources */,
+				A1B2C3D4000000C5 /* ModelProvider.swift in Sources */,
+				A1B2C3D4000000C7 /* LocalModelProvider.swift in Sources */,
+				A1B2C3D4000000C9 /* KeychainHelper.swift in Sources */,
+				A1B2C3D4000000CB /* CloudModelProvider.swift in Sources */,
+				A1B2C3D4000000CD /* ModelRouter.swift in Sources */,
+				A1B2C3D4000000CF /* Conversation.swift in Sources */,
+				A1B2C3D4000000D1 /* ChatView.swift in Sources */,
 				A1B2C3D400000003 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

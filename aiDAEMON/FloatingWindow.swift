@@ -2,16 +2,20 @@ import Cocoa
 import SwiftUI
 
 final class FloatingWindow: NSWindow {
-    private static let defaultSize = NSSize(width: 400, height: 80)
-    private static let expandedSize = NSSize(width: 400, height: 360)
+    /// Compact size: just the input bar (no messages).
+    private static let compactSize = NSSize(width: 480, height: 56)
+    /// Expanded size: chat area + input bar.
+    private static let chatSize = NSSize(width: 480, height: 500)
 
     private let commandInputState = CommandInputState()
-    private let resultsState = ResultsState()
     private let confirmationState = ConfirmationState()
+    private let conversationStore = ConversationStore.shared
+    /// Tracks whether the model is currently generating (drives typing indicator).
+    private let chatState = ChatWindowState()
 
     init() {
         super.init(
-            contentRect: NSRect(origin: .zero, size: Self.defaultSize),
+            contentRect: NSRect(origin: .zero, size: Self.compactSize),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -31,19 +35,34 @@ final class FloatingWindow: NSWindow {
 
     func showOnActiveScreen() {
         WindowManager.rememberLastExternalApplication(NSWorkspace.shared.frontmostApplication)
-        centerOnActiveScreen()
+        conversationStore.load()
+
+        // Size the window based on whether there are messages
+        let hasMessages = !conversationStore.conversation.messages.isEmpty
+        let targetSize = hasMessages ? Self.chatSize : Self.compactSize
+        setContentSize(targetSize)
+
+        centerOnActiveScreen(size: targetSize)
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
         commandInputState.requestFocus()
     }
 
     func hideWindow() {
+        conversationStore.save()
         orderOut(nil)
     }
 
     override func keyDown(with event: NSEvent) {
+        // Escape key
         if event.keyCode == 53 {
-            clearInputAndHide()
+            hideAndPreserve()
+            return
+        }
+
+        // Cmd+N: new conversation
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "n" {
+            startNewConversation()
             return
         }
 
@@ -51,8 +70,20 @@ final class FloatingWindow: NSWindow {
     }
 
     override func cancelOperation(_ sender: Any?) {
-        clearInputAndHide()
+        hideAndPreserve()
     }
+
+    // MARK: - New Conversation
+
+    func startNewConversation() {
+        commandInputState.clear()
+        confirmationState.dismiss()
+        chatState.isGenerating = false
+        conversationStore.clearAll()
+        resizeToCompact()
+    }
+
+    // MARK: - Window Configuration
 
     private func configureWindow() {
         isReleasedWhenClosed = false
@@ -68,24 +99,29 @@ final class FloatingWindow: NSWindow {
         let hostingView = NSHostingView(
             rootView: FloatingWindowShellView(
                 commandInputState: commandInputState,
-                resultsState: resultsState,
                 confirmationState: confirmationState,
+                conversation: conversationStore.conversation,
+                chatState: chatState,
                 onSubmit: { [weak self] command in
                     self?.handleSubmit(command)
+                },
+                onNewConversation: { [weak self] in
+                    self?.startNewConversation()
                 }
             )
         )
-        hostingView.frame = NSRect(origin: .zero, size: Self.defaultSize)
+        hostingView.frame = NSRect(origin: .zero, size: Self.compactSize)
         hostingView.autoresizingMask = [.width, .height]
         hostingView.wantsLayer = true
         hostingView.layer?.cornerRadius = 14
         hostingView.layer?.masksToBounds = true
 
         contentView = hostingView
-        setContentSize(Self.defaultSize)
+        setContentSize(Self.compactSize)
     }
 
-    private func centerOnActiveScreen() {
+    private func centerOnActiveScreen(size: NSSize? = nil) {
+        let targetSize = size ?? frame.size
         let pointerLocation = NSEvent.mouseLocation
         let activeScreen = NSScreen.screens.first(where: { $0.frame.contains(pointerLocation) })
             ?? NSScreen.main
@@ -98,28 +134,63 @@ final class FloatingWindow: NSWindow {
 
         let visibleFrame = activeScreen.visibleFrame
         let origin = NSPoint(
-            x: visibleFrame.midX - (Self.defaultSize.width / 2),
-            y: visibleFrame.midY - (Self.defaultSize.height / 2)
+            x: visibleFrame.midX - (targetSize.width / 2),
+            y: visibleFrame.midY - (targetSize.height / 2)
         )
 
         setFrameOrigin(origin)
     }
 
-    private func clearInputAndHide() {
+    /// Hide the window but preserve conversation — Escape key behavior.
+    private func hideAndPreserve() {
         commandInputState.clear()
-        resultsState.clear()
         confirmationState.dismiss()
-        resizeForResultsVisibility(hasResults: false, animated: false)
+        conversationStore.save()
         hideWindow()
     }
+
+    // MARK: - Window Resizing
+
+    private func resizeToChat(animated: Bool = true) {
+        let targetFrame = frameCentered(at: frame.center, size: Self.chatSize)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                animator().setFrame(targetFrame, display: true)
+            }
+        } else {
+            setFrame(targetFrame, display: true)
+        }
+    }
+
+    private func resizeToCompact(animated: Bool = true) {
+        let targetFrame = frameCentered(at: frame.center, size: Self.compactSize)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                animator().setFrame(targetFrame, display: true)
+            }
+        } else {
+            setFrame(targetFrame, display: true)
+        }
+    }
+
+    private func frameCentered(at center: NSPoint, size: NSSize) -> NSRect {
+        NSRect(
+            x: center.x - (size.width / 2),
+            y: center.y - (size.height / 2),
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    // MARK: - Confirmation Dialog
 
     private func presentConfirmation(command: Command, userInput: String, reason: String, level: SafetyLevel) {
         NSLog("CommandValidator: needsConfirmation (%@) — %@",
               level == .dangerous ? "dangerous" : "caution", reason)
-
-        // Clear results area so only the confirmation dialog shows
-        resultsState.clear()
-        resizeForResultsVisibility(hasResults: true)
 
         confirmationState.present(command: command, userInput: userInput, reason: reason, level: level)
 
@@ -132,9 +203,14 @@ final class FloatingWindow: NSWindow {
         confirmationState.onCancel = { [weak self] in
             guard let self else { return }
             self.confirmationState.dismiss()
-            self.resultsState.show("Action cancelled.", style: .error)
+            self.conversationStore.conversation.addAssistantMessage(
+                "Action cancelled.", success: false
+            )
+            self.chatState.isGenerating = false
         }
     }
+
+    // MARK: - Command Submission
 
     private func handleSubmit(_ command: String) {
         NSLog("Command submitted: %@", command)
@@ -155,41 +231,86 @@ final class FloatingWindow: NSWindow {
             case .ready:
                 msg = "Ready" // unreachable
             }
-            resultsState.show(msg, style: .error)
-            resizeForResultsVisibility(hasResults: true)
+            conversationStore.conversation.addUserMessage(command)
+            conversationStore.conversation.addAssistantMessage(msg, success: false)
+            resizeToChat()
             return
         }
 
-        resultsState.show("Thinking...", style: .loading)
-        resizeForResultsVisibility(hasResults: true)
+        // Record user message and expand window
+        conversationStore.conversation.addUserMessage(command)
+        commandInputState.clear()
+        chatState.isGenerating = true
+        resizeToChat()
 
-        let prompt = PromptBuilder.buildCommandPrompt(userInput: command)
-        NSLog("Prompt built (%d chars) for input: %@", prompt.count, command)
+        // Build prompt — only include conversation context for the cloud model.
+        let recentMessages = conversationStore.conversation.recentMessages()
+        let routingDecision = manager.router?.route(input: command)
+        let useConversationalPrompt = (routingDecision?.isCloud == true) && recentMessages.count > 1
+
+        let prompt: String
+        if useConversationalPrompt {
+            let historyMessages = Array(recentMessages.dropLast())
+            prompt = PromptBuilder.buildConversationalPrompt(messages: historyMessages, currentInput: command)
+        } else {
+            prompt = PromptBuilder.buildCommandPrompt(userInput: command)
+        }
+        NSLog("Prompt built (%d chars, %d history msgs, conversational=%@) for input: %@",
+              prompt.count, recentMessages.count - 1, useConversationalPrompt ? "yes" : "no", command)
+
+        let routedProviderName = routingDecision?.provider.providerName ?? "Local"
+        let routedWasCloud = routingDecision?.isCloud ?? false
 
         var streamedOutput = ""
+        var didAbortEarly = false
         manager.generate(
             prompt: prompt,
+            userInput: command,
             params: PromptBuilder.commandParams,
-            onToken: { [weak self] token in
+            onToken: { token in
                 DispatchQueue.main.async {
+                    guard !didAbortEarly else { return }
                     streamedOutput += token
-                    self?.resultsState.show(streamedOutput, style: .loading)
+
+                    // Early termination: once we have a complete JSON object, stop generating.
+                    let trimmed = streamedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.hasPrefix("{") && trimmed.hasSuffix("}") {
+                        if let data = trimmed.data(using: .utf8),
+                           (try? JSONSerialization.jsonObject(with: data)) != nil {
+                            didAbortEarly = true
+                            manager.abort()
+                        }
+                    }
                 }
             },
             completion: { [weak self] result in
                 DispatchQueue.main.async {
-                    self?.handleGenerationResult(result, userInput: command)
+                    if didAbortEarly {
+                        let mgr = LLMManager.shared
+                        mgr.setLastProvider(name: routedProviderName, wasCloud: routedWasCloud,
+                                            reason: mgr.lastRoutingReason)
+                        let captured = streamedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                        self?.handleGenerationResult(.success(captured), userInput: command)
+                    } else {
+                        self?.handleGenerationResult(result, userInput: command)
+                    }
                 }
             }
         )
     }
 
     private func handleGenerationResult(_ result: Result<String, Error>, userInput: String) {
+        let manager = LLMManager.shared
+
         switch result {
         case .success(let output):
             let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
-                resultsState.show("No response from model. Try rephrasing your command.", style: .error)
+                let errMsg = "No response from model. Try rephrasing your command."
+                conversationStore.conversation.addAssistantMessage(
+                    errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
+                )
+                chatState.isGenerating = false
                 return
             }
 
@@ -200,11 +321,14 @@ final class FloatingWindow: NSWindow {
                 let validation = CommandValidator.shared.validate(command)
                 switch validation {
                 case .rejected(let reason):
-                    resultsState.show("Command blocked: \(reason)", style: .error)
-                    resizeForResultsVisibility(hasResults: true)
-                    return
+                    let errMsg = "Command blocked: \(reason)"
+                    conversationStore.conversation.addAssistantMessage(
+                        errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
+                    )
+                    chatState.isGenerating = false
 
                 case .needsConfirmation(let validCmd, let reason, let level):
+                    chatState.isGenerating = false
                     presentConfirmation(command: validCmd, userInput: userInput, reason: reason, level: level)
 
                 case .valid(let validCmd):
@@ -212,23 +336,26 @@ final class FloatingWindow: NSWindow {
                 }
             } catch {
                 NSLog("Parse failed: %@\nRaw output: %@", error.localizedDescription, trimmed)
-                resultsState.show(
-                    friendlyParseError(error, rawOutput: trimmed),
-                    style: .error
+                let errMsg = friendlyParseError(error, rawOutput: trimmed)
+                conversationStore.conversation.addAssistantMessage(
+                    errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
                 )
+                chatState.isGenerating = false
             }
 
         case .failure(let error):
-            resultsState.show(
-                "Generation failed: \(error.localizedDescription)",
-                style: .error
-            )
+            let errMsg = "Generation failed: \(error.localizedDescription)"
+            conversationStore.conversation.addAssistantMessage(errMsg, success: false)
+            chatState.isGenerating = false
         }
     }
 
     private func executeValidatedCommand(_ command: Command, userInput: String) {
         let action = readableCommandType(command.type)
-        resultsState.show("Executing: \(action)...", style: .loading)
+
+        let manager = LLMManager.shared
+        let providerName = manager.lastProviderName
+        let isCloud = manager.lastWasCloud
 
         CommandRegistry.shared.execute(command) { [weak self] execResult in
             DispatchQueue.main.async {
@@ -237,37 +364,17 @@ final class FloatingWindow: NSWindow {
                 if let details = execResult.details {
                     msg += "\n" + details
                 }
-                self?.resultsState.show(msg, style: execResult.success ? .success : .error)
+
+                self?.conversationStore.conversation.addAssistantMessage(
+                    msg,
+                    modelUsed: providerName,
+                    wasCloud: isCloud,
+                    toolCall: command.type.rawValue,
+                    success: execResult.success
+                )
+                self?.chatState.isGenerating = false
             }
         }
-    }
-
-    private func formatCommand(_ command: Command, userInput: String) -> String {
-        var lines: [String] = []
-
-        lines.append("Understood: \(userInput)")
-        lines.append("")
-        lines.append("Action: \(readableCommandType(command.type))")
-
-        if let target = command.target {
-            lines.append("Target: \(target)")
-        }
-
-        if let query = command.query {
-            lines.append("Query: \(query)")
-        }
-
-        if let params = command.parameters, !params.isEmpty {
-            for (key, value) in params {
-                lines.append("\(key): \(value.value)")
-            }
-        }
-
-        if let confidence = command.confidence {
-            lines.append("Confidence: \(String(format: "%.0f%%", confidence * 100))")
-        }
-
-        return lines.joined(separator: "\n")
     }
 
     private func readableCommandType(_ type: CommandType) -> String {
@@ -301,50 +408,94 @@ final class FloatingWindow: NSWindow {
             explanation = error.localizedDescription
         }
 
-        return "\(explanation)\nTry rephrasing your command.\n\nRaw output:\n\(rawOutput)"
-    }
-
-    private func resizeForResultsVisibility(hasResults: Bool, animated: Bool = true) {
-        let targetSize = hasResults ? Self.expandedSize : Self.defaultSize
-        let targetFrame = frameCentered(at: frame.center, size: targetSize)
-
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.18
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                animator().setFrame(targetFrame, display: true)
-            }
-        } else {
-            setFrame(targetFrame, display: true)
-        }
-    }
-
-    private func frameCentered(at center: NSPoint, size: NSSize) -> NSRect {
-        NSRect(
-            x: center.x - (size.width / 2),
-            y: center.y - (size.height / 2),
-            width: size.width,
-            height: size.height
-        )
+        return "\(explanation)\nTry rephrasing your command."
     }
 }
 
+// MARK: - Chat Window State
+
+/// Observable state shared between FloatingWindow (controller) and the SwiftUI shell view.
+final class ChatWindowState: ObservableObject {
+    @Published var isGenerating: Bool = false
+}
+
+// MARK: - Shell View
+
 private struct FloatingWindowShellView: View {
     @ObservedObject var commandInputState: CommandInputState
-    @ObservedObject var resultsState: ResultsState
     @ObservedObject var confirmationState: ConfirmationState
+    @ObservedObject var conversation: Conversation
+    @ObservedObject var chatState: ChatWindowState
 
     let onSubmit: (String) -> Void
+    let onNewConversation: () -> Void
+
+    private var hasMessages: Bool {
+        !conversation.messages.isEmpty
+    }
 
     var body: some View {
         ZStack {
+            // Background
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.94))
 
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.16), lineWidth: 1)
 
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
+                // Header with "New Chat" button (visible when there are messages)
+                if hasMessages || chatState.isGenerating {
+                    HStack {
+                        Text("aiDAEMON")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button(action: onNewConversation) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "plus.bubble")
+                                    .font(.system(size: 10))
+                                Text("New Chat")
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.12))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("New conversation (Cmd+N)")
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                }
+
+                // Chat messages area
+                if hasMessages || chatState.isGenerating {
+                    ChatView(
+                        conversation: conversation,
+                        isGenerating: chatState.isGenerating
+                    )
+                    .frame(maxHeight: .infinity)
+
+                    Divider()
+                        .padding(.horizontal, 10)
+                }
+
+                // Confirmation dialog overlay
+                if confirmationState.isPresented {
+                    ConfirmationDialogView(state: confirmationState)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                }
+
+                // Input bar at the bottom
                 HStack(spacing: 10) {
                     Image(systemName: "brain.head.profile")
                         .foregroundStyle(.secondary)
@@ -354,18 +505,11 @@ private struct FloatingWindowShellView: View {
                         onSubmit: onSubmit
                     )
                 }
-
-                if confirmationState.isPresented {
-                    ConfirmationDialogView(state: confirmationState)
-                } else if let output = resultsState.output {
-                    ResultsView(output: output, style: resultsState.style)
-                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, hasMessages ? 10 : 16)
             }
-            .padding(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.18), value: resultsState.hasResults)
-        .animation(.easeInOut(duration: 0.18), value: confirmationState.isPresented)
     }
 }
 
