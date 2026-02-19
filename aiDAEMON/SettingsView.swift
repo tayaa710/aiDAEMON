@@ -85,18 +85,33 @@ private struct GeneralSettingsTab: View {
     @AppStorage("autonomy.level")
     private var autonomyLevel: Int = AutonomyLevel.autoExecute.rawValue
 
+    @AppStorage(SpeechInput.voiceEnabledDefaultsKey)
+    private var voiceInputEnabled: Bool = true
+
+    @AppStorage(SpeechInput.useCloudSTTDefaultsKey)
+    private var useCloudSTT: Bool = false
+
+    @AppStorage(SpeechInput.pushToTalkStyleDefaultsKey)
+    private var pushToTalkStyleRawValue: String = VoicePushToTalkStyle.holdHotkey.rawValue
+
+    @AppStorage(SpeechInput.silenceTimeoutDefaultsKey)
+    private var silenceTimeoutSeconds: Double = 2.0
+
+    @State private var deepgramAPIKeyInput: String = ""
+    @State private var hasDeepgramAPIKey: Bool = SpeechInput.hasDeepgramKey
+
     var body: some View {
         Form {
             Section("Hotkey") {
                 HStack {
-                    Text("Current Toggle Shortcut")
+                    Text("Activation Shortcut")
                     Spacer()
                     Text("Cmd+Shift+Space")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
 
-                Text("Custom hotkey selection will be added in a future milestone.")
+                Text("Quick press toggles the window. In voice mode, hold this shortcut to talk.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
@@ -155,8 +170,78 @@ private struct GeneralSettingsTab: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
+
+            Section("Voice Input") {
+                Toggle("Enable voice input", isOn: $voiceInputEnabled)
+
+                Picker("Push-to-talk style", selection: pushToTalkStyleSelection) {
+                    ForEach(VoicePushToTalkStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .disabled(!voiceInputEnabled)
+
+                Toggle("Use cloud STT (Deepgram)", isOn: $useCloudSTT)
+                    .disabled(!voiceInputEnabled)
+
+                HStack {
+                    Text("Auto-stop after silence")
+                    Spacer()
+                    Text(String(format: "%.1f sec", silenceTimeoutSeconds))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+
+                Slider(value: $silenceTimeoutSeconds, in: 1.0...5.0, step: 0.5)
+                    .disabled(!voiceInputEnabled)
+
+                if useCloudSTT {
+                    HStack {
+                        Text("Deepgram API key")
+                        Spacer()
+                        if hasDeepgramAPIKey {
+                            Label("Configured", systemImage: "key.fill")
+                                .foregroundStyle(.green)
+                                .font(.footnote.weight(.medium))
+                        } else {
+                            Label("Not configured", systemImage: "key.slash")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
+                    }
+
+                    SecureField(
+                        hasDeepgramAPIKey ? "Key saved — paste a new key to replace" : "Paste Deepgram API key",
+                        text: $deepgramAPIKeyInput
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 12) {
+                        Button("Save Key") {
+                            saveDeepgramKey()
+                        }
+                        .disabled(deepgramAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("Remove Key", role: .destructive) {
+                            removeDeepgramKey()
+                        }
+                        .disabled(!hasDeepgramAPIKey)
+                    }
+
+                    Text("Cloud STT uses Deepgram for improved accuracy. If unavailable, aiDAEMON falls back to on-device recognition.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("On-device speech recognition works offline and keeps audio local.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(18)
+        .onAppear {
+            refreshDeepgramKeyStatus()
+        }
     }
 
     private var themeSelection: Binding<ThemePreference> {
@@ -165,6 +250,30 @@ private struct GeneralSettingsTab: View {
         } set: { newValue in
             themePreferenceRawValue = newValue.rawValue
         }
+    }
+
+    private var pushToTalkStyleSelection: Binding<VoicePushToTalkStyle> {
+        Binding {
+            VoicePushToTalkStyle(rawValue: pushToTalkStyleRawValue) ?? .holdHotkey
+        } set: { newValue in
+            pushToTalkStyleRawValue = newValue.rawValue
+        }
+    }
+
+    private func refreshDeepgramKeyStatus() {
+        hasDeepgramAPIKey = SpeechInput.hasDeepgramKey
+    }
+
+    private func saveDeepgramKey() {
+        guard SpeechInput.saveDeepgramKey(deepgramAPIKeyInput) else { return }
+        deepgramAPIKeyInput = ""
+        refreshDeepgramKeyStatus()
+    }
+
+    private func removeDeepgramKey() {
+        _ = SpeechInput.deleteDeepgramKey()
+        deepgramAPIKeyInput = ""
+        refreshDeepgramKeyStatus()
     }
 }
 

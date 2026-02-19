@@ -2,7 +2,8 @@ import Cocoa
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var floatingWindow = FloatingWindow()
-    private var hotkeyObserver: NSObjectProtocol?
+    private var hotkeyDownObserver: NSObjectProtocol?
+    private var hotkeyUpObserver: NSObjectProtocol?
     private var killSwitchObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -24,20 +25,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         HotkeyManager.shared.startListening()
 
-        hotkeyObserver = NotificationCenter.default.addObserver(
-            forName: .hotkeyPressed,
+        hotkeyDownObserver = NotificationCenter.default.addObserver(
+            forName: .hotkeyPressedDown,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
+            self?.floatingWindow.handleActivationHotkeyDown()
+        }
 
-            if self.floatingWindow.isVisible {
-                self.floatingWindow.hideWindow()
-                NSLog("Floating window hidden")
-            } else {
-                self.floatingWindow.showOnActiveScreen()
-                NSLog("Floating window shown")
-            }
+        hotkeyUpObserver = NotificationCenter.default.addObserver(
+            forName: .hotkeyPressedUp,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.floatingWindow.handleActivationHotkeyUp()
         }
 
         killSwitchObserver = NotificationCenter.default.addObserver(
@@ -86,8 +87,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     deinit {
-        if let hotkeyObserver {
-            NotificationCenter.default.removeObserver(hotkeyObserver)
+        if let hotkeyDownObserver {
+            NotificationCenter.default.removeObserver(hotkeyDownObserver)
+        }
+        if let hotkeyUpObserver {
+            NotificationCenter.default.removeObserver(hotkeyUpObserver)
         }
         if let killSwitchObserver {
             NotificationCenter.default.removeObserver(killSwitchObserver)

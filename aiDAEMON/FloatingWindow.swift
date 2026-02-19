@@ -6,15 +6,22 @@ final class FloatingWindow: NSWindow {
     private static let compactSize = NSSize(width: 480, height: 56)
     /// Expanded size: chat area + input bar.
     private static let chatSize = NSSize(width: 480, height: 500)
+    private static let hotkeyHoldThresholdNs: UInt64 = 250_000_000
 
     private let commandInputState = CommandInputState()
     private let confirmationState = ConfirmationState()
     private let conversationStore = ConversationStore.shared
     private let chatState = ChatWindowState()
     private let orchestrator = Orchestrator.shared
+    private let speechInput = SpeechInput.shared
 
     private var orchestratorTask: Task<Void, Never>?
     private var confirmationContinuation: CheckedContinuation<Bool, Never>?
+    private var activationHoldTask: Task<Void, Never>?
+    private var voiceStartTask: Task<Void, Never>?
+    private var activationKeyIsDown = false
+    private var activationStartedVoice = false
+    private var submitVoiceTranscriptOnStop = false
 
     init() {
         super.init(
@@ -27,6 +34,7 @@ final class FloatingWindow: NSWindow {
         configureWindow()
         configureContent()
         configureOrchestratorCallbacks()
+        configureSpeechCallbacks()
     }
 
     override var canBecomeKey: Bool { true }
@@ -47,6 +55,13 @@ final class FloatingWindow: NSWindow {
     }
 
     func hideWindow() {
+        activationHoldTask?.cancel()
+        activationHoldTask = nil
+        voiceStartTask?.cancel()
+        voiceStartTask = nil
+        activationKeyIsDown = false
+        activationStartedVoice = false
+        stopVoiceInput(shouldSubmit: false)
         conversationStore.save()
         orderOut(nil)
     }
@@ -54,6 +69,45 @@ final class FloatingWindow: NSWindow {
     /// Emergency stop for orchestrator execution (triggered by Cmd+Shift+Escape or UI button).
     func emergencyStop() {
         emergencyStop(showMessage: true)
+    }
+
+    func handleActivationHotkeyDown() {
+        activationHoldTask?.cancel()
+        activationKeyIsDown = true
+        activationStartedVoice = false
+
+        guard SpeechInput.voiceInputEnabled,
+              SpeechInput.pushToTalkStyle == .holdHotkey else {
+            return
+        }
+
+        activationHoldTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: Self.hotkeyHoldThresholdNs)
+            guard !Task.isCancelled else { return }
+            guard self.activationKeyIsDown else { return }
+            await MainActor.run {
+                self.activationStartedVoice = true
+                if !self.isVisible {
+                    self.showOnActiveScreen()
+                }
+                self.startVoiceInput(submitOnStop: true)
+            }
+        }
+    }
+
+    func handleActivationHotkeyUp() {
+        activationKeyIsDown = false
+        activationHoldTask?.cancel()
+        activationHoldTask = nil
+
+        if activationStartedVoice {
+            activationStartedVoice = false
+            stopVoiceInput(shouldSubmit: submitVoiceTranscriptOnStop)
+            return
+        }
+
+        toggleWindowVisibility()
     }
 
     override func keyDown(with event: NSEvent) {
@@ -84,6 +138,7 @@ final class FloatingWindow: NSWindow {
 
     func startNewConversation() {
         emergencyStop(showMessage: false)
+        stopVoiceInput(shouldSubmit: false)
         commandInputState.clear()
         confirmationState.dismiss()
         chatState.isGenerating = false
@@ -94,6 +149,7 @@ final class FloatingWindow: NSWindow {
     private func handleSubmit(_ command: String) {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        stopVoiceInput(shouldSubmit: false)
 
         guard !chatState.isGenerating else {
             conversationStore.conversation.addAssistantMessage(
@@ -138,6 +194,7 @@ final class FloatingWindow: NSWindow {
         orchestrator.abort()
         orchestratorTask?.cancel()
         orchestratorTask = nil
+        stopVoiceInput(shouldSubmit: false)
 
         if confirmationState.isPresented {
             confirmationState.dismiss()
@@ -206,6 +263,108 @@ final class FloatingWindow: NSWindow {
         continuation.resume(returning: approved)
     }
 
+    // MARK: - Voice Input
+
+    private func configureSpeechCallbacks() {
+        speechInput.onTranscriptChanged = { [weak self] text in
+            guard let self else { return }
+            self.commandInputState.text = text
+        }
+
+        speechInput.onStopped = { [weak self] transcript, _ in
+            guard let self else { return }
+            let shouldSubmit = self.submitVoiceTranscriptOnStop
+            self.submitVoiceTranscriptOnStop = false
+
+            self.commandInputState.requestFocus()
+
+            guard shouldSubmit else { return }
+            let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            self.handleSubmit(trimmed)
+        }
+
+        speechInput.onError = { [weak self] message in
+            guard let self else { return }
+            self.conversationStore.conversation.addAssistantMessage(message, success: false)
+            self.resizeToChat()
+            self.commandInputState.requestFocus()
+        }
+    }
+
+    private func startVoiceInput(submitOnStop: Bool) {
+        guard SpeechInput.voiceInputEnabled else {
+            conversationStore.conversation.addAssistantMessage(
+                "Voice input is disabled. Enable it in Settings → General → Voice Input.",
+                success: false
+            )
+            resizeToChat()
+            return
+        }
+
+        guard !chatState.isGenerating else {
+            conversationStore.conversation.addAssistantMessage(
+                "Voice input is unavailable while another request is running.",
+                success: false
+            )
+            resizeToChat()
+            return
+        }
+
+        submitVoiceTranscriptOnStop = submitOnStop
+        commandInputState.text = ""
+        commandInputState.requestFocus()
+
+        voiceStartTask?.cancel()
+        voiceStartTask = Task { [weak self] in
+            guard let self else { return }
+            let started = await self.speechInput.startListening()
+
+            await MainActor.run {
+                defer { self.voiceStartTask = nil }
+
+                if Task.isCancelled {
+                    if started, self.speechInput.isListening {
+                        self.speechInput.stopListening(reason: .manual)
+                    }
+                    self.submitVoiceTranscriptOnStop = false
+                    return
+                }
+
+                if !started {
+                    self.submitVoiceTranscriptOnStop = false
+                }
+            }
+        }
+    }
+
+    private func stopVoiceInput(shouldSubmit: Bool) {
+        voiceStartTask?.cancel()
+        voiceStartTask = nil
+        submitVoiceTranscriptOnStop = shouldSubmit
+        if speechInput.isListening {
+            speechInput.stopListening()
+        }
+    }
+
+    private func toggleVoiceInputFromButton() {
+        if speechInput.isListening {
+            stopVoiceInput(shouldSubmit: true)
+        } else {
+            startVoiceInput(submitOnStop: true)
+        }
+    }
+
+    private func toggleWindowVisibility() {
+        if isVisible {
+            hideWindow()
+            NSLog("Floating window hidden")
+        } else {
+            showOnActiveScreen()
+            NSLog("Floating window shown")
+        }
+    }
+
     // MARK: - Window Configuration
 
     private func configureWindow() {
@@ -225,6 +384,7 @@ final class FloatingWindow: NSWindow {
                 confirmationState: confirmationState,
                 conversation: conversationStore.conversation,
                 chatState: chatState,
+                speechInput: speechInput,
                 onSubmit: { [weak self] command in
                     self?.handleSubmit(command)
                 },
@@ -233,6 +393,9 @@ final class FloatingWindow: NSWindow {
                 },
                 onKillSwitch: { [weak self] in
                     self?.emergencyStop()
+                },
+                onVoiceButtonTap: { [weak self] in
+                    self?.toggleVoiceInputFromButton()
                 }
             )
         )
@@ -327,13 +490,30 @@ private struct FloatingWindowShellView: View {
     @ObservedObject var confirmationState: ConfirmationState
     @ObservedObject var conversation: Conversation
     @ObservedObject var chatState: ChatWindowState
+    @ObservedObject var speechInput: SpeechInput
 
     let onSubmit: (String) -> Void
     let onNewConversation: () -> Void
     let onKillSwitch: () -> Void
+    let onVoiceButtonTap: () -> Void
+
+    @AppStorage(SpeechInput.voiceEnabledDefaultsKey)
+    private var voiceInputEnabled: Bool = true
+
+    @AppStorage(SpeechInput.pushToTalkStyleDefaultsKey)
+    private var pushToTalkStyleRawValue: String = VoicePushToTalkStyle.holdHotkey.rawValue
 
     private var hasMessages: Bool {
         !conversation.messages.isEmpty
+    }
+
+    private var selectedPushToTalkStyle: VoicePushToTalkStyle {
+        VoicePushToTalkStyle(rawValue: pushToTalkStyleRawValue) ?? .holdHotkey
+    }
+
+    private var showsMicrophoneButton: Bool {
+        guard voiceInputEnabled else { return false }
+        return selectedPushToTalkStyle == .clickButton || speechInput.isListening
     }
 
     var body: some View {
@@ -418,6 +598,9 @@ private struct FloatingWindowShellView: View {
 
                     CommandInputView(
                         state: commandInputState,
+                        speechInput: speechInput,
+                        showsMicrophoneButton: showsMicrophoneButton,
+                        onVoiceButtonTap: onVoiceButtonTap,
                         onSubmit: onSubmit
                     )
                 }
