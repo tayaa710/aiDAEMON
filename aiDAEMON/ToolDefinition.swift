@@ -197,6 +197,59 @@ extension ToolDefinition {
         ],
         riskLevel: .safe
     )
+
+    /// SCREEN_CAPTURE tool schema
+    static let screenCapture = ToolDefinition(
+        id: "screen_capture",
+        name: "Screen Capture",
+        description: "Captures the screen (full display, app window, or region) and analyzes it with vision.",
+        parameters: [
+            ToolParameter(
+                name: "mode",
+                type: .enumeration(["full", "window", "region"]),
+                description: "Capture mode: full display, a specific app window, or a rectangular region.",
+                required: false
+            ),
+            ToolParameter(
+                name: "app",
+                type: .string,
+                description: "App name when mode is 'window' (for example: 'Safari').",
+                required: false
+            ),
+            ToolParameter(
+                name: "x",
+                type: .int,
+                description: "Region origin X coordinate in screen points (mode='region').",
+                required: false
+            ),
+            ToolParameter(
+                name: "y",
+                type: .int,
+                description: "Region origin Y coordinate in screen points (mode='region').",
+                required: false
+            ),
+            ToolParameter(
+                name: "width",
+                type: .int,
+                description: "Region width in screen points (mode='region').",
+                required: false
+            ),
+            ToolParameter(
+                name: "height",
+                type: .int,
+                description: "Region height in screen points (mode='region').",
+                required: false
+            ),
+            ToolParameter(
+                name: "prompt",
+                type: .string,
+                description: "Optional vision instruction (for example: 'Describe this screen').",
+                required: false
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.screenRecording]
+    )
 }
 
 // MARK: - Debug Tests
@@ -208,13 +261,14 @@ extension ToolDefinition {
         var passed = 0
         var failed = 0
 
-        // Test 1: All 4 built-in tool definitions have valid IDs
+        // Test 1: All built-in tool definitions have valid IDs
         do {
-            let tools: [ToolDefinition] = [.appOpen, .fileSearch, .windowManage, .systemInfo]
+            let tools: [ToolDefinition] = [.appOpen, .fileSearch, .windowManage, .systemInfo, .screenCapture]
             let ids = Set(tools.map { $0.id })
-            if ids.count == 4 && ids.contains("app_open") && ids.contains("file_search")
-                && ids.contains("window_manage") && ids.contains("system_info") {
-                print("  ✅ Test 1: All 4 built-in tools have unique valid IDs")
+            if ids.count == 5 && ids.contains("app_open") && ids.contains("file_search")
+                && ids.contains("window_manage") && ids.contains("system_info")
+                && ids.contains("screen_capture") {
+                print("  ✅ Test 1: All built-in tools have unique valid IDs")
                 passed += 1
             } else {
                 print("  ❌ Test 1: Built-in tool IDs are wrong: \(ids)")
@@ -261,11 +315,12 @@ extension ToolDefinition {
         do {
             let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo]
                 .allSatisfy { $0.riskLevel == .safe }
-            if allSafe {
-                print("  ✅ Test 5: All 4 existing tools are risk level .safe")
+            let captureIsCaution = ToolDefinition.screenCapture.riskLevel == .caution
+            if allSafe && captureIsCaution {
+                print("  ✅ Test 5: Risk levels are correct (screen_capture is .caution)")
                 passed += 1
             } else {
-                print("  ❌ Test 5: Not all tools are .safe")
+                print("  ❌ Test 5: Tool risk levels are incorrect")
                 failed += 1
             }
         }
@@ -278,6 +333,17 @@ extension ToolDefinition {
                 passed += 1
             } else {
                 print("  ❌ Test 6: position parameter should be enum with 'left_half'")
+                failed += 1
+            }
+        }
+
+        // Test 7: screen_capture requires screen recording permission
+        do {
+            if ToolDefinition.screenCapture.requiredPermissions.contains(.screenRecording) {
+                print("  ✅ Test 7: screen_capture requires .screenRecording permission")
+                passed += 1
+            } else {
+                print("  ❌ Test 7: screen_capture should require .screenRecording")
                 failed += 1
             }
         }

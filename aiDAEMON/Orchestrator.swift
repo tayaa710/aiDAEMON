@@ -551,6 +551,8 @@ public final class Orchestrator {
             return "Adjusting window..."
         case "system_info":
             return "Checking system info..."
+        case "screen_capture":
+            return "Capturing screen..."
         default:
             return "Running \(call.toolId)..."
         }

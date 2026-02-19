@@ -180,6 +180,43 @@ public final class AnthropicModelProvider: ModelProvider {
         return try await performRequest(body: requestBody)
     }
 
+    /// Sends an image + text prompt to Claude vision and returns the textual response.
+    public func sendVisionPrompt(
+        imageJPEGData: Data,
+        prompt: String,
+        timeout: TimeInterval = 15
+    ) async throws -> String {
+        let base64 = imageJPEGData.base64EncodedString()
+        let requestBody: [String: Any] = [
+            "model": modelName(),
+            "max_tokens": 1200,
+            "messages": [[
+                "role": "user",
+                "content": [
+                    [
+                        "type": "image",
+                        "source": [
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": base64
+                        ]
+                    ],
+                    [
+                        "type": "text",
+                        "text": prompt
+                    ]
+                ]
+            ]]
+        ]
+
+        let response = try await performRequest(body: requestBody, timeout: timeout)
+        let text = response.textContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            throw AnthropicModelError.noContentInResponse
+        }
+        return text
+    }
+
     public func abort() {
         inflightTask?.cancel()
         inflightTask = nil
@@ -191,7 +228,10 @@ public final class AnthropicModelProvider: ModelProvider {
         AnthropicModel.current.rawValue
     }
 
-    private func performRequest(body: [String: Any]) async throws -> AnthropicResponse {
+    private func performRequest(
+        body: [String: Any],
+        timeout: TimeInterval = 30
+    ) async throws -> AnthropicResponse {
         guard let apiKey = KeychainHelper.load(key: Self.keychainKey) else {
             throw AnthropicModelError.noAPIKey
         }
@@ -208,7 +248,7 @@ public final class AnthropicModelProvider: ModelProvider {
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
         request.setValue("aiDAEMON/1.0", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 30.0
+        request.timeoutInterval = timeout
 
         let task = Task<Any, Error> {
             let data: Data

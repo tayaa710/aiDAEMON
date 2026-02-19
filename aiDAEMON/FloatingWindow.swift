@@ -20,6 +20,7 @@ final class FloatingWindow: NSWindow {
     private var confirmationContinuation: CheckedContinuation<Bool, Never>?
     private var activationHoldTask: Task<Void, Never>?
     private var voiceStartTask: Task<Void, Never>?
+    private var screenCaptureObserver: NSObjectProtocol?
     private var activationKeyIsDown = false
     private var activationStartedVoice = false
     private var submitVoiceTranscriptOnStop = false
@@ -36,6 +37,7 @@ final class FloatingWindow: NSWindow {
         configureContent()
         configureOrchestratorCallbacks()
         configureSpeechCallbacks()
+        configureScreenCaptureCallbacks()
     }
 
     override var canBecomeKey: Bool { true }
@@ -64,6 +66,7 @@ final class FloatingWindow: NSWindow {
         activationStartedVoice = false
         stopVoiceInput(shouldSubmit: false)
         speechOutput.stop()
+        chatState.isScreenCaptureActive = false
         conversationStore.save()
         orderOut(nil)
     }
@@ -210,6 +213,7 @@ final class FloatingWindow: NSWindow {
         resolvePendingConfirmation(approved: false)
 
         chatState.isGenerating = false
+        chatState.isScreenCaptureActive = false
         if showMessage && wasBusy && !lastAssistantMessageIsStopped() {
             conversationStore.conversation.addAssistantMessage("Stopped.", success: false)
         }
@@ -297,6 +301,18 @@ final class FloatingWindow: NSWindow {
             self.conversationStore.conversation.addAssistantMessage(message, success: false)
             self.resizeToChat()
             self.commandInputState.requestFocus()
+        }
+    }
+
+    private func configureScreenCaptureCallbacks() {
+        screenCaptureObserver = NotificationCenter.default.addObserver(
+            forName: ScreenCapture.activityDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            let isActive = (notification.userInfo?[ScreenCapture.activityStateUserInfoKey] as? Bool) ?? false
+            self.chatState.isScreenCaptureActive = isActive
         }
     }
 
@@ -512,6 +528,12 @@ final class FloatingWindow: NSWindow {
             height: size.height
         )
     }
+
+    deinit {
+        if let screenCaptureObserver {
+            NotificationCenter.default.removeObserver(screenCaptureObserver)
+        }
+    }
 }
 
 // MARK: - Chat Window State
@@ -519,6 +541,7 @@ final class FloatingWindow: NSWindow {
 /// Observable state shared between FloatingWindow (controller) and the SwiftUI shell view.
 final class ChatWindowState: ObservableObject {
     @Published var isGenerating: Bool = false
+    @Published var isScreenCaptureActive: Bool = false
 }
 
 // MARK: - Shell View
@@ -578,6 +601,23 @@ private struct FloatingWindowShellView: View {
                     Text("aiDAEMON")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
+
+                    if chatState.isScreenCaptureActive {
+                        HStack(spacing: 4) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 9))
+                            Text("Vision")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.16))
+                        )
+                        .help("Screen capture is active")
+                    }
 
                     Spacer()
 
