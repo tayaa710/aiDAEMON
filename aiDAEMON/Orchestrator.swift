@@ -555,6 +555,10 @@ public final class Orchestrator {
             return "Capturing screen..."
         case "mouse_click":
             return "Controlling mouse..."
+        case "keyboard_type":
+            return "Typing text..."
+        case "keyboard_shortcut":
+            return "Pressing shortcut..."
         default:
             return "Running \(call.toolId)..."
         }

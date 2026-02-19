@@ -56,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let systemInfo = SystemInfo()
         let screenCapture = ScreenCapture()
         let mouseController = MouseController()
+        let keyboardController = KeyboardController()
 
         CommandRegistry.shared.register(appLauncher, for: .APP_OPEN)
         CommandRegistry.shared.register(fileSearcher, for: .FILE_SEARCH)
@@ -69,6 +70,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ToolRegistry.shared.register(tool: .systemInfo, commandType: .SYSTEM_INFO, commandExecutor: systemInfo)
         ToolRegistry.shared.register(tool: .screenCapture, executor: screenCapture)
         ToolRegistry.shared.register(tool: .mouseClick, executor: mouseController)
+        ToolRegistry.shared.register(tool: .keyboardType, executor: keyboardController)
+        ToolRegistry.shared.register(tool: .keyboardShortcut, executor: keyboardController)
 
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()

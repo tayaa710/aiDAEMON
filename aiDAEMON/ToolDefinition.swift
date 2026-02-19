@@ -279,6 +279,40 @@ extension ToolDefinition {
         riskLevel: .caution,
         requiredPermissions: [.accessibility]
     )
+
+    /// KEYBOARD_TYPE tool schema
+    static let keyboardType = ToolDefinition(
+        id: "keyboard_type",
+        name: "Keyboard Type",
+        description: "Types text into the currently focused field using keyboard events.",
+        parameters: [
+            ToolParameter(
+                name: "text",
+                type: .string,
+                description: "Text to type (maximum 2000 characters; control characters are stripped).",
+                required: true
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.accessibility]
+    )
+
+    /// KEYBOARD_SHORTCUT tool schema
+    static let keyboardShortcut = ToolDefinition(
+        id: "keyboard_shortcut",
+        name: "Keyboard Shortcut",
+        description: "Presses a keyboard shortcut such as cmd+c, cmd+v, cmd+a, return, escape, or tab.",
+        parameters: [
+            ToolParameter(
+                name: "shortcut",
+                type: .string,
+                description: "Shortcut string to press (for example: 'cmd+c', 'return', 'escape', 'tab').",
+                required: true
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.accessibility]
+    )
 }
 
 // MARK: - Debug Tests
@@ -292,12 +326,22 @@ extension ToolDefinition {
 
         // Test 1: All built-in tool definitions have valid IDs
         do {
-            let tools: [ToolDefinition] = [.appOpen, .fileSearch, .windowManage, .systemInfo, .screenCapture, .mouseClick]
+            let tools: [ToolDefinition] = [
+                .appOpen,
+                .fileSearch,
+                .windowManage,
+                .systemInfo,
+                .screenCapture,
+                .mouseClick,
+                .keyboardType,
+                .keyboardShortcut
+            ]
             let ids = Set(tools.map { $0.id })
-            if ids.count == 6 && ids.contains("app_open") && ids.contains("file_search")
+            if ids.count == 8 && ids.contains("app_open") && ids.contains("file_search")
                 && ids.contains("window_manage") && ids.contains("system_info")
-                && ids.contains("screen_capture") && ids.contains("mouse_click") {
-                print("  ✅ Test 1: All built-in tools have unique valid IDs")
+                && ids.contains("screen_capture") && ids.contains("mouse_click")
+                && ids.contains("keyboard_type") && ids.contains("keyboard_shortcut") {
+                print("  ✅ Test 1: All built-in tools have unique valid IDs (including keyboard tools)")
                 passed += 1
             } else {
                 print("  ❌ Test 1: Built-in tool IDs are wrong: \(ids)")
@@ -344,10 +388,10 @@ extension ToolDefinition {
         do {
             let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo]
                 .allSatisfy { $0.riskLevel == .safe }
-            let cautionTools = [ToolDefinition.screenCapture, .mouseClick]
+            let cautionTools = [ToolDefinition.screenCapture, .mouseClick, .keyboardType, .keyboardShortcut]
                 .allSatisfy { $0.riskLevel == .caution }
             if allSafe && cautionTools {
-                print("  ✅ Test 5: Risk levels are correct (screen_capture/mouse_click are .caution)")
+                print("  ✅ Test 5: Risk levels are correct (screen/mouse/keyboard tools are .caution)")
                 passed += 1
             } else {
                 print("  ❌ Test 5: Tool risk levels are incorrect")
@@ -389,6 +433,36 @@ extension ToolDefinition {
                 passed += 1
             } else {
                 print("  ❌ Test 8: mouse_click schema is incorrect")
+                failed += 1
+            }
+        }
+
+        // Test 9: keyboard_type and keyboard_shortcut require accessibility with correct params
+        do {
+            let typeParam = ToolDefinition.keyboardType.parameters.first { $0.name == "text" }
+            let shortcutParam = ToolDefinition.keyboardShortcut.parameters.first { $0.name == "shortcut" }
+            let typePermission = ToolDefinition.keyboardType.requiredPermissions.contains(.accessibility)
+            let shortcutPermission = ToolDefinition.keyboardShortcut.requiredPermissions.contains(.accessibility)
+
+            let typeOk: Bool
+            if let typeParam {
+                typeOk = typeParam.required && typeParam.type == .string
+            } else {
+                typeOk = false
+            }
+
+            let shortcutOk: Bool
+            if let shortcutParam {
+                shortcutOk = shortcutParam.required && shortcutParam.type == .string
+            } else {
+                shortcutOk = false
+            }
+
+            if typeOk && shortcutOk && typePermission && shortcutPermission {
+                print("  ✅ Test 9: keyboard tool schemas require accessibility and string inputs")
+                passed += 1
+            } else {
+                print("  ❌ Test 9: keyboard tool schema or permission requirements are incorrect")
                 failed += 1
             }
         }
