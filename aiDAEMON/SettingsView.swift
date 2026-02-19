@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 private enum SettingsTab: String {
@@ -88,8 +89,17 @@ private struct GeneralSettingsTab: View {
     @AppStorage(SpeechInput.voiceEnabledDefaultsKey)
     private var voiceInputEnabled: Bool = true
 
+    @AppStorage(SpeechOutput.voiceModeDefaultsKey)
+    private var voiceModeEnabled: Bool = false
+
+    @AppStorage(SpeechOutput.voiceEnabledDefaultsKey)
+    private var voiceOutputEnabled: Bool = false
+
     @AppStorage(SpeechInput.useCloudSTTDefaultsKey)
     private var useCloudSTT: Bool = false
+
+    @AppStorage(SpeechOutput.useCloudTTSDefaultsKey)
+    private var useCloudTTS: Bool = false
 
     @AppStorage(SpeechInput.pushToTalkStyleDefaultsKey)
     private var pushToTalkStyleRawValue: String = VoicePushToTalkStyle.holdHotkey.rawValue
@@ -97,11 +107,18 @@ private struct GeneralSettingsTab: View {
     @AppStorage(SpeechInput.silenceTimeoutDefaultsKey)
     private var silenceTimeoutSeconds: Double = 2.0
 
+    @AppStorage(SpeechOutput.voiceIdentifierDefaultsKey)
+    private var selectedVoiceIdentifier: String = ""
+
+    @AppStorage(SpeechOutput.speechRateDefaultsKey)
+    private var voiceRateMultiplier: Double = 1.0
+
     @State private var deepgramAPIKeyInput: String = ""
-    @State private var hasDeepgramAPIKey: Bool = SpeechInput.hasDeepgramKey
+    @State private var hasDeepgramAPIKey: Bool = SpeechOutput.hasDeepgramKey
+    @State private var availableVoices: [SpeechVoiceOption] = []
 
     var body: some View {
-        Form {
+        List {
             Section("Hotkey") {
                 HStack {
                     Text("Activation Shortcut")
@@ -171,6 +188,14 @@ private struct GeneralSettingsTab: View {
                     .foregroundStyle(.orange)
             }
 
+            Section("Voice Mode") {
+                Toggle("Enable full voice mode (input + output)", isOn: voiceModeSelection)
+
+                Text("You can also toggle this instantly from the floating window header.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Voice Input") {
                 Toggle("Enable voice input", isOn: $voiceInputEnabled)
 
@@ -237,10 +262,90 @@ private struct GeneralSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Section("Voice Output") {
+                Toggle("Enable voice output", isOn: $voiceOutputEnabled)
+
+                Picker("Voice", selection: $selectedVoiceIdentifier) {
+                    Text("System Default").tag("")
+                    ForEach(availableVoices) { voice in
+                        Text(voice.displayName).tag(voice.identifier)
+                    }
+                }
+                .disabled(!voiceOutputEnabled)
+
+                HStack {
+                    Text("Speech rate")
+                    Spacer()
+                    Text(String(format: "%.1fx", voiceRateMultiplier))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+
+                Slider(value: $voiceRateMultiplier, in: 0.5...1.5, step: 0.1)
+                    .disabled(!voiceOutputEnabled)
+
+                Toggle("Use cloud TTS (Deepgram)", isOn: $useCloudTTS)
+                    .disabled(!voiceOutputEnabled)
+
+                if useCloudTTS {
+                    HStack {
+                        Text("Deepgram API key")
+                        Spacer()
+                        if hasDeepgramAPIKey {
+                            Label("Configured", systemImage: "key.fill")
+                                .foregroundStyle(.green)
+                                .font(.footnote.weight(.medium))
+                        } else {
+                            Label("Not configured", systemImage: "key.slash")
+                                .foregroundStyle(.secondary)
+                                .font(.footnote)
+                        }
+                    }
+
+                    SecureField(
+                        hasDeepgramAPIKey ? "Key saved — paste a new key to replace" : "Paste Deepgram API key",
+                        text: $deepgramAPIKeyInput
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 12) {
+                        Button("Save Key") {
+                            saveDeepgramKey()
+                        }
+                        .disabled(deepgramAPIKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("Remove Key", role: .destructive) {
+                            removeDeepgramKey()
+                        }
+                        .disabled(!hasDeepgramAPIKey)
+                    }
+
+                    Text("Cloud TTS uses the same Deepgram key as cloud STT. If unavailable, aiDAEMON falls back to on-device speech.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("On-device speech synthesis works offline and speaks assistant replies aloud.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
-        .padding(18)
+        .listStyle(.inset)
         .onAppear {
+            if UserDefaults.standard.object(forKey: SpeechOutput.voiceModeDefaultsKey) == nil {
+                SpeechOutput.refreshVoiceModeFlagFromCurrentSettings()
+            }
+            voiceModeEnabled = SpeechOutput.voiceModeEnabled
+            voiceRateMultiplier = SpeechOutput.speechRateMultiplier
             refreshDeepgramKeyStatus()
+            refreshAvailableVoices()
+        }
+        .onChange(of: voiceInputEnabled) { _ in
+            syncVoiceModeState()
+        }
+        .onChange(of: voiceOutputEnabled) { _ in
+            syncVoiceModeState()
         }
     }
 
@@ -260,18 +365,40 @@ private struct GeneralSettingsTab: View {
         }
     }
 
+    private var voiceModeSelection: Binding<Bool> {
+        Binding {
+            voiceModeEnabled
+        } set: { newValue in
+            voiceModeEnabled = newValue
+            SpeechOutput.setVoiceModeEnabled(newValue)
+        }
+    }
+
+    private func syncVoiceModeState() {
+        SpeechOutput.refreshVoiceModeFlagFromCurrentSettings()
+        voiceModeEnabled = SpeechOutput.voiceModeEnabled
+    }
+
+    private func refreshAvailableVoices() {
+        availableVoices = SpeechOutput.availableVoices()
+        if !selectedVoiceIdentifier.isEmpty,
+           !availableVoices.contains(where: { $0.identifier == selectedVoiceIdentifier }) {
+            selectedVoiceIdentifier = ""
+        }
+    }
+
     private func refreshDeepgramKeyStatus() {
-        hasDeepgramAPIKey = SpeechInput.hasDeepgramKey
+        hasDeepgramAPIKey = SpeechOutput.hasDeepgramKey
     }
 
     private func saveDeepgramKey() {
-        guard SpeechInput.saveDeepgramKey(deepgramAPIKeyInput) else { return }
+        guard SpeechOutput.saveDeepgramKey(deepgramAPIKeyInput) else { return }
         deepgramAPIKeyInput = ""
         refreshDeepgramKeyStatus()
     }
 
     private func removeDeepgramKey() {
-        _ = SpeechInput.deleteDeepgramKey()
+        _ = SpeechOutput.deleteDeepgramKey()
         deepgramAPIKeyInput = ""
         refreshDeepgramKeyStatus()
     }
@@ -317,7 +444,7 @@ private struct CloudSettingsTab: View {
     }
 
     var body: some View {
-        Form {
+        List {
             // ── Routing Mode ─────────────────────────────────────────────────────
             Section("Model Routing") {
                 Picker("Routing Mode", selection: $routingModeRawValue) {
@@ -433,7 +560,7 @@ private struct CloudSettingsTab: View {
                 }
             }
         }
-        .padding(18)
+        .listStyle(.inset)
         .onAppear { refreshKeyStatus() }
     }
 

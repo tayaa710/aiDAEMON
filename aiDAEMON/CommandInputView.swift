@@ -18,6 +18,7 @@ struct CommandInputView: View {
     @ObservedObject var speechInput: SpeechInput
     let showsMicrophoneButton: Bool
     let onVoiceButtonTap: () -> Void
+    let onUserInputDetected: () -> Void
     let onSubmit: (String) -> Void
 
     @FocusState private var isFocused: Bool
@@ -68,6 +69,11 @@ struct CommandInputView: View {
             } else {
                 pulseActive = false
             }
+        }
+        .onChange(of: state.text) { value in
+            guard !value.isEmpty else { return }
+            guard !speechInput.isListening else { return }
+            onUserInputDetected()
         }
     }
 

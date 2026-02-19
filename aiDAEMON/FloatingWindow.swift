@@ -2,8 +2,8 @@ import Cocoa
 import SwiftUI
 
 final class FloatingWindow: NSWindow {
-    /// Compact size: just the input bar (no messages).
-    private static let compactSize = NSSize(width: 480, height: 56)
+    /// Compact size: header + input bar (no messages yet).
+    private static let compactSize = NSSize(width: 480, height: 90)
     /// Expanded size: chat area + input bar.
     private static let chatSize = NSSize(width: 480, height: 500)
     private static let hotkeyHoldThresholdNs: UInt64 = 250_000_000
@@ -14,6 +14,7 @@ final class FloatingWindow: NSWindow {
     private let chatState = ChatWindowState()
     private let orchestrator = Orchestrator.shared
     private let speechInput = SpeechInput.shared
+    private let speechOutput = SpeechOutput.shared
 
     private var orchestratorTask: Task<Void, Never>?
     private var confirmationContinuation: CheckedContinuation<Bool, Never>?
@@ -62,6 +63,7 @@ final class FloatingWindow: NSWindow {
         activationKeyIsDown = false
         activationStartedVoice = false
         stopVoiceInput(shouldSubmit: false)
+        speechOutput.stop()
         conversationStore.save()
         orderOut(nil)
     }
@@ -111,6 +113,8 @@ final class FloatingWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
+        interruptSpeechOnUserInput()
+
         // Escape key
         if event.keyCode == 53 {
             hideAndPreserve()
@@ -149,6 +153,7 @@ final class FloatingWindow: NSWindow {
     private func handleSubmit(_ command: String) {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        interruptSpeechOnUserInput()
         stopVoiceInput(shouldSubmit: false)
 
         guard !chatState.isGenerating else {
@@ -176,13 +181,15 @@ final class FloatingWindow: NSWindow {
                 self.chatState.isGenerating = false
                 self.orchestratorTask = nil
 
-                if !(result.responseText == "Stopped." && self.lastAssistantMessageIsStopped()) {
+                let shouldAppendMessage = !(result.responseText == "Stopped." && self.lastAssistantMessageIsStopped())
+                if shouldAppendMessage {
                     self.conversationStore.conversation.addAssistantMessage(
                         result.responseText,
                         modelUsed: result.modelUsed,
                         wasCloud: result.wasCloud,
                         success: result.success
                     )
+                    self.speakAssistantResponseIfEnabled(result.responseText)
                 }
                 self.commandInputState.requestFocus()
             }
@@ -195,6 +202,7 @@ final class FloatingWindow: NSWindow {
         orchestratorTask?.cancel()
         orchestratorTask = nil
         stopVoiceInput(shouldSubmit: false)
+        speechOutput.stop()
 
         if confirmationState.isPresented {
             confirmationState.dismiss()
@@ -293,6 +301,8 @@ final class FloatingWindow: NSWindow {
     }
 
     private func startVoiceInput(submitOnStop: Bool) {
+        interruptSpeechOnUserInput()
+
         guard SpeechInput.voiceInputEnabled else {
             conversationStore.conversation.addAssistantMessage(
                 "Voice input is disabled. Enable it in Settings → General → Voice Input.",
@@ -355,6 +365,24 @@ final class FloatingWindow: NSWindow {
         }
     }
 
+    private func setVoiceModeEnabled(_ enabled: Bool) {
+        SpeechOutput.setVoiceModeEnabled(enabled)
+        if !enabled {
+            stopVoiceInput(shouldSubmit: false)
+            speechOutput.stop()
+        }
+    }
+
+    private func interruptSpeechOnUserInput() {
+        speechOutput.stop()
+    }
+
+    private func speakAssistantResponseIfEnabled(_ text: String) {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return }
+        speechOutput.speak(text: cleaned)
+    }
+
     private func toggleWindowVisibility() {
         if isVisible {
             hideWindow()
@@ -385,6 +413,7 @@ final class FloatingWindow: NSWindow {
                 conversation: conversationStore.conversation,
                 chatState: chatState,
                 speechInput: speechInput,
+                speechOutput: speechOutput,
                 onSubmit: { [weak self] command in
                     self?.handleSubmit(command)
                 },
@@ -396,6 +425,15 @@ final class FloatingWindow: NSWindow {
                 },
                 onVoiceButtonTap: { [weak self] in
                     self?.toggleVoiceInputFromButton()
+                },
+                onVoiceModeToggle: { [weak self] enabled in
+                    self?.setVoiceModeEnabled(enabled)
+                },
+                onStopSpeaking: { [weak self] in
+                    self?.speechOutput.stop()
+                },
+                onUserInputDetected: { [weak self] in
+                    self?.interruptSpeechOnUserInput()
                 }
             )
         )
@@ -491,14 +529,21 @@ private struct FloatingWindowShellView: View {
     @ObservedObject var conversation: Conversation
     @ObservedObject var chatState: ChatWindowState
     @ObservedObject var speechInput: SpeechInput
+    @ObservedObject var speechOutput: SpeechOutput
 
     let onSubmit: (String) -> Void
     let onNewConversation: () -> Void
     let onKillSwitch: () -> Void
     let onVoiceButtonTap: () -> Void
+    let onVoiceModeToggle: (Bool) -> Void
+    let onStopSpeaking: () -> Void
+    let onUserInputDetected: () -> Void
 
     @AppStorage(SpeechInput.voiceEnabledDefaultsKey)
     private var voiceInputEnabled: Bool = true
+
+    @AppStorage(SpeechOutput.voiceModeDefaultsKey)
+    private var voiceModeEnabled: Bool = false
 
     @AppStorage(SpeechInput.pushToTalkStyleDefaultsKey)
     private var pushToTalkStyleRawValue: String = VoicePushToTalkStyle.holdHotkey.rawValue
@@ -516,6 +561,10 @@ private struct FloatingWindowShellView: View {
         return selectedPushToTalkStyle == .clickButton || speechInput.isListening
     }
 
+    private var voiceModeTitle: String {
+        voiceModeEnabled ? "Voice On" : "Voice Off"
+    }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -525,33 +574,75 @@ private struct FloatingWindowShellView: View {
                 .stroke(Color.white.opacity(0.16), lineWidth: 1)
 
             VStack(spacing: 0) {
-                if hasMessages || chatState.isGenerating {
-                    HStack {
-                        Text("aiDAEMON")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                HStack {
+                    Text("aiDAEMON")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
 
-                        Spacer()
+                    Spacer()
 
-                        if chatState.isGenerating {
-                            Button(action: onKillSwitch) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "stop.fill")
-                                        .font(.system(size: 10))
-                                    Text("Stop")
-                                        .font(.system(size: 10, weight: .semibold))
-                                }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule().fill(Color.red)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .help("Emergency stop (Cmd+Shift+Escape)")
+                    Button {
+                        let enabled = !voiceModeEnabled
+                        voiceModeEnabled = enabled
+                        onVoiceModeToggle(enabled)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: voiceModeEnabled ? "waveform.and.mic" : "waveform.slash")
+                                .font(.system(size: 10))
+                            Text(voiceModeTitle)
+                                .font(.system(size: 10, weight: .medium))
                         }
+                        .foregroundStyle(voiceModeEnabled ? .green : .secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill((voiceModeEnabled ? Color.green : Color.secondary).opacity(0.12))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help("Toggle voice mode (voice input + voice output)")
 
+                    if speechOutput.isSpeaking {
+                        Button(action: onStopSpeaking) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "speaker.slash.fill")
+                                    .font(.system(size: 10))
+                                Text("Mute")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.red)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Stop speech immediately")
+                    }
+
+                    if chatState.isGenerating {
+                        Button(action: onKillSwitch) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 10))
+                                Text("Stop")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule().fill(Color.red)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("Emergency stop (Cmd+Shift+Escape)")
+                    }
+
+                    if hasMessages || chatState.isGenerating {
                         Button(action: onNewConversation) {
                             HStack(spacing: 3) {
                                 Image(systemName: "plus.bubble")
@@ -570,10 +661,10 @@ private struct FloatingWindowShellView: View {
                         .buttonStyle(.plain)
                         .help("New conversation (Cmd+N)")
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 10)
-                    .padding(.bottom, 4)
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
                 if hasMessages || chatState.isGenerating {
                     ChatView(
@@ -601,11 +692,12 @@ private struct FloatingWindowShellView: View {
                         speechInput: speechInput,
                         showsMicrophoneButton: showsMicrophoneButton,
                         onVoiceButtonTap: onVoiceButtonTap,
+                        onUserInputDetected: onUserInputDetected,
                         onSubmit: onSubmit
                     )
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, hasMessages ? 10 : 16)
+                .padding(.vertical, hasMessages ? 10 : 12)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
