@@ -56,5 +56,5 @@
 
 ## Current Status
 
-**Completed**: M001–M033 (foundation, UI, local LLM, command executors, hybrid model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy)
-**Next**: M034 — Orchestrator + Agentic Tool-Use Loop. See 03-MILESTONES.md for details.
+**Completed**: M001–M034 (foundation, UI, local/cloud model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy, native orchestrator + tool-use loop)
+**Next**: M035 — MCP Client Integration. See 03-MILESTONES.md for details.

@@ -2,7 +2,7 @@
 
 Security boundaries, privacy architecture, and attack mitigations for aiDAEMON.
 
-Last Updated: 2026-02-18
+Last Updated: 2026-02-19
 Version: 5.0 (Capability-First / Native Tool-Use Architecture)
 
 ---
@@ -49,10 +49,10 @@ Regardless of autonomy level, these categories ALWAYS require explicit user conf
 
 ### 4. Nothing Is Hidden
 
-- A local audit log records every action: timestamp, tool, arguments, result, model used, cloud/local.
+- Chat status and results are visible in real time during execution.
 - Cloud usage is visually indicated (cloud icon in the chat UI).
-- Users can inspect the full audit log in Settings.
-- Users can see exactly what text was sent to the cloud.
+- Structured audit log (Settings viewer + export) is planned in M049.
+- Users can see cloud/local provider usage per assistant response.
 
 ### 5. User Controls Everything
 
@@ -85,7 +85,7 @@ Regardless of autonomy level, these categories ALWAYS require explicit user conf
 - Tool calls validated against strict MCP/JSON schemas
 - Arguments are type-checked and range-checked
 - File paths validated (no path traversal: `../`, `/..`)
-- Unknown tool IDs are rejected and treated as dangerous
+- Unknown tool IDs are rejected before execution
 - Maximum step count enforced (prevents infinite loops)
 
 ### Boundary C: Tool Calls → Operating System
@@ -106,8 +106,8 @@ Regardless of autonomy level, these categories ALWAYS require explicit user conf
 **Mitigations**:
 - All API calls use HTTPS with TLS 1.3
 - API keys stored in macOS Keychain only (encrypted by OS, never in files)
-- Certificate pinning for known API providers (Anthropic, OpenAI)
-- Request/response content logged locally for audit but never persisted server-side
+- Certificate pinning is planned hardening work (not relied on as the only protection)
+- Request/response visibility is surfaced in chat flow; structured audit persistence is planned in M049
 - API key never included in prompts or model context
 
 ### Boundary E: Screen Vision → Cloud
@@ -193,8 +193,8 @@ Regardless of autonomy level, these categories ALWAYS require explicit user conf
 
 **Defense**:
 - TLS 1.3 encryption for all API calls
-- Certificate pinning for known providers
-- If certificate validation fails, request aborted (no fallback to insecure)
+- System TLS certificate validation (HTTPS) enforced; no insecure HTTP fallback
+- Planned hardening: certificate pinning for known providers
 
 ### 6. Approval Fatigue at Level 0
 

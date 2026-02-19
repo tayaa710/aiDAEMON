@@ -2,8 +2,8 @@
 
 Release strategy for aiDAEMON.
 
-Last Updated: 2026-02-17
-Version: 3.0
+Last Updated: 2026-02-19
+Version: 3.1
 
 ---
 
@@ -16,7 +16,7 @@ Ship incrementally. Each phase delivers something usable. Don't wait for perfect
 ## Stage 1: Internal Dogfood
 
 **Who**: Just you (the owner).
-**When**: Throughout development (M025–M057).
+**When**: Throughout development (M025–M054).
 
 **What you're doing**:
 - Building and testing each milestone on your own Mac
@@ -34,7 +34,7 @@ Ship incrementally. Each phase delivers something usable. Don't wait for perfect
 ## Stage 2: Private Beta
 
 **Who**: 5-10 trusted testers (friends, fellow developers, etc.)
-**When**: After M058 (Beta Build and Distribution)
+**When**: After M055 (Beta Build and Distribution)
 
 **What testers need**:
 - Signed, notarized .dmg installer
@@ -55,11 +55,11 @@ Ship incrementally. Each phase delivers something usable. Don't wait for perfect
 
 ## Stage 3: Public Launch
 
-**When**: After M059 + beta feedback addressed
+**When**: After M056 + beta feedback addressed
 
 **Requirements before launch**:
 - [ ] All critical beta bugs fixed
-- [ ] Security hardening pass complete (M054)
+- [ ] Security hardening pass complete (M051)
 - [ ] Landing page live
 - [ ] Download link working
 - [ ] Payment flow working (for paid tier)

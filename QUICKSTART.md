@@ -1,95 +1,50 @@
-# Quick Start Guide
+# Quick Start
 
-Use this guide to continue from the strategic pivot without losing momentum.
+Use this checklist to continue development safely and consistently.
 
----
+## 1. Read Core Docs
 
-## Step 1: Read the Pivot Foundation
+1. `docs/README.md`
+2. `docs/00-FOUNDATION.md`
+3. `docs/03-MILESTONES.md` (find next `PLANNED`)
+4. `docs/01-ARCHITECTURE.md`
+5. `docs/02-THREAT-MODEL.md`
 
-```bash
-open docs/00-FOUNDATION.md
-```
+## 2. Confirm Current Milestone State
 
-Focus on:
-- New companion scope
-- Autonomy levels
-- Non-negotiable safety and privacy rules
+- Completed: `M001-M034`
+- Next: `M035` (MCP Client Integration)
 
----
+Always verify in `docs/03-MILESTONES.md` before coding.
 
-## Step 2: Review the New Architecture
+## 3. Implement One Milestone Only
 
-```bash
-open docs/01-ARCHITECTURE.md
-```
+For the active milestone:
 
-Focus on:
-- Agent loop model
-- Planner/policy/tool runtime layers
-- Migration path from legacy command pipeline
+1. Implement scoped code changes
+2. Verify build/tests
+3. Update `docs/03-MILESTONES.md`:
+   - status
+   - deliverables checklist
+   - success criteria
+   - implementation notes
+4. Provide exact manual setup + manual tests
+5. Stop and wait for owner approval
 
----
+## 4. Safety Rules
 
-## Step 3: Check Active Milestone
+- No raw shell interpolation with untrusted input
+- Keychain only for secrets
+- HTTPS only for network calls
+- Dangerous actions must require confirmation
+- Keep kill switch behavior intact
 
-```bash
-open docs/03-MILESTONES.md
-```
-
-Current sequence after pivot:
-1. `M026` Build Stability Recovery
-2. `M027` Legacy Capability Inventory
-3. `M028-M031` Transition design milestones
-4. `M034` Transition exit gate
-
----
-
-## Step 4: Confirm Manual Dependencies
+## 5. Helpful Commands
 
 ```bash
-open docs/manual-actions.md
+# List docs
+rg --files docs
+
+# Find next planned milestone
+rg -n "Status\\*\\*: PLANNED" docs/03-MILESTONES.md
 ```
-
-Complete all pending `M026-M034` manual tasks before coding the agent core milestones.
-
----
-
-## Step 5: Execute One Milestone at a Time
-
-For each milestone:
-1. Read objective + dependencies in `03-MILESTONES.md`
-2. Implement only that milestone scope
-3. Verify success criteria
-4. Update docs/checklist
-5. Commit with milestone reference
-
-Example commit format:
-- `M026: restore build baseline and smoke checklist`
-
----
-
-## Testing Windows (Planning)
-
-- Alpha: 2026-05-11 to 2026-06-26
-- Beta: 2026-07-06 to 2026-08-21
-- Public rollout target: week of 2026-09-28
-
-Dates move if quality gates fail.
-
----
-
-## Operating Rules
-
-- Do not bypass safety gates for speed.
-- Do not skip transition milestones.
-- Keep local-first behavior intact.
-- Keep all high-impact actions user-controlled.
-
----
-
-## If You Are Unsure
-
-1. Re-read `00-FOUNDATION.md`
-2. Re-check current milestone dependencies
-3. Add missing manual tasks to `manual-actions.md`
-4. Prefer smaller milestone splits over large speculative changes

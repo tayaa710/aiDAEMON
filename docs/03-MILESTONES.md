@@ -27,12 +27,13 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 - Floating window with scrollable chat conversation UI
 - Local LLaMA 3.1 8B model loads and runs inference
 - Anthropic Claude (claude-sonnet-4-5-20250929) as primary cloud brain via Anthropic Messages API
-- Model router: simple commands → local, complex → cloud (Anthropic)
-- User types a command → LLM parses it → executor runs it → result shown in chat
+- Reactive orchestrator loop: Claude `tool_use` → policy check → execute → `tool_result` → repeat until `end_turn`
+- Local fallback path is preserved when cloud is unavailable
 - Works for: opening apps/URLs, searching files, moving windows, showing system info
 - Level 1 autonomy default: safe + caution actions auto-execute; dangerous always confirms
 - Conversation history persists across sessions
-- Tool schema system (ToolDefinition + ToolRegistry) ready for M034 orchestrator
+- Tool schema system (ToolDefinition + ToolRegistry) powers orchestrator tool definitions
+- Kill switch available via Cmd+Shift+Escape and in-window stop button
 - All code compiles and runs
 
 ---

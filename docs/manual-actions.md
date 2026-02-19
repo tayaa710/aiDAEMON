@@ -2,7 +2,7 @@
 
 This file records manual setup tasks that have been completed. New manual tasks are provided by the LLM agent after each milestone — they are NOT pre-listed here.
 
-Last Updated: 2026-02-17
+Last Updated: 2026-02-19
 
 ---
 
@@ -28,3 +28,15 @@ You do not need to look at this file for upcoming tasks. This file is a historic
 - [x] Build and run app in Xcode (Debug configuration)
 - [x] Verify hotkey (Cmd+Shift+Space) summons floating window
 - [x] Verify basic commands work: open apps, find files, move windows, system info
+
+## Completed Setup (M025–M034)
+
+- [x] Configure cloud provider in Settings → Cloud (Anthropic supported as first-class provider)
+- [x] Save API key in macOS Keychain via Settings UI
+- [x] Verify cloud test connection succeeds
+- [x] Verify model routing options in Settings (Auto / Always Local / Always Cloud)
+- [x] Verify autonomy setting in Settings (Level 0 / Level 1)
+- [x] Verify conversational chat persistence across hide/show
+- [x] Verify orchestrator multi-step loop is active for cloud requests
+- [x] Verify inline confirmation flow appears when policy requires it
+- [x] Verify emergency stop using Cmd+Shift+Escape

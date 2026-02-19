@@ -1,98 +1,54 @@
 # aiDAEMON
 
-**Local-first AI companion for macOS**
-
-aiDAEMON is pivoting from a command parser into a supervised JARVIS-style desktop companion.
-
----
+Native JARVIS-style AI companion for macOS.
 
 ## Current Status
 
-**Strategic Phase**: Pivot Transition
-
-- Completed foundation work: `M001-M025`
-- Current milestone: `M026 - Build Stability Recovery`
-- Roadmap scope: `M001-M132` (plus `M133-M140` future)
-
-Planned external testing windows:
-- Alpha: 2026-05-11 to 2026-06-26
-- Beta: 2026-07-06 to 2026-08-21
-- Public rollout target window: 2026-09-07 to 2026-10-05
-
----
+- Completed milestones: `M001-M034`
+- Current implementation includes:
+  - Chat-first floating UI with conversation persistence
+  - Local model + cloud model providers
+  - Anthropic Claude as primary cloud provider
+  - Native tool schema/registry with policy validation
+  - Reactive orchestrator loop using Claude `tool_use`
+  - Kill switch (`Cmd+Shift+Escape`) + in-window stop button
+- Next planned milestone: `M035` (MCP Client Integration)
 
 ## What Works Today
 
-The current app can already:
 - Open apps and URLs
-- Search files with ranked Spotlight results
-- Manage window positions
-- Report core system information
-- Parse natural language through a local model
-
-This is now treated as a migration base, not the final product shape.
-
----
-
-## New Product Direction
-
-aiDAEMON is now scoped as a companion that can:
-- Hold conversation context across turns
-- Plan multi-step workflows
-- Use a schema-based tool runtime
-- Apply runtime safety policy before every action
-- Operate with explicit autonomy levels and approval gates
-- Build memory and context with user controls
-
-See `docs/00-FOUNDATION.md` for non-negotiable boundaries.
-
----
-
-## Principles
-
-1. Local-first default behavior
-2. User authority over autonomy
-3. Transparent planning and execution
-4. Runtime safety enforcement
-5. Memory with explicit controls
-
----
+- Search files (Spotlight)
+- Move/resize windows
+- Query system information
+- Multi-step agent turns through orchestrator + tool-use loop
+- Local fallback path when cloud is unavailable
 
 ## Documentation
 
-- `docs/00-FOUNDATION.md` - strategic source of truth
-- `docs/01-ARCHITECTURE.md` - agent architecture and migration model
-- `docs/02-THREAT-MODEL.md` - security/privacy model
-- `docs/03-MILESTONES.md` - detailed milestone roadmap
-- `docs/04-SHIPPING.md` - stage gates and release operations
-- `docs/manual-actions.md` - manual task checklist
-
----
+- Start here for agent workflow: `docs/README.md`
+- Product and non-negotiables: `docs/00-FOUNDATION.md`
+- Technical architecture: `docs/01-ARCHITECTURE.md`
+- Security/privacy model: `docs/02-THREAT-MODEL.md`
+- Milestone roadmap: `docs/03-MILESTONES.md`
+- Shipping/release strategy: `docs/04-SHIPPING.md`
+- Historical manual setup log: `docs/manual-actions.md`
 
 ## Development Workflow
 
-1. Read `docs/00-FOUNDATION.md`
-2. Confirm active milestone in `docs/03-MILESTONES.md`
-3. Complete manual dependencies in `docs/manual-actions.md`
-4. Implement and verify one milestone at a time
+1. Read `docs/README.md` and `docs/00-FOUNDATION.md`.
+2. Find next `PLANNED` milestone in `docs/03-MILESTONES.md`.
+3. Implement that milestone only.
+4. Update milestone status/notes in `docs/03-MILESTONES.md`.
+5. Provide exact manual setup + tests, then stop.
 
----
-
-## Technical Stack
+## Tech Stack
 
 - Swift + SwiftUI (macOS native)
-- Local LLM inference (`llama.cpp` via `LlamaSwift`)
-- Accessibility + Automation APIs
-- Sparkle for updates (release track)
-
----
+- `llama.cpp` via `LlamaSwift` (local model)
+- Anthropic Messages API (cloud model/tool use)
+- KeyboardShortcuts
+- Sparkle
 
 ## Distribution
 
-Direct distribution (outside the Mac App Store), with code signing and notarization requirements tracked in milestones.
-
----
-
-## License
-
-MIT License. See `LICENSE`.
+Direct download distribution (outside the Mac App Store), signed and notarized.

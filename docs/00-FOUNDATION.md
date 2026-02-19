@@ -66,7 +66,7 @@ Users see what happened. They don't need to approve every step before it happens
 - The AI reports what it did: "Done. Drafted the email and put it in your drafts folder."
 - If something failed, the AI explains why and what it tried instead.
 - Complete action history is viewable in the audit log.
-- At Level 0, the old plan-preview-approve flow is still available for users who want it.
+- At Level 0, tool calls require confirmation inline before execution.
 
 ### 5. MCP-Native Tool Ecosystem
 
@@ -153,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M033)
+## Completed Foundation (M001-M034)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -186,5 +186,8 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Conversation data model | `Conversation.swift` | Working |
 | Chat conversation UI | `ChatView.swift` | Working |
 | Tool schema system | `ToolDefinition.swift`, `ToolRegistry.swift` | Working |
+| Reactive orchestrator loop | `Orchestrator.swift` | Working |
+| Tool policy gate | `PolicyEngine.swift` | Working |
+| Kill switch hotkey + UI stop | `HotkeyManager.swift`, `FloatingWindow.swift` | Working |
 
-This foundation is the "hands" of the assistant. The new milestones add the "brain" (Claude + MCP + agent loop), "voice" (speech in/out), and "eyes" (screen vision + computer control).
+Current foundation includes the core "hands + brain loop" baseline. Upcoming milestones extend reach (MCP ecosystem), voice, vision, computer control, memory, and shipping hardening.
