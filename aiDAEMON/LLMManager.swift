@@ -107,7 +107,14 @@ public final class LLMManager: ObservableObject {
     /// Rebuild the router with current providers. Call after model load or when cloud config changes.
     public func rebuildRouter(local: (any ModelProvider)? = nil) {
         let localProv = local ?? activeProvider ?? LocalModelProvider(bridge: bridge)
-        let cloudProv = CloudModelProvider()
+        // Select the correct cloud provider based on user's Settings → Cloud selection.
+        // Anthropic uses a different API format and its own provider class.
+        let cloudProv: any ModelProvider
+        if CloudProviderType.current == .anthropic {
+            cloudProv = AnthropicModelProvider()
+        } else {
+            cloudProv = CloudModelProvider()
+        }
         router = ModelRouter(local: localProv, cloud: cloudProv)
     }
 

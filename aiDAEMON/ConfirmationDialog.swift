@@ -11,6 +11,7 @@ final class ConfirmationState: ObservableObject {
     /// The command awaiting user approval.
     private(set) var pendingCommand: Command?
     private(set) var pendingUserInput: String?
+    private(set) var pendingToolCall: ToolCall?
 
     /// Callbacks set by the owner (FloatingWindow).
     var onApprove: (() -> Void)?
@@ -19,6 +20,16 @@ final class ConfirmationState: ObservableObject {
     func present(command: Command, userInput: String, reason: String, level: SafetyLevel) {
         self.pendingCommand = command
         self.pendingUserInput = userInput
+        self.pendingToolCall = nil
+        self.reason = reason
+        self.level = level
+        self.isPresented = true
+    }
+
+    func present(toolCall: ToolCall, reason: String, level: SafetyLevel) {
+        self.pendingCommand = nil
+        self.pendingUserInput = nil
+        self.pendingToolCall = toolCall
         self.reason = reason
         self.level = level
         self.isPresented = true
@@ -28,6 +39,7 @@ final class ConfirmationState: ObservableObject {
         isPresented = false
         pendingCommand = nil
         pendingUserInput = nil
+        pendingToolCall = nil
         onApprove = nil
         onCancel = nil
     }

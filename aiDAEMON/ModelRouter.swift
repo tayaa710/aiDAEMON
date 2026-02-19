@@ -23,9 +23,10 @@ public struct RoutingDecision {
     public let provider: any ModelProvider
     public let reason: String
 
-    /// True if the decision selected the cloud provider.
+    /// True if the decision selected a cloud provider (i.e. not the local model).
+    /// Local providers have names starting with "Local"; cloud providers don't.
     public var isCloud: Bool {
-        provider.providerName.lowercased().contains("cloud")
+        !provider.providerName.lowercased().hasPrefix("local")
     }
 }
 

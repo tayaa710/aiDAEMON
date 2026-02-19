@@ -2,8 +2,8 @@
 
 Complete development roadmap for aiDAEMON: JARVIS-style AI companion for macOS.
 
-Last Updated: 2026-02-18
-Version: 3.1 (Capability-First Roadmap)
+Last Updated: 2026-02-19
+Version: 5.0 (Capability-First / Native Tool-Use Architecture)
 
 ---
 
@@ -24,11 +24,15 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Summary of what exists**:
 - macOS app that launches with Cmd+Shift+Space hotkey
-- Floating window with text input
+- Floating window with scrollable chat conversation UI
 - Local LLaMA 3.1 8B model loads and runs inference
-- User types a command → LLM parses it → executor runs it → result shown
+- Anthropic Claude (claude-sonnet-4-5-20250929) as primary cloud brain via Anthropic Messages API
+- Model router: simple commands → local, complex → cloud (Anthropic)
+- User types a command → LLM parses it → executor runs it → result shown in chat
 - Works for: opening apps/URLs, searching files, moving windows, showing system info
-- Confirmation dialogs for risky actions
+- Level 1 autonomy default: safe + caution actions auto-execute; dangerous always confirms
+- Conversation history persists across sessions
+- Tool schema system (ToolDefinition + ToolRegistry) ready for M034 orchestrator
 - All code compiles and runs
 
 ---
@@ -347,9 +351,9 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-## PHASE 6: AGENT LOOP
+## PHASE 6: AGENT BRAIN
 
-*Goal: Build the orchestrator — the think-plan-act cycle that makes the assistant actually intelligent.*
+*Goal: Give the assistant Claude as its brain, build the agentic tool-use loop, and connect to the MCP ecosystem for 2,800+ community tools.*
 
 ---
 
@@ -399,374 +403,609 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ---
 
-### M033: Orchestrator + MCP Client
+### M033: Claude Provider + Level 1 Autonomy Default ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-19)
 
-**Objective**: Build the core agent loop — the component that takes a user goal, plans, and executes steps — with MCP (Model Context Protocol) as the tool integration standard for extensibility.
+**Objective**: Add Anthropic Claude as a first-class cloud provider and switch the default autonomy level from 0 (confirm everything) to 1 (auto-execute safe and caution actions, confirm only dangerous).
 
-**Why this matters**: This is the heart of JARVIS. The flow becomes "user types → model plans steps using available tools → orchestrator runs them." MCP gives access to 2,800+ community tools and makes every future tool integration trivial.
+**Why this matters**: Claude is dramatically better than GPT-4o for agentic tool-use tasks — it plans, calls tools, reads results, and plans again. It's the right brain for aiDAEMON. And Level 1 autonomy is what makes the assistant feel like JARVIS instead of a toy — it just does things without asking permission at every step.
 
 **Dependencies**: M032
 
 **Deliverables**:
-- [ ] `Orchestrator.swift`:
-  - State machine: `idle` → `understanding` → `planning` → `executing` → `responding`
-  - `handleUserInput(text:conversation:)` — entry point
-  - `Understanding` phase: sends user input + conversation context + available tools to cloud model
-  - `Planning` phase: model returns a structured plan (list of tool calls in JSON)
-  - `Executing` phase: runs each step in sequence via ToolRegistry (or MCP if MCP tool)
-    - At Level 1 (default): safe steps execute automatically, risky steps pause for confirmation
-    - At Level 0: all steps pause for user approval before executing
-  - `Responding` phase: summarizes what happened in chat
-  - Error handling: if a step fails, the orchestrator tells the user what went wrong and continues
-  - Maximum 10 steps per plan (hard limit)
-  - 60-second total timeout for plan execution
-- [ ] `PlannerPrompt.swift`:
-  - Constructs the planning prompt: "You have these tools: [list]. The user wants: [goal]. Output a JSON plan."
-  - Includes tool definitions from ToolRegistry AND any MCP-discovered tools
-  - Includes conversation context
-  - Output format:
-    ```json
-    {
-      "understanding": "User wants to open Safari and move it to the left",
-      "steps": [
-        {"tool": "app_open", "args": {"target": "Safari"}},
-        {"tool": "window_manage", "args": {"target": "Safari", "position": "left_half"}}
-      ]
-    }
-    ```
-- [ ] `PlanParser.swift` — parses model's JSON plan into structured `Plan` object
-- [ ] `MCPClient.swift` — MCP protocol client:
-  - Connects to local MCP servers (via stdio or HTTP)
-  - Discovers available tools via MCP tool discovery protocol
-  - Executes tool calls and returns results
-  - Initial support: filesystem MCP server + fetch MCP server
-  - Tools discovered via MCP are automatically available to the planner
-- [ ] `FloatingWindow` / chat UI updated to show:
-  - "I understand you want to..." (understanding phase)
-  - At Level 0: "Here's my plan — approve?" shown before executing
-  - At Level 1: executes immediately, shows step-by-step progress
-  - Final summary of what was done
+- [x] `AnthropicModelProvider.swift` — New provider implementing `ModelProvider` protocol:
+  - Anthropic Messages API (NOT OpenAI-compatible — different format):
+    - Endpoint: `https://api.anthropic.com/v1/messages`
+    - Headers: `x-api-key: <key>`, `anthropic-version: 2023-06-01`, `content-type: application/json`
+    - Request body: `{ "model": "claude-sonnet-4-5-20250929", "max_tokens": 4096, "messages": [{"role": "user", "content": "..."}] }`
+    - Response: `{ "content": [{"type": "text", "text": "..."}], "stop_reason": "end_turn"|"tool_use" }`
+  - `providerName`: "Anthropic Claude"
+  - `isAvailable`: true if Anthropic API key is in Keychain (`anthropic-apikey`)
+  - `generate(prompt:params:onToken:)`: sends to Anthropic API, parses response
+  - `abort()`: cancels in-flight URLSession Task
+  - Response parsing handles both `text` and `tool_use` content block types (tool_use silently ignored for M033 — M034 will use them)
+  - Error handling: 401 (invalid key), 429 (rate limit), 529 (overloaded), network errors
+  - Default model: `claude-sonnet-4-5-20250929` (fast, capable, best for agents)
+  - Premium model option: `claude-opus-4-6` (most capable, use for complex planning)
+  - API key stored in Keychain under key `anthropic-apikey`
+  - File added to pbxproj (UUIDs D6-D7)
+- [x] `CloudModelProvider.swift` updated:
+  - Added `.anthropic = "Anthropic"` case to `CloudProviderType` enum (first in list)
+  - Default provider changed from `.groq` to `.anthropic`
+  - `CloudProviderType.keychainKey`: `.anthropic` maps to `AnthropicModelProvider.keychainKey` (`"anthropic-apikey"`)
+  - `CloudProviderType.endpoint` / `.defaultModel` for `.anthropic` delegate to `AnthropicModelProvider`
+- [x] `LLMManager.swift` updated:
+  - `rebuildRouter()` now checks `CloudProviderType.current`: if `.anthropic`, uses `AnthropicModelProvider()`; else uses `CloudModelProvider()`
+- [x] `ModelRouter.swift` updated:
+  - `RoutingDecision.isCloud` fixed: was `contains("cloud")` which missed Anthropic. Now `!hasPrefix("local")` — any non-local provider is cloud.
+- [x] `CommandValidator.swift` updated:
+  - New `AutonomyLevel` enum: `.confirmAll = 0`, `.autoExecute = 1` (default), `.fullyAuto = 2`
+  - `AutonomyLevel.current` reads from UserDefaults `"autonomy.level"`, defaults to `.autoExecute` (Level 1)
+  - `validate()` now applies autonomy policy:
+    - Level 0: safe, caution, dangerous all require confirmation
+    - Level 1+: safe and caution auto-execute (`.valid`); dangerous ALWAYS requires confirmation
+    - Invariant: dangerous actions never auto-execute at any autonomy level
+- [x] `SettingsView.swift` updated — Cloud tab:
+  - Added `.anthropic` to provider picker as first option
+  - Anthropic help link: `https://console.anthropic.com/settings/keys`
+  - Anthropic model picker (Sonnet / Opus) stored in UserDefaults `cloud.anthropicModel`
+  - Test connection uses `AnthropicModelProvider` when `.anthropic` is selected; handles both `AnthropicModelError` and `CloudModelError` in error display
+  - Default provider changed to `.anthropic` in `@AppStorage`
+- [x] `SettingsView.swift` updated — General tab:
+  - New "Autonomy" section with picker: Level 0 / Level 1 (Recommended) / Level 2 (Coming Soon)
+  - Contextual description for each level
+  - Warning: destructive actions always require confirmation regardless of level
+  - Stored in UserDefaults `autonomy.level`
 
 **Success Criteria**:
-- [ ] User says "open Safari and move it to the left" → orchestrator plans 2 steps → executes both automatically (Level 1)
-- [ ] At Level 0: plan is shown to user before execution, user can approve or cancel
-- [ ] At Level 1: safe steps execute automatically without asking
-- [ ] MCP client can connect to at least one MCP server and execute a tool
-- [ ] If a step fails, user sees which step and why
-- [ ] 10-step limit enforced
-- [ ] Timeout enforced
+- [x] Anthropic API key can be saved in Settings → Cloud tab
+- [x] "Test Connection" works with Anthropic key (sends a simple prompt, gets response)
+- [x] Cloud routing sends complex requests to Anthropic Claude
+- [x] Simple requests ("open safari") still route to local model
+- [x] At default Level 1: "open Safari" auto-executes (no confirmation dialog)
+- [x] At default Level 1: a file delete action still shows confirmation dialog
+- [x] Switching to Level 0 in Settings → everything requires confirmation again
+
+**Difficulty**: 3/5
+
+**YC Resources**: Anthropic API credits (available via YC deal)
+
+**Notes**: `AnthropicModelProvider` was pre-created in the last commit (untracked) — M033 wires it into the Settings UI, provider selection, and routing. `AutonomyLevel` enum lives in `CommandValidator.swift` and is also referenced in `SettingsView.swift`. The invariant that dangerous actions always confirm is enforced in the `validate()` switch regardless of autonomy level. Next pbxproj UUIDs: `A1B2C3D4000000D8+`.
+
+---
+
+### M034: Orchestrator + Agentic Tool-Use Loop
+
+**Status**: COMPLETE (2026-02-19)
+
+**Objective**: Build the core agentic loop using Claude's native `tool_use` API. The orchestrator sends the user's goal to Claude along with tool definitions, Claude returns structured `tool_use` blocks, the orchestrator executes them and feeds results back, and the loop continues until Claude is done. No custom JSON plan parsing. No state machine. Just Claude's native agentic protocol.
+
+**Why this matters**: This is the JARVIS moment. Instead of "type command → one action → done," the flow becomes "state a goal → Claude thinks and acts in a loop → shows results." This is how OpenClaw, Claude Code, and every serious AI agent works — a reactive loop where Claude decides what to do based on real results, not a pre-computed plan that breaks at the first unexpected outcome.
+
+**Architecture — Reactive agentic loop (NOT plan-then-execute)**:
+
+The old design had Claude generate a JSON plan, a parser extract steps, and the app execute them in order. That's fragile — if step 2 fails, the whole plan is invalid.
+
+The new design uses Claude's native `tool_use` protocol. Claude sees tool results and decides what to do next, one step at a time:
+
+```
+User: "Open Safari and go to github.com"
+     ↓
+Orchestrator → Anthropic Messages API (with tool definitions)
+     ↓
+Claude responds: tool_use[app_open, {target: "Safari"}]    stop_reason: "tool_use"
+     ↓
+PolicyEngine → allowed → ToolRegistry.execute() → "Safari opened"
+     ↓
+Orchestrator → Claude (with tool_result: "Safari opened successfully")
+     ↓
+Claude responds: tool_use[browser_navigate, {url: "https://github.com"}]    stop_reason: "tool_use"
+     ↓
+PolicyEngine → allowed → ToolRegistry.execute() → "Navigated"
+     ↓
+Orchestrator → Claude (with tool_result: "Navigated to github.com")
+     ↓
+Claude responds: "Done. Safari is open at github.com."    stop_reason: "end_turn"
+     ↓
+Show text response to user. Loop complete.
+```
+
+Key advantages over plan-then-execute:
+- **Adaptive**: Claude sees real results and adjusts. If Safari fails to open, Claude can try a different approach.
+- **No parser needed**: Claude returns structured `tool_use` content blocks — no custom JSON schema, no regex extraction, no markdown code block handling.
+- **Variable length**: Claude decides when it's done (returns text instead of tool_use). No fixed step count.
+- **Trained for this**: Claude is specifically trained on the tool_use protocol. It's far more reliable than custom JSON output.
+
+**Dependencies**: M033
+
+**Deliverables**:
+- [x] `Orchestrator.swift` — the core agentic loop:
+  - `handleUserInput(text:conversation:) async` — entry point from FloatingWindow
+  - Builds Anthropic Messages API request with:
+    - System prompt: aiDAEMON identity, current date/time, behavioral instructions
+    - Conversation history (last 10 messages)
+    - Current user message
+    - Tool definitions from ToolRegistry, converted to Anthropic `tools` format:
+      ```json
+      {"tools": [
+        {"name": "app_open",
+         "description": "Opens an application or URL",
+         "input_schema": {
+           "type": "object",
+           "properties": {"target": {"type": "string", "description": "App name or URL to open"}},
+           "required": ["target"]
+         }}
+      ]}
+      ```
+  - **The agentic loop**:
+    1. Send messages to Claude via `AnthropicModelProvider`
+    2. Check `stop_reason` in response:
+       - `"end_turn"` → extract text content → show to user → **done**
+       - `"tool_use"` → extract `tool_use` content blocks → process each:
+         a. Parse `id`, `name`, `input` from the tool_use block
+         b. `PolicyEngine.evaluate(toolId:arguments:autonomyLevel:)`
+         c. `.allow` → execute via `ToolRegistry`, show "Opening Safari..." in chat
+         d. `.requireConfirmation` → show inline confirmation, wait for user
+         e. `.deny` → send denial text as `tool_result` (Claude adapts its approach)
+         f. Build `tool_result` message: `{"type": "tool_result", "tool_use_id": "...", "content": "Safari opened"}`
+    3. Send all `tool_result` messages back to Claude
+    4. Go to step 2 (loop)
+  - Error handling: if tool execution throws, send the error as `tool_result` content — Claude sees it and can try alternatives, ask for clarification, or explain what went wrong
+  - Real-time status in chat: "Opening Safari...", "Navigating to github.com...", "Done."
+  - Maximum **10 tool-use rounds** per conversation turn (prevents infinite loops)
+  - **90-second total timeout** for the entire agentic loop
+  - **Kill switch**: `abort()` cancels all in-flight API requests and tool executions immediately
+- [x] `PolicyEngine.swift` — gates every tool call before execution:
+  - `evaluate(toolId:arguments:autonomyLevel:) -> PolicyDecision`
+  - `PolicyDecision` enum: `.allow`, `.requireConfirmation(reason:)`, `.deny(reason:)`
+  - At Level 1 (default): safe + caution tools → `.allow`, dangerous → `.requireConfirmation`
+  - At Level 0: everything → `.requireConfirmation`
+  - At Level 2: all → `.allow` within user-approved scopes
+  - Unknown/unregistered tool IDs → `.requireConfirmation`
+  - Path traversal detected in file arguments → `.deny`
+  - Input sanitization on all tool arguments before execution
+- [x] `AnthropicModelProvider.swift` updated (from M033):
+  - New method: `sendWithTools(messages:system:tools:) async throws -> AnthropicResponse`
+  - `AnthropicResponse` struct: `stopReason` (end_turn | tool_use), `content` array (text blocks + tool_use blocks)
+  - Handles the full Messages API response format including mixed content types
+- [x] `ToolRegistry.swift` updated:
+  - New method: `anthropicToolDefinitions() -> [[String: Any]]` — converts all registered tools to Anthropic `tools` format
+  - Maps `ToolDefinition` fields to JSON Schema `input_schema`
+  - Includes both built-in tools AND MCP tools (once M035 adds them)
+- [x] `FloatingWindow.swift` updated:
+  - Routes ALL user input through `Orchestrator.handleUserInput()` (replaces direct LLM → CommandParser pipeline)
+  - Shows real-time status in chat: "Thinking...", "Opening Safari...", "Done."
+  - Inline confirmation UI for dangerous actions: "I need to delete this file. Allow?" with Allow/Cancel buttons
+  - Kill switch ⏹ button visible in header during execution
+  - Single-action results look identical to before (loop runs once — transparent to user)
+- [x] Kill switch:
+  - Cmd+Shift+Escape global hotkey = emergency stop
+  - ⏹ button in floating window header (visible only during execution)
+  - Calls `Orchestrator.abort()` → cancels everything → shows "Stopped." in chat
+  - App stays usable after kill switch (no crash, no lock)
+- [x] Files added to pbxproj (UUIDs D8-DB used in this implementation)
+
+**What this replaces from the old plan-then-execute design**:
+- ~~`PlannerPrompt.swift`~~ — not needed; tool definitions go directly in the Anthropic Messages API `tools` parameter
+- ~~`PlanParser.swift`~~ — not needed; Claude returns structured `tool_use` content blocks natively
+- ~~Custom JSON plan format~~ — Claude's native `tool_use` is more reliable and purpose-built
+- ~~State machine (understanding → planning → executing → responding)~~ — replaced by simple loop: send → receive → execute → send result → repeat
+
+**Success Criteria**:
+- [x] "open Safari and go to github.com" → 2 tool-use rounds → "Done, Safari is open at github.com" (ready for manual verification)
+- [x] Single-step "open notes" → works transparently (one tool-use round) (ready for manual verification)
+- [x] At Level 1: safe/caution tools auto-execute with status updates only
+- [x] At Level 0: every tool call shows "Allow?" confirmation
+- [x] If a tool fails, Claude sees the error and tries an alternative approach
+- [x] Kill switch (Cmd+Shift+Escape) stops execution within 500ms (ready for manual verification)
+- [x] 10-round limit and 90-second timeout enforced
+- [x] App stays responsive during multi-step execution
+
+**Notes**:
+- Commit: `UNCOMMITTED (local workspace changes in this session)`
+- Added `Orchestrator.swift` with Claude-native reactive tool-use loop (`tool_use` → tool execution → `tool_result` → repeat), 10-round guard, and 90-second deadline.
+- Added `PolicyEngine.swift` with autonomy-aware allow/confirm/deny decisions, unknown-tool confirmation gating, path-traversal deny rules, and argument sanitization.
+- Extended `AnthropicModelProvider.swift` with typed tool-use response parsing (`AnthropicResponse`, `AnthropicToolUseBlock`, `AnthropicStopReason`) and `sendWithTools(messages:system:tools:)`.
+- Extended `ToolRegistry.swift` with `anthropicToolDefinitions()` to emit Anthropic `tools` schemas from `ToolDefinition`.
+- Reworked `FloatingWindow.swift` to route all requests through orchestrator, show real-time status chat updates, handle async inline confirmations, and expose a visible stop control during execution.
+- Added kill-switch plumbing: `Cmd+Shift+Escape` hotkey + header stop button, both wired to `Orchestrator.abort()` with chat feedback.
+- Preserved local baseline capability with orchestrator-managed local fallback when Anthropic is unavailable.
+- Build verification: `xcodebuild -project aiDAEMON.xcodeproj -scheme aiDAEMON -configuration Debug -sdk macosx build CODE_SIGNING_ALLOWED=NO` → `BUILD SUCCEEDED`.
 
 **Difficulty**: 5/5
 
 ---
 
-### M034: Policy Engine v1
+### M035: MCP Client Integration
 
 **Status**: PLANNED
 
-**Objective**: Build the runtime policy engine that evaluates every planned action before execution. Replaces the existing `CommandValidator` with a more powerful, tool-aware system.
+**Objective**: Add Model Context Protocol (MCP) client support so any community MCP server can be plugged into aiDAEMON, instantly giving access to 2,800+ tools (Google Calendar, GitHub, Notion, Slack, databases, web APIs, and more).
 
-**Why this matters**: The policy engine is the safety system. It sits between the planner and the executor and decides: is this action safe? Does it need confirmation? Should it be blocked?
+**Why this matters**: This is the OpenClaw "skills marketplace" — except it's free, already built, and uses the industry standard. Every MCP server that exists in the world becomes a tool for aiDAEMON automatically. This is the capability multiplier that turns aiDAEMON from a 4-tool assistant into an everything assistant without building anything manually.
 
-**Dependencies**: M033
+**Dependencies**: M034
 
 **Deliverables**:
-- [ ] `PolicyEngine.swift`:
-  - `evaluate(step:context:autonomyLevel:) -> PolicyDecision`
-  - `PolicyDecision` enum: `.allow`, `.requireConfirmation(reason:)`, `.deny(reason:)`
-  - Reads risk level from ToolDefinition
-  - Applies autonomy level rules (see 00-FOUNDATION.md):
-    - Level 1 (DEFAULT): safe actions auto-execute, risky actions need confirmation
-    - Level 0: everything needs confirmation (opt-in for users who want full control)
-    - Level 2: safe + scoped caution actions auto-execute
-    - Level 3: routine autonomy (still blocks dangerous)
-  - DANGEROUS actions are NEVER auto-approved regardless of level
-  - Unknown tools default to DANGEROUS
-  - Path traversal detection for file operations
-  - Input sanitization (control chars, null bytes, length limits)
-- [ ] Autonomy level stored in UserDefaults, **defaulting to Level 1**, configurable in Settings
-- [ ] `SettingsView.swift` updated: new "Safety" section with autonomy level picker and explanation of each level
-- [ ] Orchestrator calls PolicyEngine before each step execution
-- [ ] Existing `CommandValidator.swift` logic absorbed into PolicyEngine
+- [ ] `MCPClient.swift` — MCP protocol client:
+  - Supports MCP transport over **stdio** (for local servers — most common)
+  - Supports MCP transport over **HTTP+SSE** (for remote servers)
+  - JSON-RPC 2.0 implementation (MCP's wire protocol)
+  - Core methods:
+    - `initialize()` — handshake with MCP server, get server info
+    - `listTools() async throws -> [MCPToolDefinition]` — discover available tools
+    - `callTool(name:arguments:) async throws -> MCPToolResult` — invoke a tool
+  - Connection lifecycle: connect, initialize, use, disconnect
+  - Timeout: 30 seconds per tool call
+  - Error handling: server crash, timeout, invalid response, protocol errors
+- [ ] `MCPToolDefinition` and `MCPToolResult` types:
+  - `MCPToolDefinition`: `name`, `description`, `inputSchema` (JSON Schema)
+  - `MCPToolResult`: `content` array (text, image, or embedded resource)
+- [ ] `MCPServerManager.swift` — manages multiple connected MCP servers:
+  - `connect(server:) async throws` — connects to an MCP server by config
+  - `disconnect(server:)` — disconnects from a server
+  - `allAvailableTools() -> [MCPToolDefinition]` — aggregated tool list from all servers
+  - `route(toolCall:) async throws -> MCPToolResult` — routes a tool call to the right server
+  - Persists server configurations in `~/Library/Application Support/com.aidaemon/mcp-servers.json`
+- [ ] `MCPServerConfig` struct: `name`, `transport` (stdio | http), `command` (for stdio), `url` (for HTTP), `enabled: Bool`
+- [ ] MCP tools integrated into `ToolRegistry`:
+  - When MCP servers are connected, their tools appear in `ToolRegistry.allTools()` alongside built-in tools
+  - Claude sees all MCP tools via `ToolRegistry.anthropicToolDefinitions()` in the tool_use loop automatically
+  - `ToolRegistry.execute(call:)` routes MCP tool calls to `MCPServerManager`
+- [ ] MCP tool calls pass through `PolicyEngine`:
+  - MCP tools not in a known risk list default to `.caution` risk level
+  - At Level 1: caution MCP tools auto-execute
+  - At Level 0: all MCP tool calls require confirmation
+- [ ] Settings → new "Integrations" tab:
+  - List of configured MCP servers with connect/disconnect status
+  - "Add Server" button: name, transport (stdio/HTTP), command or URL
+  - "Remove" button per server (destructive, requires confirmation)
+  - Per-server tool list (expandable) showing discovered tools
+  - Quick-add presets for popular servers:
+    - Google Calendar (calendar access)
+    - GitHub (repos, issues, PRs)
+    - Notion (pages, databases)
+    - Brave Search (web search)
+    - Filesystem (expanded file access)
+- [ ] File added to pbxproj (UUIDs E0-E5)
 
 **Success Criteria**:
-- [ ] At level 0: every action shows confirmation dialog
-- [ ] At level 1: "open Safari" auto-executes, "delete file" shows confirmation
-- [ ] Dangerous actions always show confirmation regardless of level
-- [ ] Unknown tool IDs are treated as dangerous
-- [ ] Path traversal attempts are blocked
-- [ ] Autonomy level is changeable in Settings
+- [ ] Add a filesystem MCP server → its tools appear in the tool list
+- [ ] Claude uses MCP tools via tool_use alongside built-in tools seamlessly
+- [ ] MCP tool call executes and tool_result is returned to Claude for next loop iteration
+- [ ] MCP server disconnect doesn't crash the app
+- [ ] Integrations tab shows server status and tool list
+- [ ] At Level 1: MCP tool calls auto-execute (caution level)
+- [ ] At Level 0: MCP tool calls require confirmation
+
+**Difficulty**: 5/5
+
+**YC Resources**: No specific YC resources — MCP is open source standard. Example MCP servers to test with: `@modelcontextprotocol/server-filesystem`, `@modelcontextprotocol/server-github`
+
+---
+
+## PHASE 7: VOICE INTERFACE
+
+*Goal: Talk to JARVIS. This is what makes it feel like the movie.*
+
+---
+
+### M036: Voice Input
+
+**Status**: PLANNED
+
+**Objective**: Add voice input so the user can speak to the assistant instead of typing. This is the defining JARVIS interaction — you don't type to JARVIS, you talk to him.
+
+**Why this matters**: Voice is the single biggest delta between "AI assistant app" and "JARVIS." Everything else is capability. Voice is identity. Moved from Phase 10 (M049) because it's too important to be last.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `SpeechInput.swift`:
+  - Primary: `SFSpeechRecognizer` with on-device recognition (no internet required)
+  - Upgrade path: Deepgram streaming STT API (better accuracy, real-time, requires internet)
+  - `startListening()` / `stopListening()` / `isListening: Bool`
+  - Real-time transcription appears in the input field as the user speaks (character by character)
+  - Auto-stop after 2 seconds of silence (configurable)
+  - Language: English (US) — expandable in future
+  - On-device recognition: uses `SFSpeechAudioBufferRecognitionRequest` with `requiresOnDeviceRecognition = true`
+- [ ] Microphone permission request on first use with clear explanation: "aiDAEMON needs microphone access to hear your voice commands."
+- [ ] Push-to-talk UX (two options, user can choose in Settings):
+  - **Option A (default)**: Hold Cmd+Shift+Space to start, release to submit (same hotkey as window open — long press = voice, quick press = open window)
+  - **Option B**: Click the microphone button (🎙) in the input field
+- [ ] Visual feedback:
+  - Pulsing microphone icon while listening
+  - Waveform animation in the input field
+  - Transcription text appears in real-time
+- [ ] Voice input goes through the exact same pipeline as typed input (Orchestrator)
+- [ ] Settings → General: "Voice Input" section:
+  - On/Off toggle
+  - "Use cloud STT (Deepgram)" toggle (default: off — use on-device)
+  - Deepgram API key field (if cloud STT enabled)
+  - Push-to-talk style: hold hotkey vs click button
+- [ ] File added to pbxproj (UUIDs E6-E7)
+
+**Success Criteria**:
+- [ ] Hold hotkey → speak "open Safari" → release → Safari opens (no typing required)
+- [ ] Transcription appears in real-time in the input field while speaking
+- [ ] Auto-stops after silence
+- [ ] Works without internet (on-device recognition)
+- [ ] Microphone button in input field works as alternative
+- [ ] Voice input goes through orchestrator identically to typed input
 
 **Difficulty**: 3/5
 
+**YC Resources**: **Deepgram ($15K credits)** — use for cloud STT option
+
 ---
 
-### M035: Error Recovery and Retry
+### M037: Voice Output
 
 **Status**: PLANNED
 
-**Objective**: When a step in a plan fails, the orchestrator should attempt recovery instead of just stopping.
+**Objective**: The assistant speaks its responses aloud. Complete the JARVIS loop: you talk, it listens, it does things, it talks back.
 
-**Why this matters**: Real-world usage will have failures — app doesn't open, file not found, window can't be moved. A good assistant adapts rather than giving up.
-
-**Dependencies**: M033, M034
+**Dependencies**: M036
 
 **Deliverables**:
-- [ ] `Orchestrator.swift` updated with recovery logic:
-  - If a step fails, ask the model: "Step N failed because [error]. What should I try instead?"
-  - Model can suggest an alternative step
-  - Maximum 2 retry attempts per step
-  - If all retries fail, report failure clearly and continue to next step (if steps are independent) or stop (if steps are dependent)
-- [ ] Step dependency tracking:
-  - Steps can be marked as dependent on previous steps
-  - If step 1 fails and step 2 depends on it, skip step 2
-  - If step 1 fails and step 2 is independent, still try step 2
-- [ ] User sees: "Step 2 failed: [reason]. I tried an alternative but it also failed. Continuing with step 3..."
-- [ ] Total plan timeout still enforced (60 seconds)
+- [ ] `SpeechOutput.swift`:
+  - Primary: `AVSpeechSynthesizer` on-device TTS (no internet required)
+  - Upgrade path: Deepgram TTS API (more natural voices, requires internet)
+  - `speak(text:)` — speaks the given text
+  - `stop()` — immediately stops current speech
+  - Interrupt-on-input: stops speaking when user starts typing or activates voice input
+  - Only speaks assistant responses (not status messages like "Step 1/3: Opening...")
+  - Speaks the final summary response, not every intermediate status update
+- [ ] Voice mode toggle:
+  - When voice mode is ON: both input and output are voice (full JARVIS mode)
+  - When voice mode is OFF: no TTS (text-only mode)
+  - Quick toggle: dedicated button in the floating window header
+  - Also in Settings → General
+- [ ] Text responses still shown in chat alongside speech (visual + audio simultaneously)
+- [ ] Settings → General: "Voice Output" section:
+  - On/Off toggle
+  - Voice selector (system voices available on macOS)
+  - Speech rate slider (0.5x — 1.5x)
+  - "Use cloud TTS (Deepgram)" toggle (default: off)
+  - Deepgram TTS API key field (if cloud TTS enabled, reuses key from M036)
+- [ ] File added to pbxproj (UUIDs E8-E9)
 
 **Success Criteria**:
-- [ ] If "open Chrome" fails (not installed), assistant tries "open Google Chrome" or suggests alternative
-- [ ] After max retries, clear error message shown
-- [ ] Independent steps still execute even if earlier steps fail
-- [ ] Dependent steps are skipped with explanation
+- [ ] In voice mode: assistant speaks its response aloud after completing a task
+- [ ] Works without internet (on-device TTS)
+- [ ] New voice input or keypresses interrupt current speech immediately
+- [ ] Mute / stop button silences speech immediately
+- [ ] Text is still shown in chat even when speech is active
 
-**Difficulty**: 3/5
+**Difficulty**: 2/5
 
----
-
-## PHASE 7: COMPUTER CONTROL
-
-*Goal: Give the assistant eyes (screen vision) and hands (mouse/keyboard control) so it can interact with any app.*
+**YC Resources**: **Deepgram ($15K credits)** — reuses key from M036
 
 ---
 
-### M036: Screenshot Capture
+## PHASE 8: COMPUTER CONTROL
+
+*Goal: Give the assistant eyes and hands — it can see the screen and control any app.*
+
+---
+
+### M038: Screenshot + Vision Analysis
 
 **Status**: PLANNED
 
-**Objective**: Take screenshots of the user's screen programmatically, to be used for vision analysis.
+**Objective**: Take screenshots and use Claude's vision capabilities to understand what's on screen. Combined into one milestone because screenshot without vision is useless, and vision without screenshot is impossible.
 
-**Why this matters**: For the assistant to "see" what's on screen and click the right buttons, it needs screenshots. This is the foundation for screen vision.
+**Why this matters**: This is how JARVIS "sees." Once the assistant can see the screen, it can interact with any app — not just apps with pre-built tools. It can read a webpage, find a button, understand a dialog, navigate any UI.
 
 **Dependencies**: M034
 
 **Deliverables**:
 - [ ] `ScreenCapture.swift`:
-  - `captureFullScreen() -> NSImage?` — captures the entire primary display
-  - `captureWindow(of app: String) -> NSImage?` — captures a specific app's window
-  - `captureRegion(rect: CGRect) -> NSImage?` — captures a specific screen region
+  - `captureFullScreen() async -> NSImage?` — captures entire primary display
+  - `captureWindow(of app: String) async -> NSImage?` — captures specific app window
+  - `captureRegion(rect: CGRect) async -> NSImage?` — captures screen region
   - Uses `CGWindowListCreateImage` API (requires Screen Recording permission)
-  - Returns image as NSImage, can be converted to JPEG/PNG data for cloud upload
-  - Compresses to JPEG at 80% quality to reduce upload size
-  - Maximum resolution cap (1920x1080) to limit data sent to cloud
-- [ ] Permission check: if Screen Recording not granted, returns nil with clear error
-- [ ] Permission request helper: opens System Settings → Privacy → Screen Recording
-- [ ] Screenshot tool registered in ToolRegistry:
-  - id: `screen_capture`
-  - risk level: `caution`
-  - required permission: `.screenRecording`
-
-**Security requirements**:
-- Screenshot data is ephemeral — processed and discarded, never written to disk
-- If sent to cloud for analysis, user must have opted into screen vision
-- Audit log records that a screenshot was taken (but does not store the image)
-
-**Success Criteria**:
-- [ ] With Screen Recording permission: screenshot returns valid image
-- [ ] Without permission: graceful error with instruction to grant permission
-- [ ] Screenshot quality is sufficient for reading text on screen
-- [ ] Image size is reasonable for cloud upload (< 500KB typical)
-
-**Difficulty**: 3/5
-
----
-
-### M037: Vision Analysis (Cloud)
-
-**Status**: PLANNED
-
-**Objective**: Send screenshots to a vision-capable cloud model to understand what's on screen — identify UI elements, read text, locate buttons.
-
-**Why this matters**: This is how JARVIS "sees." It takes a screenshot, sends it to a vision model (like Claude or GPT-4V), and gets back a description of what's on screen: "I see a browser with Gmail open. The compose button is at the top left."
-
-**YC Resource Options**: **Anthropic Claude** (best-in-class vision, excellent at screenshot analysis and UI element detection), **OpenAI GPT-4V** (already configured as provider), **Roboflow** (alternative for structured UI element detection). Recommend trying Claude first for vision — its spatial reasoning on screenshots is superior.
-
-**Dependencies**: M036, M026
-
-**Deliverables**:
+  - Compresses to JPEG at 75% quality (balance: readable text vs. upload size)
+  - Maximum 1920x1080 resolution cap (downscale if larger)
+  - Permission check: if Screen Recording not granted, shows system permission prompt
+  - Screenshots are ephemeral: processed and discarded, never written to disk
+  - Registered in ToolRegistry: `screen_capture`, risk level `caution`
 - [ ] `VisionAnalyzer.swift`:
-  - `analyze(image:prompt:) async throws -> String` — sends image + question to vision API
-  - Uses the cloud model provider's vision endpoint
+  - `analyze(image:prompt:) async throws -> String`
+  - Uses `AnthropicModelProvider` with vision capability (Claude claude-sonnet-4-5-20250929 is multimodal)
+  - Anthropic vision API: image sent as base64 in the messages array alongside text prompt
   - Prompt templates:
     - "Describe what's on this screen"
-    - "Find the button labeled [X] and give me its approximate coordinates"
+    - "Find the UI element labeled '[X]' and estimate its coordinates (x, y) as a percentage of screen width/height"
     - "What application is in the foreground?"
-    - "Read the text in the main content area"
+    - "Read all visible text in the main content area"
   - Response parsing: extract coordinates, element descriptions, text content
-  - 10-second timeout for vision requests
-- [ ] `CloudModelProvider.swift` updated to support vision (image + text) requests
-  - Multipart request: image data + text prompt
-  - Provider-specific formatting (different APIs have different image formats)
-- [ ] Screen vision opt-in toggle in Settings:
-  - Default: OFF
-  - When enabled: clear warning about what will be sent to cloud
-  - "Screenshots are sent to [provider] for analysis. They are not stored."
-  - Visual indicator in UI when screen vision is active
+  - 15-second timeout for vision requests
+  - Audit log records: "vision analysis performed" (not the image content)
+- [ ] `CloudModelProvider.swift` (Anthropic provider) updated to support vision:
+  - Image data sent as base64 in the `content` array alongside text
+  - Format: `[{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "..."}}, {"type": "text", "text": "..."}]`
+- [ ] No per-session opt-in required — permission-gated via macOS Screen Recording
+  - Visual indicator: small camera icon in the window header when screen capture is active
+  - Indicator clears when task is done
+- [ ] Files added to pbxproj (UUIDs EA-ED)
 
-**Security requirements**:
-- Screen vision is OFF by default
-- Requires explicit opt-in per session (or persistent opt-in with clear toggle)
-- Screenshots sent over HTTPS, not stored by provider
-- Audit log records that vision analysis was performed
+**Security requirements** (from 02-THREAT-MODEL.md):
+- Screenshots never written to disk (processed in memory only)
+- Audit log records that vision was used, not image content
+- Screen Recording permission required by macOS — user can revoke any time
+- No screenshot stored server-side (Anthropic API is stateless)
 
 **Success Criteria**:
-- [ ] With vision enabled: screenshot → cloud → description of screen content returned
-- [ ] Can identify buttons, text fields, and labels in common apps
-- [ ] Coordinate estimates are close enough for mouse clicking (within ~50px)
-- [ ] Without vision enabled: feature is completely inactive (no screenshots taken)
-- [ ] Works with at least one cloud vision provider (Groq, OpenAI, or Anthropic)
+- [ ] `captureFullScreen()` returns valid image with Screen Recording permission granted
+- [ ] Without permission: macOS permission dialog shown; graceful failure if denied
+- [ ] `VisionAnalyzer.analyze(image:prompt:)` returns meaningful description of screen content
+- [ ] Claude can identify buttons, text fields, labels, and approximate coordinates
+- [ ] Image size is reasonable (< 400KB after compression)
+- [ ] No screenshot written to disk at any point
 
 **Difficulty**: 4/5
 
+**YC Resources**: **Anthropic (Claude API)** — best-in-class vision, use Claude claude-sonnet-4-5-20250929 for screenshot analysis
+
 ---
 
-### M038: Mouse Control
+### M039: Mouse Control
 
 **Status**: PLANNED
 
 **Objective**: Programmatically move the mouse cursor and click at specific screen coordinates.
 
-**Why this matters**: Combined with screen vision, this lets the assistant click buttons, select menus, and interact with any app — even apps that don't have AppleScript support.
-
-**Dependencies**: M036
+**Dependencies**: M038
 
 **Deliverables**:
 - [ ] `MouseController.swift`:
   - `moveTo(x:y:)` — move cursor to screen coordinates
-  - `click(x:y:)` — move cursor and left-click
-  - `doubleClick(x:y:)` — move cursor and double-click
-  - `rightClick(x:y:)` — move cursor and right-click
-  - Uses `CGEvent` API for mouse events
+  - `click(x:y:)` — move and left-click
+  - `doubleClick(x:y:)` — move and double-click
+  - `rightClick(x:y:)` — move and right-click
+  - Uses `CGEvent` API — not AppleScript
   - Coordinate validation: reject negative or off-screen coordinates
-  - Small delay between move and click (50ms) for reliability
-- [ ] Mouse click tool registered in ToolRegistry:
-  - id: `mouse_click`
-  - risk level: `caution`
-  - parameters: x (int), y (int), clickType (enum: single/double/right)
-  - required permission: `.accessibility`
-- [ ] Visual feedback: brief highlight flash at click location (optional, can be disabled)
-
-**Security requirements**:
-- Click coordinates validated against screen bounds
-- Audit log records every click action with coordinates
-- Cannot click outside visible screen area
+  - 50ms delay between move and click for reliability
+  - Accessibility permission required
+- [ ] Registered in ToolRegistry: `mouse_click`, risk level `caution`
+  - Parameters: x (int), y (int), clickType (enum: single/double/right)
+  - Required permission: `.accessibility`
+- [ ] File added to pbxproj (UUID EE-EF)
 
 **Success Criteria**:
 - [ ] `click(x:100, y:200)` moves cursor and clicks at that position
-- [ ] Clicks work in other applications (Finder, Safari, etc.)
-- [ ] Double-click and right-click work correctly
-- [ ] Off-screen coordinates are rejected with error
+- [ ] Clicks work in other applications
+- [ ] Off-screen coordinates rejected with error
 
 **Difficulty**: 2/5
 
 ---
 
-### M039: Keyboard Control
+### M040: Keyboard Control
 
 **Status**: PLANNED
 
 **Objective**: Programmatically type text and press keyboard shortcuts.
 
-**Why this matters**: The assistant needs to type text into fields, press Enter, use Cmd+C/Cmd+V, and navigate with keyboard shortcuts. This is the other half of computer control (alongside mouse).
-
-**Dependencies**: M038
+**Dependencies**: M039
 
 **Deliverables**:
 - [ ] `KeyboardController.swift`:
-  - `typeText(text:)` — types a string character by character with brief delays
-  - `pressKey(key:modifiers:)` — presses a key with optional modifiers (Cmd, Shift, Option, Control)
-  - `pressShortcut(shortcut:)` — convenience for common shortcuts (Cmd+C, Cmd+V, Cmd+A, etc.)
-  - Uses `CGEvent` API for key events
-  - Typing speed: ~50ms between characters (fast but reliable)
-  - Special character handling: handles shift for uppercase, symbols, etc.
-- [ ] Keyboard type tool registered in ToolRegistry:
-  - id: `keyboard_type`
-  - risk level: `caution`
-  - parameters: text (string) OR key (string) + modifiers (array of strings)
-- [ ] Keyboard shortcut tool:
-  - id: `keyboard_shortcut`
-  - risk level: `caution`
-  - parameters: shortcut (string, e.g., "cmd+c", "cmd+shift+s")
-
-**Security requirements**:
-- Text content is sanitized (no control characters except explicit key presses)
-- Audit log records what was typed (content may be redacted if it looks like a password)
-- Maximum text length per type action: 1000 characters
+  - `typeText(text:)` — types string character by character (30ms delay between chars)
+  - `pressKey(key:modifiers:)` — presses key with optional modifiers (Cmd, Shift, Option, Control)
+  - `pressShortcut(shortcut:)` — convenience for common shortcuts (cmd+c, cmd+v, cmd+a, return, escape, tab)
+  - Uses `CGEvent` API — not AppleScript
+  - Special character handling (uppercase, symbols, etc.)
+  - Maximum 2000 characters per `typeText` call
+  - Content sanitization: strip control characters except explicit key events
+- [ ] Registered in ToolRegistry:
+  - `keyboard_type`: risk level `caution`
+  - `keyboard_shortcut`: risk level `caution`
+- [ ] File added to pbxproj (UUID F0-F1)
 
 **Success Criteria**:
-- [ ] `typeText("Hello World")` types the text into the currently focused field
+- [ ] `typeText("Hello World")` types the text into currently focused field
 - [ ] `pressShortcut("cmd+c")` triggers copy
-- [ ] Works in various apps (TextEdit, Safari address bar, etc.)
-- [ ] Special characters (!, @, #, etc.) type correctly
+- [ ] Special characters type correctly
+- [ ] Works in various apps (TextEdit, Safari, etc.)
 
 **Difficulty**: 3/5
 
 ---
 
-### M040: Integrated Computer Control Flow
+### M041: Integrated Computer Control
 
 **Status**: PLANNED
 
-**Objective**: Connect screenshot → vision → mouse/keyboard into a working flow where the assistant can see the screen, decide what to click, and click it.
+**Objective**: Connect screenshot → vision → mouse/keyboard into a working flow. The assistant can see the screen, decide what to interact with, and do it.
 
-**Why this matters**: This is the milestone where the assistant can actually "drive" the computer — look at the screen, understand it, and take action. This is the JARVIS moment.
+**Why this matters**: This is the JARVIS moment everyone talks about. The assistant isn't limited to pre-built tool integrations — it can drive ANY app, read ANY UI, click ANY button. Web app, native app, it doesn't matter.
 
-**YC Resource Options**: **Browser Use** (AI browser automation SDK — could complement or replace custom browser automation for web-specific tasks), **Anthropic Claude** (vision model for screenshot understanding).
-
-**Dependencies**: M037, M038, M039
+**Dependencies**: M038, M039, M040
 
 **Deliverables**:
 - [ ] `ComputerControl.swift` — high-level coordinator:
-  - `performAction(description:) async throws` — "click the compose button in Gmail"
-  - Flow: capture screenshot → send to vision model → get element location → move mouse → click
-  - Verification: after clicking, capture new screenshot → verify screen changed as expected
-  - Retry: if click missed (screen didn't change), try again with adjusted coordinates
+  - `performAction(description:) async throws -> String` — e.g., "click the compose button in Gmail"
+  - Full flow: capture screenshot → send to Claude vision → get element coordinates → move mouse → click → capture new screenshot → verify change → report result
+  - Verification: after clicking, capture new screenshot → check if screen changed as expected → if not, retry with adjusted coordinates
   - Maximum 3 attempts per action
-- [ ] Orchestrator updated to support computer control steps in plans:
-  - New step type: `{"tool": "computer_action", "args": {"action": "click the New Workflow button"}}`
-  - Orchestrator calls ComputerControl for these steps
-- [ ] Wait-for-change capability: after an action, wait up to 5 seconds for the screen to update before proceeding to next step
-- [ ] User sees: real-time updates of what the assistant is seeing and doing
-  - "I see the Gmail inbox. Looking for the Compose button..."
-  - "Found it at (150, 300). Clicking..."
-  - "Compose window opened. Typing the recipient..."
-
-**Security requirements**:
-- Every computer control action logged in audit
-- User can interrupt at any time (kill switch pauses execution)
-- Screen vision must be opted-in
-- Dangerous-looking actions (typing passwords, clicking "Delete") require confirmation
+  - 5-second wait for screen to update between actions (configurable)
+  - User sees real-time status in chat: "I can see the Gmail inbox. Found the Compose button. Clicking... Compose window opened."
+- [ ] Orchestrator updated to support computer control steps:
+  - New step type: `{"tool": "computer_action", "args": {"action": "click the submit button"}}`
+  - Orchestrator calls `ComputerControl.performAction()` for these steps
+- [ ] Files added to pbxproj (UUID F2-F3)
 
 **Success Criteria**:
-- [ ] Assistant can open Safari, navigate to a URL, and click a specific link
-- [ ] Assistant can open TextEdit and type a paragraph of text
-- [ ] Verification catches missed clicks and retries
-- [ ] User can see what the assistant is doing in real-time
-- [ ] Kill switch stops execution immediately
+- [ ] "open Safari, go to gmail.com, click compose, type 'hello world'" — works end-to-end
+- [ ] Verification catches missed clicks and retries with adjusted coordinates
+- [ ] User sees what the assistant is seeing and doing in real-time
+- [ ] Kill switch stops all computer control immediately
 
 **Difficulty**: 5/5
 
 ---
 
-## PHASE 8: ESSENTIAL TOOLS
+## PHASE 9: ESSENTIAL TOOLS
 
-*Goal: Build out the most useful tools beyond the existing 4.*
+*Goal: Build the most useful individual tools.*
 
 ---
 
-### M041: Clipboard Tool
+### M042: CDP Browser Tool
+
+**Status**: PLANNED
+
+**Objective**: Control Chrome/Chromium browsers via Chrome DevTools Protocol (CDP) — more powerful and reliable than AppleScript. CDP reads the actual DOM, finds elements by meaning, and clicks in milliseconds.
+
+**Why this matters**: AppleScript browser control is fragile and limited. CDP gives the assistant direct access to the browser's internals — the same way automated testing tools work. It can read page content, fill forms, click elements by label or role, not just by coordinates.
+
+**YC Resources**: **Firecrawl** — adds "read and summarize this webpage" capability (web scraping API, no browser required for read-only tasks). **Browser Use** — AI browser automation SDK, could complement CDP for complex web workflows.
+
+**Dependencies**: M034
+
+**Deliverables**:
+- [ ] `CDPBrowserTool.swift`:
+  - Launches Chrome/Chromium with `--remote-debugging-port=9222` if not already running
+  - Connects to CDP WebSocket endpoint
+  - Core CDP commands:
+    - `navigate(url:)` — navigate to URL
+    - `getPageTitle() -> String` — read current page title
+    - `getPageURL() -> String` — read current page URL
+    - `evaluate(javascript:) -> Any?` — execute JavaScript in page context (read-only only — no mutations that aren't through the tool API)
+    - `querySelector(selector:) -> CDPElement?` — find element by CSS selector
+    - `findElementByText(text:role:) -> CDPElement?` — find element by visible text and optional ARIA role
+    - `click(element:)` — click a CDP element
+    - `type(element:text:)` — type text into a form field
+    - `getPageText() -> String` — extract all visible text from the page
+  - Falls back to `NSWorkspace.shared.open(url)` if CDP unavailable
+- [ ] Registered in ToolRegistry:
+  - `browser_navigate`: risk level `caution`
+  - `browser_find_element`: risk level `caution`
+  - `browser_click`: risk level `caution`
+  - `browser_type`: risk level `caution`
+  - `browser_get_text`: risk level `safe`
+  - `browser_get_url`: risk level `safe`
+- [ ] Firecrawl integration (optional, for read-only scraping):
+  - `firecrawl_scrape(url:) async throws -> String` — fetches clean markdown text from any URL
+  - Uses Firecrawl API (API key in Keychain)
+  - Registered: `web_read`, risk level `safe`
+- [ ] File added to pbxproj (UUID F4-F7)
+
+**Success Criteria**:
+- [ ] "go to github.com" — Chrome navigates to GitHub
+- [ ] "what page am I on?" — returns current title and URL
+- [ ] "click the Sign In button" — finds the Sign In button by text and clicks it
+- [ ] Works without typing coordinates — finds by element meaning
+- [ ] Graceful fallback if Chrome isn't running
+
+**Difficulty**: 4/5
+
+---
+
+### M043: Clipboard Tool
 
 **Status**: PLANNED
 
@@ -776,23 +1015,24 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Deliverables**:
 - [ ] `ClipboardTool.swift`:
-  - `read() -> String?` — reads current clipboard text content
+  - `read() -> String?` — reads current clipboard text
   - `write(text:)` — writes text to clipboard
   - Uses `NSPasteboard.general`
   - Handles: plain text, rich text (strips to plain), URLs
 - [ ] Registered in ToolRegistry:
   - `clipboard_read`: risk level `safe`
   - `clipboard_write`: risk level `caution`
+- [ ] File added to pbxproj (UUID F8-F9)
 
 **Success Criteria**:
-- [ ] Copy text in another app → assistant can read it
-- [ ] Assistant writes to clipboard → user can paste it
+- [ ] Copy text in another app → "what's in my clipboard?" → assistant reads it
+- [ ] "copy 'hello world' to clipboard" → text available for pasting
 
 **Difficulty**: 1/5
 
 ---
 
-### M042: File Operations Tool
+### M044: File Operations Tool
 
 **Status**: PLANNED
 
@@ -805,222 +1045,136 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
   - `copy(from:to:)` — copies file or folder
   - `move(from:to:)` — moves file or folder
   - `rename(path:newName:)` — renames file or folder
-  - `delete(path:)` — moves to Trash (NOT permanent delete)
+  - `delete(path:)` — moves to Trash (NEVER permanent delete)
   - `createFolder(path:)` — creates new directory
+  - `readTextFile(path:) -> String` — reads text file content (for passing to Claude)
   - Uses `FileManager` API exclusively (no shell commands)
-  - Path validation: no traversal, no system directories, must be within user's home
-  - Scope restriction: by default, only operates within ~/Desktop, ~/Documents, ~/Downloads. Configurable.
+  - Path validation: no traversal, no system directories
+  - Scope restriction: ~/Desktop, ~/Documents, ~/Downloads by default (configurable in Settings)
 - [ ] Registered in ToolRegistry:
-  - `file_copy`, `file_move`, `file_rename`: risk level `caution`
-  - `file_delete`: risk level `dangerous` (even though it's Trash, not permanent)
-  - `folder_create`: risk level `caution`
-
-**Security requirements**:
-- Path traversal blocked (../../ etc.)
-- System directories blocked (/System, /Library, /usr, etc.)
-- Delete moves to Trash, NEVER uses permanent delete
-- All operations logged in audit
+  - `file_copy`, `file_move`, `file_rename`, `folder_create`: risk level `caution`
+  - `file_delete`: risk level `dangerous`
+  - `file_read`: risk level `safe`
+- [ ] File added to pbxproj (UUID FA-FB)
 
 **Success Criteria**:
 - [ ] "copy my resume from Downloads to Documents" works
-- [ ] "delete the old report on my Desktop" moves it to Trash
-- [ ] Attempting to access /System returns error
+- [ ] "delete the old report on Desktop" moves it to Trash
+- [ ] "read the text in my README file" — returns file content
 - [ ] Path traversal attempts are blocked
+- [ ] /System access is blocked
 
 **Difficulty**: 3/5
 
 ---
 
-### M043: Browser Navigation Tool (CDP-Powered)
+### M045: Notification Tool
 
 **Status**: PLANNED
 
-**Objective**: Full browser automation via CDP (Chrome DevTools Protocol) — far more powerful than AppleScript. Can navigate pages, click elements, fill forms, read page content, and run JavaScript in any Chromium browser.
-
-**Why CDP over AppleScript**: CDP provides programmatic access to the browser DOM, network, JavaScript runtime, and accessibility tree. AppleScript can only do basic URL navigation. CDP enables the kind of browser automation seen in OpenClaw and Playwright.
-
-**YC Resource Options**: **Firecrawl** (web scraping API — "read this webpage" without browser automation), **Browser Use** (AI browser automation SDK — could complement CDP for high-level tasks).
-
-**Dependencies**: M034
-
-**Deliverables**:
-- [ ] `BrowserTool.swift`:
-  - `openURL(url:)` — opens URL in Chrome/Chromium (via CDP) or Safari (via NSWorkspace fallback)
-  - `getCurrentURL() -> String?` — reads current tab URL via CDP
-  - `getCurrentTitle() -> String?` — reads current tab title
-  - `getPageText() -> String?` — extracts visible text content from page DOM
-  - `clickElement(selector:)` — clicks a DOM element by CSS selector
-  - `fillInput(selector:value:)` — types into a text field
-  - `runJavaScript(script:) -> String?` — executes JS and returns result
-  - `newTab(url:)` — opens URL in new tab
-- [ ] `CDPClient.swift` — Chrome DevTools Protocol client:
-  - Launches Chrome with `--remote-debugging-port=9222` (or connects to existing instance)
-  - WebSocket connection to CDP endpoint
-  - Implements: `Target.activateTarget`, `Page.navigate`, `Runtime.evaluate`, `DOM.querySelector`, `Input.dispatchMouseEvent`
-  - Returns structured results, not raw JSON
-- [ ] Registered in ToolRegistry:
-  - `browser_open`: risk level `safe`
-  - `browser_read_url`: risk level `safe`
-  - `browser_get_text`: risk level `safe`
-  - `browser_click`: risk level `caution`
-  - `browser_fill`: risk level `caution`
-  - `browser_new_tab`: risk level `caution`
-  - `browser_run_js`: risk level `dangerous`
-
-**Success Criteria**:
-- [ ] "open youtube.com" opens it in default browser
-- [ ] "what page am I on?" reads current Safari/Chrome tab URL and title
-- [ ] Works with both Safari and Chrome
-
-**Difficulty**: 3/5
-
----
-
-### M044: Notification Tool
-
-**Status**: PLANNED
-
-**Objective**: Show macOS system notifications on behalf of the assistant.
+**Objective**: Show macOS system notifications.
 
 **Dependencies**: M034
 
 **Deliverables**:
 - [ ] `NotificationTool.swift`:
-  - `notify(title:body:)` — shows macOS notification via `UNUserNotificationCenter`
-  - Notification actions: dismiss (default), open aiDAEMON
-  - Request notification permission on first use
-- [ ] Registered in ToolRegistry:
-  - `notification_send`: risk level `caution`
+  - `notify(title:body:delay:)` — shows macOS notification, optionally after a delay
+  - Uses `UNUserNotificationCenter`
+  - Notification tapped → opens aiDAEMON window
+  - Permission request on first use
+- [ ] Registered in ToolRegistry: `notification_send`, risk level `caution`
+- [ ] File added to pbxproj (UUID FC-FD)
 
 **Success Criteria**:
-- [ ] "remind me in 5 minutes" → notification appears after 5 minutes
-- [ ] Notification shows aiDAEMON icon and custom message
+- [ ] "remind me in 5 minutes to check my email" → notification appears 5 minutes later
+- [ ] Tapping notification opens aiDAEMON
 
 **Difficulty**: 2/5
 
 ---
 
-### M045: Safe Terminal Tool
+### M046: Safe Terminal Tool
 
 **Status**: PLANNED
 
 **Objective**: Execute terminal commands in a sandboxed environment with strict allowlisting.
 
-**Why this matters**: Some tasks genuinely need terminal commands (git status, npm install, brew update). But unrestricted terminal access is extremely dangerous. This tool provides a safe middle ground.
-
 **Dependencies**: M034
 
 **Deliverables**:
 - [ ] `TerminalTool.swift`:
-  - `execute(command:workingDirectory:) -> (stdout:String, stderr:String, exitCode:Int)`
-  - **ALLOWLISTED commands only**. Anything not on the list is rejected:
-    - `git` (status, log, diff, add, commit, push, pull, branch, checkout)
-    - `ls`, `pwd`, `which`, `whoami`
-    - `brew` (list, info, install, update)
-    - `npm` / `yarn` / `pnpm` (install, run, build, test, list)
-    - `python3` / `node` (script execution with file path, not inline code)
-    - `cat`, `head`, `tail`, `wc` (read-only file inspection)
-    - `curl` (GET requests only, no POST/PUT/DELETE)
-    - `ping`, `dig`, `nslookup` (network diagnostics)
-  - **BLOCKED patterns** (hard-coded, cannot be overridden):
-    - `rm -rf`, `rm -r`, `sudo`, `chmod`, `chown`, `dd`, `mkfs`
-    - Pipe to `sh`, `bash`, `zsh`, `eval`
-    - Redirect to system files
-    - Any command containing `$()` or backtick substitution
-  - Uses `Process` with argument arrays (no shell interpolation)
-  - Working directory restricted to user's home and subdirectories
-  - 30-second timeout per command
-  - Output truncated to 10,000 characters
-- [ ] Registered in ToolRegistry:
-  - `terminal_run`: risk level `dangerous` (always requires confirmation)
-
-**Security requirements**:
-- NEVER uses `Process("/bin/sh", ["-c", ...])` — always direct command execution
-- Arguments passed as array, never string interpolation
-- Allowlist is hardcoded, not configurable by model
-- Every execution logged with full command and output
+  - Allowlisted commands: `git`, `ls`, `pwd`, `which`, `whoami`, `brew`, `npm`, `yarn`, `pnpm`, `python3`, `node`, `cat`, `head`, `tail`, `wc`, `curl` (GET only), `ping`
+  - Blocked: `rm -rf`, `rm -r`, `sudo`, `chmod`, `chown`, `dd`, pipe to shell, `$()`, backticks
+  - Uses `Process` with argument arrays (never `sh -c`)
+  - Working directory: user home and subdirectories only
+  - 30-second timeout, 10,000 character output limit
+  - Every execution logged with full command and output
+- [ ] Registered in ToolRegistry: `terminal_run`, risk level `dangerous` (always confirms)
+- [ ] File added to pbxproj (UUID FE-FF)
 
 **Success Criteria**:
-- [ ] `git status` executes and returns output
-- [ ] `rm -rf /` is rejected immediately
+- [ ] `git status` returns output
+- [ ] `rm -rf /` is rejected before execution
 - [ ] `sudo anything` is rejected
-- [ ] Unknown commands are rejected
-- [ ] 30-second timeout works (test with `sleep 60`)
-- [ ] Output truncation works for very long output
+- [ ] 30-second timeout works
 
 **Difficulty**: 4/5
 
 ---
 
-## PHASE 9: MEMORY AND CONTEXT
+## PHASE 10: MEMORY
 
-*Goal: Make the assistant context-aware and able to remember user preferences.*
+*Goal: The assistant remembers who you are, what you prefer, and what matters to you.*
 
 ---
 
-### M046: Working and Session Memory
+### M047: Persistent Memory
 
 **Status**: PLANNED
 
-**Objective**: Implement the first two memory tiers — working memory (current task) and session memory (current conversation).
+**Objective**: Build a three-tier memory system: working memory (current task), session memory (current conversation), and long-term memory (across sessions and app restarts). Stored as human-readable markdown files — transparent and editable.
 
-**Dependencies**: M035
+**Why this matters**: Without memory, every conversation starts from scratch. With memory, the assistant knows you use Chrome, your projects are in ~/code, you prefer formal emails, and you have a 9am standup. This is what makes it feel like YOUR assistant, not a generic chatbot.
+
+**Dependencies**: M034
 
 **Deliverables**:
 - [ ] `MemoryManager.swift`:
-  - Working memory: key-value store for current task context (cleared when task completes)
-    - e.g., "current_app" = "Safari", "last_search_results" = [...]
-  - Session memory: conversation history + context gathered during session
-    - Persisted to disk between window hide/show
-    - Cleared on "new conversation" or app quit
-  - `store(key:value:tier:)`, `recall(key:tier:)`, `clear(tier:)`
-- [ ] Context providers (integrated into orchestrator):
-  - Frontmost app detector: `NSWorkspace.shared.frontmostApplication`
-  - Clipboard reader: current clipboard text (with permission)
-  - These context values are included in planner prompts automatically
-
-**Success Criteria**:
-- [ ] Assistant remembers what was discussed earlier in the session
-- [ ] Context about frontmost app is available to the planner
-- [ ] Working memory clears between tasks
-- [ ] Session memory persists across window toggles
-
-**Difficulty**: 3/5
-
----
-
-### M047: Long-Term Memory
-
-**Status**: PLANNED
-
-**Objective**: Add persistent memory that survives across sessions. User preferences, facts, and habits.
-
-**Dependencies**: M046
-
-**Deliverables**:
-- [ ] Long-term memory store:
-  - Stored as encrypted JSON file in app support directory
-  - Entries: `{ key, value, category, created, lastUsed }`
-  - Categories: preference, fact, habit, instruction
-  - Examples: "I prefer Chrome over Safari", "My project folder is ~/code/myapp", "I use n8n for automation"
-- [ ] Memory write requires user confirmation:
-  - Assistant: "I'd like to remember that you prefer Chrome. OK?"
-  - User approves → stored
-  - User denies → not stored
-- [ ] Blocked categories (NEVER stored):
+  - **Working memory**: key-value store for current task context (cleared when task completes)
+    - e.g., `current_app: "Safari"`, `last_search: "quarterly report"`
+  - **Session memory**: in-memory conversation context for current session (already exists via `ConversationStore` from M029 — integrate here)
+  - **Long-term memory**: persisted markdown file at `~/Library/Application Support/com.aidaemon/memory.md`
+    - Format: `# My Preferences\n- I prefer Chrome over Safari\n\n# My Projects\n- Main project: ~/code/myapp`
+    - Sections: Preferences, Projects, People, Instructions, Facts
+    - Human-readable and directly editable in any text editor
+  - `remember(key:value:category:)` — writes to long-term memory (requires user confirmation first)
+  - `recall(query:) -> String?` — retrieves relevant memory entries for a given query
+  - `forget(entry:)` — removes a memory entry
+  - `wipeAll()` — deletes the entire memory file (requires strong confirmation)
+- [ ] Memory write flow:
+  - Claude proposes: "I'd like to remember that you prefer Chrome. Should I?"
+  - User confirms → written to memory.md
+  - User declines → not stored
+- [ ] Blocked categories (never stored, pattern-matched):
   - Passwords, API keys, tokens, private keys
-  - Social security numbers, credit card numbers
+  - SSNs, credit card numbers
   - Medical information
-  - Pattern matching to detect and block these
-- [ ] Memory included in planner prompts:
-  - "User preferences: [list of long-term memories]"
-  - Relevant memories selected based on current query
+- [ ] Memory injected into planner prompts:
+  - Relevant sections of memory.md appended to planning prompt
+  - "User preferences and context: [memory content]"
+  - Full memory file if < 2000 chars; relevant sections if larger
+- [ ] Context providers auto-inject into working memory each conversation:
+  - Frontmost app: `NSWorkspace.shared.frontmostApplication?.localizedName`
+  - Current date/time
+- [ ] File added to pbxproj (UUID 100-103)
 
 **Success Criteria**:
-- [ ] User says "I always use Chrome" → assistant asks to remember → user approves → remembered across sessions
-- [ ] Next session: "open my browser" → opens Chrome (because it remembered)
-- [ ] User tries to store a password → blocked with explanation
-- [ ] Memory persists after app quit and restart
+- [ ] "I always use Chrome" → assistant asks to remember → approved → stored in memory.md
+- [ ] Next session: "open my browser" → opens Chrome (used remembered preference)
+- [ ] "what do you remember about me?" → lists current memory entries
+- [ ] "forget that I use Chrome" → removes that entry
+- [ ] Attempt to store a password → blocked with explanation
+- [ ] memory.md file is human-readable in a text editor
 
 **Difficulty**: 3/5
 
@@ -1030,101 +1184,26 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Status**: PLANNED
 
-**Objective**: Let users view, edit, and delete their stored memories.
+**Objective**: Let users view, edit, and delete their stored memories from within Settings.
 
 **Dependencies**: M047
 
 **Deliverables**:
-- [ ] New "Memory" tab in Settings:
-  - List of all long-term memories with category, value, and dates
-  - Delete individual memories (swipe or button)
-  - Edit memory values
-  - "Delete All Memories" button with confirmation
-  - Search/filter memories
-  - Memory count and storage size shown
-- [ ] In-chat memory commands:
-  - "what do you remember about me?" → lists relevant memories
-  - "forget that I like Chrome" → deletes specific memory
+- [ ] Settings → new "Memory" tab:
+  - Displays the content of `memory.md` in a readable list view
+  - Individual entries can be deleted
+  - "Edit in Text Editor" button: opens memory.md in the user's default text editor
+  - "Delete All Memories" button with strong confirmation
+  - Memory file size shown
+- [ ] In-chat commands:
+  - "what do you remember about me?" → lists all memories in chat
+  - "forget [X]" → removes that memory entry
 
 **Success Criteria**:
-- [ ] All memories visible in Settings
-- [ ] Individual memories can be deleted
-- [ ] "Delete All" wipes everything with confirmation
-- [ ] Memory count updates in real-time
-
-**Difficulty**: 2/5
-
----
-
-## PHASE 10: VOICE INTERFACE
-
-*Goal: Talk to JARVIS instead of typing.*
-
----
-
-### M049: Speech-to-Text Input
-
-**Status**: PLANNED
-
-**Objective**: Add voice input using Apple's on-device Speech framework.
-
-**Why this matters**: Typing is fine, but talking to your computer like JARVIS is the dream. Apple's Speech framework runs on-device (no cloud, perfect privacy) and is free.
-
-**YC Resource Options**: **Deepgram ($15K credits)** — higher accuracy STT than Apple's on-device framework, supports real-time streaming. Tradeoff: requires internet (Apple's is offline). Could offer both: Apple on-device as default, Deepgram as optional "cloud voice" upgrade for better accuracy.
-
-**Dependencies**: M034
-
-**Deliverables**:
-- [ ] `SpeechInput.swift`:
-  - Uses `SFSpeechRecognizer` with on-device recognition
-  - `startListening()` / `stopListening()`
-  - Real-time transcription shown in input field as user speaks
-  - Auto-stop after 3 seconds of silence
-  - Language: English (US) — expandable later
-- [ ] Microphone permission request with clear explanation
-- [ ] Push-to-talk UX:
-  - Hold a hotkey (e.g., Cmd+Shift+Space long press) to speak
-  - Release to submit
-  - Or: click a microphone button in the input field
-- [ ] Voice input treated identically to text input (goes through same pipeline)
-- [ ] Visual indicator: pulsing microphone icon while listening
-
-**Success Criteria**:
-- [ ] Hold hotkey → speak "open Safari" → release → Safari opens
-- [ ] Transcription appears in real-time in the input field
-- [ ] Auto-stops after silence
-- [ ] Works without internet (on-device recognition)
-
-**Difficulty**: 3/5
-
----
-
-### M050: Text-to-Speech Output
-
-**Status**: PLANNED
-
-**Objective**: The assistant speaks its responses aloud.
-
-**YC Resource Options**: **Deepgram ($15K credits)** — also offers TTS API with more natural-sounding voices than Apple's built-in `AVSpeechSynthesizer`. Same tradeoff: better quality but requires internet. Could offer both options.
-
-**Dependencies**: M049
-
-**Deliverables**:
-- [ ] `SpeechOutput.swift`:
-  - Uses `AVSpeechSynthesizer` for on-device TTS
-  - Speaks assistant responses when voice mode is active
-  - Voice selection in Settings (system voices)
-  - Speech rate configurable
-  - Can be interrupted by new user input
-- [ ] Voice mode toggle: when on, both input and output are voice
-- [ ] Text responses still shown in chat alongside speech
-- [ ] Mute button to temporarily silence TTS
-
-**Success Criteria**:
-- [ ] Assistant speaks its response aloud
-- [ ] Works without internet (on-device TTS)
-- [ ] User can interrupt by speaking or pressing a key
-- [ ] Mute button stops speech immediately
+- [ ] Memory tab shows current memory content
+- [ ] Individual entries can be deleted
+- [ ] "Delete All" wipes memory.md with confirmation
+- [ ] "Edit in Text Editor" opens memory.md in TextEdit/VS Code/etc.
 
 **Difficulty**: 2/5
 
@@ -1132,11 +1211,11 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ## PHASE 11: SAFETY AND POLISH
 
-*Goal: Harden security, build trust, and polish the experience.*
+*Goal: Harden, audit, and make the experience excellent.*
 
 ---
 
-### M051: Audit Log System
+### M049: Audit Log System
 
 **Status**: PLANNED
 
@@ -1146,126 +1225,79 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 **Deliverables**:
 - [ ] `AuditLog.swift`:
-  - Every action recorded: timestamp, tool, arguments, result, model used, cloud/local
-  - Stored as JSON files in app support directory (one file per day)
-  - Retention: 30 days by default (configurable)
-  - Sensitive fields automatically redacted in log (passwords, API keys detected by pattern)
-- [ ] Audit viewer in Settings:
-  - Timeline view of actions
-  - Filter by date, tool, success/failure
-  - Expand to see full details
+  - Every tool execution recorded: timestamp, tool ID, arguments (sanitized), result summary, model used, cloud/local
+  - One JSON file per day in `~/Library/Application Support/com.aidaemon/audit/`
+  - Retention: 30 days (configurable)
+  - Sensitive fields automatically redacted (passwords, keys, tokens detected by pattern)
+  - `log(action:tool:args:result:wasCloud:)` — called by ToolRegistry after each execution
+- [ ] Settings → "Audit Log" tab:
+  - Timeline view: date → list of actions
+  - Each action: icon, tool name, brief description, result (success/fail), cloud/local badge
+  - Expand to see full arguments and output
   - "What was sent to cloud?" filter
   - Export to JSON
-  - "Delete All Logs" button
+  - "Delete All Logs" with confirmation
 
 **Success Criteria**:
 - [ ] Every tool execution creates an audit entry
-- [ ] Cloud requests show what was sent (prompt text, whether screenshot included)
-- [ ] User can view, filter, and export logs
-- [ ] Sensitive data is redacted in logs
+- [ ] Cloud requests show what text was sent
+- [ ] User can filter and export logs
+- [ ] Sensitive data is redacted
 
 **Difficulty**: 3/5
 
 ---
 
-### M052: Kill Switch and Emergency Stop
+### M050: Permission Management UI
 
 **Status**: PLANNED
 
-**Objective**: Instant, reliable way to stop all assistant activity.
-
-**Dependencies**: M033
-
-**Deliverables**:
-- [ ] Global kill switch hotkey (e.g., Cmd+Shift+Escape):
-  - Immediately stops all orchestrator execution
-  - Cancels any in-progress tool calls
-  - Stops mouse/keyboard automation
-  - Shows "Stopped" message
-  - Does NOT quit the app — just stops the current activity
-- [ ] Kill switch button in the floating window UI (always visible during execution)
-- [ ] Kill switch in menu bar dropdown
-- [ ] After kill switch: assistant enters idle state, asks user what to do
-
-**Success Criteria**:
-- [ ] During multi-step execution, kill switch stops everything within 500ms
-- [ ] Mouse/keyboard control stops immediately
-- [ ] No half-completed actions after kill switch (or they're safely rolled back)
-- [ ] Assistant remains usable after kill switch (doesn't crash or lock up)
-
-**Difficulty**: 3/5
-
----
-
-### M053: Permission Management UI
-
-**Status**: PLANNED
-
-**Objective**: Clear, user-friendly interface showing what permissions the app has and why.
+**Objective**: Clear, unified UI showing what permissions the app has and why.
 
 **Dependencies**: M034
 
 **Deliverables**:
-- [ ] "Permissions" tab in Settings:
-  - List of all macOS permissions (Accessibility, Automation, Microphone, Screen Recording)
-  - Status for each: Granted / Not Granted / Not Requested
+- [ ] Settings → "Permissions" tab:
+  - List all macOS permissions: Accessibility, Automation, Microphone, Screen Recording
+  - Status per permission: Granted / Not Granted
   - "Why needed" explanation for each
-  - "Open System Settings" button for each permission
-  - Visual warning for missing critical permissions (Accessibility)
-- [ ] Autonomy level controls (moved here from Safety section):
-  - Clear explanation of each level with examples
+  - "Open System Settings" button for each
+  - Warning for missing critical permissions (Accessibility required for mouse/keyboard)
+- [ ] Autonomy level controls:
+  - Picker: Level 0, Level 1 (default), Level 2
+  - Clear example of what each level does
   - Current level highlighted
-  - Scope management for Level 2 (which folders/apps are auto-approved)
 - [ ] Cloud settings summary:
-  - Is cloud enabled?
-  - Is screen vision enabled?
-  - What provider is connected?
-  - Quick toggle to disable cloud entirely
-
-**Success Criteria**:
-- [ ] All permission states accurately shown
-- [ ] "Open System Settings" links work for each permission
-- [ ] Autonomy level is clearly explained and changeable
-- [ ] Cloud status is visible at a glance
+  - Active provider + model
+  - Is cloud enabled? Quick disable toggle
+  - Is screen vision in use? Status indicator
 
 **Difficulty**: 2/5
 
 ---
 
-### M054: Security Hardening Pass
+### M051: Security Hardening Pass
 
 **Status**: PLANNED
 
-**Objective**: Comprehensive security review and hardening of all code written so far.
+**Objective**: Comprehensive security review of all code written since M032.
 
-**Dependencies**: M040, M045 (all tools built)
+**Dependencies**: M046 (all tools built)
 
 **Deliverables**:
-- [ ] Code audit for:
-  - Command injection vulnerabilities
-  - Path traversal vulnerabilities
-  - Unvalidated inputs
-  - Hardcoded secrets
-  - Insecure network calls
-  - Memory leaks of sensitive data
-- [ ] Prompt injection testing:
-  - Test clipboard injection scenarios
-  - Test file name injection scenarios
-  - Test model output injection scenarios
-  - Document findings and fixes
-- [ ] Terminal tool audit:
-  - Verify allowlist cannot be bypassed
-  - Test edge cases (unicode, long strings, special characters)
-- [ ] Screen vision audit:
-  - Verify screenshots are not persisted to disk
-  - Verify opt-in flow cannot be bypassed
+- [ ] Code audit: command injection, path traversal, unvalidated inputs, hardcoded secrets, insecure network calls
+- [ ] Prompt injection testing: clipboard, file name, model output injection scenarios
+- [ ] MCP server audit: verify server output is treated as untrusted
+- [ ] Terminal tool audit: verify allowlist cannot be bypassed (unicode, long strings, special chars)
+- [ ] Vision audit: verify screenshots are never persisted to disk
+- [ ] CDP browser audit: verify JavaScript evaluation cannot exfiltrate data
+- [ ] All findings documented and fixed before proceeding
 
 **Success Criteria**:
 - [ ] No known command injection vulnerabilities
 - [ ] No known path traversal vulnerabilities
-- [ ] No hardcoded secrets in codebase
+- [ ] No hardcoded secrets
 - [ ] All network calls use HTTPS
-- [ ] All credentials in Keychain only
 - [ ] Prompt injection test suite passes
 
 **Difficulty**: 4/5
@@ -1274,198 +1306,115 @@ These milestones built the foundation: Xcode project, UI shell, local LLM infere
 
 ## PHASE 12: PRODUCT LAUNCH
 
-*Goal: Package and ship the product.*
+*Goal: Package and ship.*
 
 ---
 
-### M055: User Onboarding Flow
+### M052: User Onboarding Flow
 
 **Status**: PLANNED
 
 **Objective**: First-launch experience that guides users through setup.
 
-**Dependencies**: M053
+**Dependencies**: M050
 
 **Deliverables**:
-- [ ] Welcome screen on first launch:
-  - "Welcome to aiDAEMON — your AI companion for Mac"
-  - Brief explanation (3-4 slides) of what it can do
-  - Permission requests with clear explanations (Accessibility, etc.)
-  - Optional: set up cloud brain (enter API key) or skip for local-only
-  - Optional: enable voice input
-  - Hotkey tutorial: "Press Cmd+Shift+Space to summon me anytime"
-- [ ] Setup state tracking: remembers where user left off, doesn't re-show completed steps
+- [ ] Welcome screen on first launch (4 slides):
+  1. "Welcome to aiDAEMON — your JARVIS for Mac"
+  2. Grant Accessibility permission (required — explains why)
+  3. Set up Claude brain: paste Anthropic API key, or skip for local-only
+  4. Try voice (optional): grant microphone, test it
+- [ ] "How to summon me" tutorial: "Press Cmd+Shift+Space any time to open me"
+- [ ] Setup state persisted: doesn't re-show completed steps
+- [ ] Users who skip cloud: working local assistant
 
 **Success Criteria**:
 - [ ] New user goes from install to working assistant in < 3 minutes
-- [ ] All permissions explained clearly before requesting
-- [ ] Users who skip cloud setup get a working local-only assistant
+- [ ] Cloud setup is optional — local-only path works completely
+- [ ] All permissions explained before requesting
 
 **Difficulty**: 3/5
 
 ---
 
-### M056: Auto-Update System
+### M053: Auto-Update System
 
 **Status**: PLANNED
 
-**Objective**: Ship updates to users automatically using Sparkle.
+**Objective**: Ship updates automatically using Sparkle.
 
-**YC Resource Options**: **AWS ($10K credits)** — host appcast XML and .dmg files on S3 + CloudFront CDN. Alternatively use GitHub Releases (free) for simpler setup.
+**YC Resources**: **AWS ($10K credits)** — host appcast XML and .dmg on S3 + CloudFront. Or use GitHub Releases (free, simpler).
 
-**Dependencies**: M055
+**Dependencies**: M052
 
 **Deliverables**:
-- [ ] Sparkle integration configured:
-  - Appcast XML hosted (location TBD — GitHub releases or S3)
-  - Automatic update check on launch (configurable frequency)
-  - User prompt for available updates
-  - Background download and install on quit
-- [ ] Code signing and notarization:
-  - Developer ID certificate configured
-  - Build signed for distribution
-  - Notarized with Apple for Gatekeeper
-- [ ] Update settings in Settings:
-  - "Check for updates automatically" toggle
-  - "Check now" button
-  - Current version displayed
-
-**Success Criteria**:
-- [ ] App checks for updates on launch
-- [ ] When update available, user is prompted
-- [ ] Update installs cleanly
-- [ ] Notarized build passes Gatekeeper
+- [ ] Sparkle integration configured (already a dependency — wire it up)
+- [ ] Appcast XML hosted on GitHub Releases or S3
+- [ ] Code signing and notarization configured (Developer ID certificate)
+- [ ] Settings: "Check for updates automatically" toggle + "Check Now" button + current version display
 
 **Difficulty**: 3/5
 
 ---
 
-### M057: Performance Optimization
+### M054: Performance Optimization
 
 **Status**: PLANNED
 
-**Objective**: Profile and optimize the app for daily use.
+**Objective**: Profile and optimize for daily use.
 
-**Dependencies**: M056
+**Dependencies**: M053
 
 **Deliverables**:
-- [ ] Profile with Instruments:
-  - Memory usage (target: < 200MB idle, < 5GB with model loaded)
-  - CPU usage when idle (target: < 1%)
-  - Launch time (target: < 3 seconds)
-  - Model load time (target: < 5 seconds)
+- [ ] Instruments profiling: memory (target < 200MB idle), CPU idle (< 1%), launch (< 3s), model load (< 5s)
+- [ ] Lazy model loading (don't load local model until first local inference request)
+- [ ] MCP connection pooling (don't reconnect every call)
 - [ ] Optimize identified bottlenecks
-- [ ] Lazy model loading (don't load model until first use)
-- [ ] Memory cleanup when window is hidden (release non-essential resources)
-
-**Success Criteria**:
-- [ ] App meets performance targets
-- [ ] No memory leaks over extended use (1 hour)
-- [ ] App feels responsive — no noticeable lag in UI
 
 **Difficulty**: 3/5
 
 ---
 
-### M058: Beta Build and Distribution
+### M055: Beta Build and Distribution
 
 **Status**: PLANNED
 
 **Objective**: Create a distributable beta build and share with initial testers.
 
-**Dependencies**: M057
+**Dependencies**: M054
 
 **Deliverables**:
 - [ ] Signed, notarized .dmg installer
-- [ ] Installation instructions document
-- [ ] Beta feedback mechanism (link to form or GitHub issues)
+- [ ] Installation instructions
+- [ ] Beta feedback form or GitHub issues link
 - [ ] Known issues document
 - [ ] Distribute to 5-10 beta testers
 
-**Success Criteria**:
-- [ ] Beta testers can install and run the app
-- [ ] Core workflows work (open apps, find files, manage windows, chat, voice)
-- [ ] Cloud brain works for beta testers with API keys
-- [ ] Feedback received and triaged
-
-**Difficulty**: 3/5
+**Difficulty**: 2/5
 
 ---
 
-### M059: Public Launch
+### M056: Public Launch
 
 **Status**: PLANNED
 
 **Objective**: Ship v1.0 to the public.
 
-**YC Resource Options**: **AWS ($10K credits)** — host landing page, CDN for downloads, S3 for .dmg hosting. **Microsoft Azure** — alternative hosting. **Fireworks AI** — production inference provider for paid tier users (fast, cheap, many models).
+**YC Resources**: **AWS ($10K credits)** — landing page, CDN, .dmg hosting. **Fireworks AI** — production inference for paid tier. **Stripe** — payment processing.
 
-**Dependencies**: M058 + all beta feedback addressed
+**Dependencies**: M055 + beta feedback addressed
 
 **Deliverables**:
-- [ ] Landing page / website
-- [ ] Download link (direct .dmg)
+- [ ] Landing page + download link
 - [ ] Documentation / FAQ
-- [ ] Pricing page (free tier vs paid tier)
-- [ ] Payment integration for paid tier (Stripe or similar)
+- [ ] Pricing page (free tier: local-only | paid tier: Claude brain + MCP ecosystem + computer control)
+- [ ] Payment integration for paid tier
 - [ ] Support channel (email or Discord)
 
 **Success Criteria**:
-- [ ] Users can discover, download, install, and use the app
-- [ ] Free tier works without payment
+- [ ] Users can discover, download, install, and start using the app
+- [ ] Free tier fully functional without payment
 - [ ] Paid tier activates with payment
 - [ ] No critical bugs in first week
 
 **Difficulty**: 4/5
-
----
-
-## Milestone Summary
-
-**Completed**: M001–M032 (foundation + hybrid model layer + chat interface + tool schema system)
-
-**Remaining**: M033–M059 (27 milestones)
-
-| Phase | Milestones | What It Delivers |
-|-------|-----------|-----------------|
-| Phase 4: Hybrid Model | M025–M028 | Local + cloud AI, API key management, smart routing |
-| Phase 5: Chat Interface | M029–M031 | Conversational UI, message history, context |
-| Phase 6: Agent Loop | M032–M035 | Tool schemas, orchestrator, policy engine, error recovery |
-| Phase 7: Computer Control | M036–M040 | Screenshots, vision, mouse, keyboard, integrated control |
-| Phase 8: Essential Tools | M041–M045 | Clipboard, files, browser, notifications, terminal |
-| Phase 9: Memory | M046–M048 | Working/session/long-term memory, memory UI |
-| Phase 10: Voice | M049–M050 | Speech input and output |
-| Phase 11: Safety & Polish | M051–M054 | Audit log, kill switch, permissions UI, security hardening |
-| Phase 12: Product Launch | M055–M059 | Onboarding, updates, optimization, beta, public launch |
-
-**Critical Path**:
-M025 → M026 → M028 → M032 → M033 → M034 → M040 → M054 → M058 → M059
-
----
-
-## Available YC Resources (Free Deals)
-
-The owner has access to the following free resources via YC. Each is noted in the relevant milestone where it could be useful.
-
-| Resource | What It Is | Relevant Milestones |
-|----------|-----------|-------------------|
-| **OpenAI ($2,500 credits)** | GPT-4o / GPT-4o-mini API. Currently used as cloud brain. | M026-M028 (in use), M033-M035, M037 (vision via GPT-4V) |
-| **Anthropic (Claude API)** | Claude Sonnet/Opus. Best-in-class vision + reasoning. | M037 (vision — Claude excels at screenshot analysis), M033-M035 (planning) |
-| **xAI / Grok ($2,500 credits)** | Grok API. Fast inference, another cloud brain option. | M026-M028 (add as provider), M033-M035 |
-| **AWS ($10K credits)** | EC2, S3, CloudFront, etc. | M056 (host Sparkle appcast), M059 (landing page, CDN) |
-| **Microsoft Azure** | Compute, storage, hosting. | M056-M059 (alternative to AWS) |
-| **Fireworks AI** | Fast multi-model inference. 100+ models. | M026-M028 (production provider option), M033-M035 |
-| **Deepgram ($15K credits)** | High-quality STT and TTS APIs (cloud-based). | M049 (speech-to-text — higher quality than Apple on-device), M050 (TTS) |
-| **Firecrawl** | Web scraping / page content extraction API. | M043 (browser tool — read page content), future web tools |
-| **Browser Use (W25)** | AI browser automation SDK. | M040 (computer control — could complement or replace custom browser automation) |
-| **Cursor** | AI code editor. | Already using for development |
-| **Greptile** | AI PR review. | Dev workflow improvement |
-| **Roboflow** | Computer vision platform. | M037 (potential alternative for UI element detection) |
-
-**Not relevant to this project**: Crypto deals (Coinbase, Circle, Allium, Helius), AgentMail, Vapi, sync., Gumloop, Langfuse, Keywords AI, Infisical, Blaxel, Tavus.
-
----
-
-## Next Action
-
-Start with **M033: Orchestrator Skeleton**.

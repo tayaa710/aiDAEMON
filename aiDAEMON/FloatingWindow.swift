@@ -10,8 +10,11 @@ final class FloatingWindow: NSWindow {
     private let commandInputState = CommandInputState()
     private let confirmationState = ConfirmationState()
     private let conversationStore = ConversationStore.shared
-    /// Tracks whether the model is currently generating (drives typing indicator).
     private let chatState = ChatWindowState()
+    private let orchestrator = Orchestrator.shared
+
+    private var orchestratorTask: Task<Void, Never>?
+    private var confirmationContinuation: CheckedContinuation<Bool, Never>?
 
     init() {
         super.init(
@@ -23,21 +26,16 @@ final class FloatingWindow: NSWindow {
 
         configureWindow()
         configureContent()
+        configureOrchestratorCallbacks()
     }
 
-    override var canBecomeKey: Bool {
-        true
-    }
-
-    override var canBecomeMain: Bool {
-        true
-    }
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 
     func showOnActiveScreen() {
         WindowManager.rememberLastExternalApplication(NSWorkspace.shared.frontmostApplication)
         conversationStore.load()
 
-        // Size the window based on whether there are messages
         let hasMessages = !conversationStore.conversation.messages.isEmpty
         let targetSize = hasMessages ? Self.chatSize : Self.compactSize
         setContentSize(targetSize)
@@ -51,6 +49,11 @@ final class FloatingWindow: NSWindow {
     func hideWindow() {
         conversationStore.save()
         orderOut(nil)
+    }
+
+    /// Emergency stop for orchestrator execution (triggered by Cmd+Shift+Escape or UI button).
+    func emergencyStop() {
+        emergencyStop(showMessage: true)
     }
 
     override func keyDown(with event: NSEvent) {
@@ -77,14 +80,130 @@ final class FloatingWindow: NSWindow {
         hideAndPreserve()
     }
 
-    // MARK: - New Conversation
+    // MARK: - Conversation / Execution lifecycle
 
     func startNewConversation() {
+        emergencyStop(showMessage: false)
         commandInputState.clear()
         confirmationState.dismiss()
         chatState.isGenerating = false
         conversationStore.clearAll()
         resizeToCompact()
+    }
+
+    private func handleSubmit(_ command: String) {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        guard !chatState.isGenerating else {
+            conversationStore.conversation.addAssistantMessage(
+                "Already working on a request. Use the stop button if you want to cancel it.",
+                success: false
+            )
+            resizeToChat()
+            return
+        }
+
+        conversationStore.conversation.addUserMessage(trimmed)
+        commandInputState.clear()
+        chatState.isGenerating = true
+        resizeToChat()
+
+        orchestratorTask = Task { [weak self] in
+            guard let self else { return }
+            let result = await self.orchestrator.handleUserInput(
+                text: trimmed,
+                conversation: self.conversationStore.conversation
+            )
+
+            await MainActor.run {
+                self.chatState.isGenerating = false
+                self.orchestratorTask = nil
+
+                if !(result.responseText == "Stopped." && self.lastAssistantMessageIsStopped()) {
+                    self.conversationStore.conversation.addAssistantMessage(
+                        result.responseText,
+                        modelUsed: result.modelUsed,
+                        wasCloud: result.wasCloud,
+                        success: result.success
+                    )
+                }
+                self.commandInputState.requestFocus()
+            }
+        }
+    }
+
+    private func emergencyStop(showMessage: Bool) {
+        let wasBusy = chatState.isGenerating || confirmationState.isPresented
+        orchestrator.abort()
+        orchestratorTask?.cancel()
+        orchestratorTask = nil
+
+        if confirmationState.isPresented {
+            confirmationState.dismiss()
+        }
+        resolvePendingConfirmation(approved: false)
+
+        chatState.isGenerating = false
+        if showMessage && wasBusy && !lastAssistantMessageIsStopped() {
+            conversationStore.conversation.addAssistantMessage("Stopped.", success: false)
+        }
+        commandInputState.requestFocus()
+    }
+
+    private func lastAssistantMessageIsStopped() -> Bool {
+        guard let last = conversationStore.conversation.messages.last else { return false }
+        return last.role == .assistant && last.content == "Stopped."
+    }
+
+    // MARK: - Orchestrator callbacks
+
+    private func configureOrchestratorCallbacks() {
+        orchestrator.onStatusUpdate = { [weak self] status in
+            guard let self else { return }
+            self.conversationStore.conversation.addAssistantMessage(status, success: true)
+            self.resizeToChat()
+        }
+
+        orchestrator.onConfirmationRequest = { [weak self] request in
+            guard let self else { return false }
+            return await self.awaitConfirmation(for: request)
+        }
+    }
+
+    private func awaitConfirmation(for request: ToolConfirmationRequest) async -> Bool {
+        await MainActor.run {
+            self.confirmationState.present(
+                toolCall: request.toolCall,
+                reason: request.reason,
+                level: request.level
+            )
+            self.resizeToChat()
+        }
+
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                self.confirmationContinuation = continuation
+
+                self.confirmationState.onApprove = { [weak self] in
+                    guard let self else { return }
+                    self.confirmationState.dismiss()
+                    self.resolvePendingConfirmation(approved: true)
+                }
+
+                self.confirmationState.onCancel = { [weak self] in
+                    guard let self else { return }
+                    self.confirmationState.dismiss()
+                    self.resolvePendingConfirmation(approved: false)
+                }
+            }
+        }
+    }
+
+    private func resolvePendingConfirmation(approved: Bool) {
+        guard let continuation = confirmationContinuation else { return }
+        confirmationContinuation = nil
+        continuation.resume(returning: approved)
     }
 
     // MARK: - Window Configuration
@@ -111,6 +230,9 @@ final class FloatingWindow: NSWindow {
                 },
                 onNewConversation: { [weak self] in
                     self?.startNewConversation()
+                },
+                onKillSwitch: { [weak self] in
+                    self?.emergencyStop()
                 }
             )
         )
@@ -189,240 +311,6 @@ final class FloatingWindow: NSWindow {
             height: size.height
         )
     }
-
-    // MARK: - Confirmation Dialog
-
-    private func presentConfirmation(command: Command, userInput: String, reason: String, level: SafetyLevel) {
-        NSLog("CommandValidator: needsConfirmation (%@) — %@",
-              level == .dangerous ? "dangerous" : "caution", reason)
-
-        confirmationState.present(command: command, userInput: userInput, reason: reason, level: level)
-
-        confirmationState.onApprove = { [weak self] in
-            guard let self else { return }
-            self.confirmationState.dismiss()
-            self.executeValidatedCommand(command, userInput: userInput)
-        }
-
-        confirmationState.onCancel = { [weak self] in
-            guard let self else { return }
-            self.confirmationState.dismiss()
-            self.conversationStore.conversation.addAssistantMessage(
-                "Action cancelled.", success: false
-            )
-            self.chatState.isGenerating = false
-        }
-    }
-
-    // MARK: - Command Submission
-
-    private func handleSubmit(_ command: String) {
-        NSLog("Command submitted: %@", command)
-
-        let manager = LLMManager.shared
-
-        guard manager.state == .ready else {
-            let msg: String
-            switch manager.state {
-            case .idle:
-                msg = "Model not loaded. Restart app to load model."
-            case .loading:
-                msg = "Model is still loading, please wait..."
-            case .generating:
-                msg = "Already generating, please wait..."
-            case .error(let detail):
-                msg = "Model error: \(detail)"
-            case .ready:
-                msg = "Ready" // unreachable
-            }
-            conversationStore.conversation.addUserMessage(command)
-            conversationStore.conversation.addAssistantMessage(msg, success: false)
-            resizeToChat()
-            return
-        }
-
-        // Record user message and expand window
-        conversationStore.conversation.addUserMessage(command)
-        commandInputState.clear()
-        chatState.isGenerating = true
-        resizeToChat()
-
-        // Build prompt — include conversation history for both local and cloud providers.
-        // Local model gets a smaller history budget to preserve JSON output quality;
-        // cloud model gets a larger budget since it can handle more context.
-        let recentMessages = conversationStore.conversation.recentMessages()
-        let routingDecision = manager.router?.route(input: command)
-        let useConversationalPrompt = recentMessages.count > 1
-
-        let prompt: String
-        if useConversationalPrompt {
-            let historyMessages = Array(recentMessages.dropLast())
-            let isCloud = routingDecision?.isCloud == true
-            let historyBudget = isCloud ? 12000 : 6000   // cloud: ~4096 tokens, local: ~2048 tokens
-            prompt = PromptBuilder.buildConversationalPrompt(
-                messages: historyMessages,
-                currentInput: command,
-                maxHistoryChars: historyBudget
-            )
-        } else {
-            prompt = PromptBuilder.buildCommandPrompt(userInput: command)
-        }
-        NSLog("Prompt built (%d chars, %d history msgs, conversational=%@, cloud=%@) for input: %@",
-              prompt.count, recentMessages.count - 1, useConversationalPrompt ? "yes" : "no",
-              routingDecision?.isCloud == true ? "yes" : "no", command)
-
-        let routedProviderName = routingDecision?.provider.providerName ?? "Local"
-        let routedWasCloud = routingDecision?.isCloud ?? false
-
-        var streamedOutput = ""
-        var didAbortEarly = false
-        manager.generate(
-            prompt: prompt,
-            userInput: command,
-            params: PromptBuilder.commandParams,
-            onToken: { token in
-                DispatchQueue.main.async {
-                    guard !didAbortEarly else { return }
-                    streamedOutput += token
-
-                    // Early termination: once we have a complete JSON object, stop generating.
-                    let trimmed = streamedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.hasPrefix("{") && trimmed.hasSuffix("}") {
-                        if let data = trimmed.data(using: .utf8),
-                           (try? JSONSerialization.jsonObject(with: data)) != nil {
-                            didAbortEarly = true
-                            manager.abort()
-                        }
-                    }
-                }
-            },
-            completion: { [weak self] result in
-                DispatchQueue.main.async {
-                    if didAbortEarly {
-                        let mgr = LLMManager.shared
-                        mgr.setLastProvider(name: routedProviderName, wasCloud: routedWasCloud,
-                                            reason: mgr.lastRoutingReason)
-                        let captured = streamedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-                        self?.handleGenerationResult(.success(captured), userInput: command)
-                    } else {
-                        self?.handleGenerationResult(result, userInput: command)
-                    }
-                }
-            }
-        )
-    }
-
-    private func handleGenerationResult(_ result: Result<String, Error>, userInput: String) {
-        let manager = LLMManager.shared
-
-        switch result {
-        case .success(let output):
-            let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else {
-                let errMsg = "No response from model. Try rephrasing your command."
-                conversationStore.conversation.addAssistantMessage(
-                    errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
-                )
-                chatState.isGenerating = false
-                return
-            }
-
-            do {
-                let command = try CommandParser.parse(trimmed)
-                NSLog("Parsed command: %@ target=%@", command.type.rawValue, command.target ?? "(none)")
-
-                let validation = CommandValidator.shared.validate(command)
-                switch validation {
-                case .rejected(let reason):
-                    let errMsg = "Command blocked: \(reason)"
-                    conversationStore.conversation.addAssistantMessage(
-                        errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
-                    )
-                    chatState.isGenerating = false
-
-                case .needsConfirmation(let validCmd, let reason, let level):
-                    chatState.isGenerating = false
-                    presentConfirmation(command: validCmd, userInput: userInput, reason: reason, level: level)
-
-                case .valid(let validCmd):
-                    executeValidatedCommand(validCmd, userInput: userInput)
-                }
-            } catch {
-                NSLog("Parse failed: %@\nRaw output: %@", error.localizedDescription, trimmed)
-                let errMsg = friendlyParseError(error, rawOutput: trimmed)
-                conversationStore.conversation.addAssistantMessage(
-                    errMsg, modelUsed: manager.lastProviderName, wasCloud: manager.lastWasCloud, success: false
-                )
-                chatState.isGenerating = false
-            }
-
-        case .failure(let error):
-            let errMsg = "Generation failed: \(error.localizedDescription)"
-            conversationStore.conversation.addAssistantMessage(errMsg, success: false)
-            chatState.isGenerating = false
-        }
-    }
-
-    private func executeValidatedCommand(_ command: Command, userInput: String) {
-        let action = readableCommandType(command.type)
-
-        let manager = LLMManager.shared
-        let providerName = manager.lastProviderName
-        let isCloud = manager.lastWasCloud
-
-        CommandRegistry.shared.execute(command) { [weak self] execResult in
-            DispatchQueue.main.async {
-                let context = "\(userInput) → \(action)"
-                var msg = context + "\n\n" + execResult.message
-                if let details = execResult.details {
-                    msg += "\n" + details
-                }
-
-                self?.conversationStore.conversation.addAssistantMessage(
-                    msg,
-                    modelUsed: providerName,
-                    wasCloud: isCloud,
-                    toolCall: command.type.rawValue,
-                    success: execResult.success
-                )
-                self?.chatState.isGenerating = false
-            }
-        }
-    }
-
-    private func readableCommandType(_ type: CommandType) -> String {
-        switch type {
-        case .APP_OPEN: return "Open Application"
-        case .FILE_SEARCH: return "Search Files"
-        case .WINDOW_MANAGE: return "Manage Window"
-        case .SYSTEM_INFO: return "System Information"
-        case .FILE_OP: return "File Operation"
-        case .PROCESS_MANAGE: return "Manage Process"
-        case .QUICK_ACTION: return "Quick Action"
-        }
-    }
-
-    private func friendlyParseError(_ error: Error, rawOutput: String) -> String {
-        let explanation: String
-        if let parseError = error as? CommandParserError {
-            switch parseError {
-            case .invalidJSON:
-                explanation = "The model returned an unexpected format."
-            case .missingType:
-                explanation = "The model response was missing a command type."
-            case .unknownCommandType(let type):
-                explanation = "Unknown command type: \(type)"
-            case .missingRequiredField(let field):
-                explanation = "Missing required field: \(field)"
-            case .invalidFormat:
-                explanation = "The model response had an invalid format."
-            }
-        } else {
-            explanation = error.localizedDescription
-        }
-
-        return "\(explanation)\nTry rephrasing your command."
-    }
 }
 
 // MARK: - Chat Window State
@@ -442,6 +330,7 @@ private struct FloatingWindowShellView: View {
 
     let onSubmit: (String) -> Void
     let onNewConversation: () -> Void
+    let onKillSwitch: () -> Void
 
     private var hasMessages: Bool {
         !conversation.messages.isEmpty
@@ -449,7 +338,6 @@ private struct FloatingWindowShellView: View {
 
     var body: some View {
         ZStack {
-            // Background
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(NSColor.windowBackgroundColor).opacity(0.94))
 
@@ -457,7 +345,6 @@ private struct FloatingWindowShellView: View {
                 .stroke(Color.white.opacity(0.16), lineWidth: 1)
 
             VStack(spacing: 0) {
-                // Header with "New Chat" button (visible when there are messages)
                 if hasMessages || chatState.isGenerating {
                     HStack {
                         Text("aiDAEMON")
@@ -465,6 +352,25 @@ private struct FloatingWindowShellView: View {
                             .foregroundStyle(.secondary)
 
                         Spacer()
+
+                        if chatState.isGenerating {
+                            Button(action: onKillSwitch) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "stop.fill")
+                                        .font(.system(size: 10))
+                                    Text("Stop")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule().fill(Color.red)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .help("Emergency stop (Cmd+Shift+Escape)")
+                        }
 
                         Button(action: onNewConversation) {
                             HStack(spacing: 3) {
@@ -489,7 +395,6 @@ private struct FloatingWindowShellView: View {
                     .padding(.bottom, 4)
                 }
 
-                // Chat messages area
                 if hasMessages || chatState.isGenerating {
                     ChatView(
                         conversation: conversation,
@@ -501,14 +406,12 @@ private struct FloatingWindowShellView: View {
                         .padding(.horizontal, 10)
                 }
 
-                // Confirmation dialog overlay
                 if confirmationState.isPresented {
                     ConfirmationDialogView(state: confirmationState)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                 }
 
-                // Input bar at the bottom
                 HStack(spacing: 10) {
                     Image(systemName: "brain.head.profile")
                         .foregroundStyle(.secondary)

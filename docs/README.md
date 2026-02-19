@@ -27,8 +27,8 @@
 
 ### Critical Rules
 
-- **PRIVACY IS NON-NEGOTIABLE.** Read 02-THREAT-MODEL.md. Every feature must protect user data. When in doubt, keep data local. Never send data to any external service without explicit user opt-in AND encryption in transit.
-- **SECURITY IS NON-NEGOTIABLE.** No command injection. No raw shell interpolation. No unvalidated inputs. No hardcoded secrets. Every external API call must use HTTPS. Every credential must use Keychain.
+- **CAPABILITY FIRST.** The assistant should be maximally capable. Cloud AI (Claude) is on by default. Privacy is preserved through architecture (TLS, ephemeral data, no training on user data), not through restrictions that cripple the product. Read 00-FOUNDATION.md for the full principles.
+- **SECURITY IS NON-NEGOTIABLE.** No command injection. No raw shell interpolation. No unvalidated inputs. No hardcoded secrets. Every external API call must use HTTPS. Every credential must use Keychain. Read 02-THREAT-MODEL.md.
 - **The owner is not a cloud/backend expert.** When a milestone requires cloud setup (AWS, API keys, server config), provide instructions a non-technical person can follow. Include screenshots references, exact URLs, exact button names.
 - **Do not skip manual setup or test instructions.** This is the most important part of your output after code. The owner cannot verify your work without them.
 - **Do not start the next milestone without being told.** The owner needs to build in Xcode and manually verify before moving on.
@@ -56,5 +56,5 @@
 
 ## Current Status
 
-**Completed**: M001–M030 (foundation, UI, local LLM, command executors, hybrid model layer, conversation data model, chat UI)
-**Next**: See 03-MILESTONES.md for the current milestone
+**Completed**: M001–M033 (foundation, UI, local LLM, command executors, hybrid model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy)
+**Next**: M034 — Orchestrator + Agentic Tool-Use Loop. See 03-MILESTONES.md for details.

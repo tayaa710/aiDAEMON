@@ -4,8 +4,8 @@
 
 When in doubt, this file overrides issues, chat messages, code comments, and secondary docs.
 
-Last Updated: 2026-02-18
-Version: 3.1 (Capability-First Pivot)
+Last Updated: 2026-02-19
+Version: 5.0 (Capability-First / Native Tool-Use Architecture)
 
 ---
 
@@ -13,73 +13,74 @@ Version: 3.1 (Capability-First Pivot)
 
 **aiDAEMON is a JARVIS-style AI companion app for macOS.**
 
-Think Iron Man's JARVIS — you talk to your computer (or type), and it does things for you. Open apps, move windows, set up workflows, search files, control browsers, manage your calendar — anything you'd normally do with a mouse and keyboard, your AI companion does instead.
+Think Iron Man's JARVIS — you talk to your computer (or type), and it does things. Open apps, draft emails, book meetings, control browsers, manage files, write code, automate workflows — anything you'd normally do manually, your AI companion does instead. Autonomously. Without asking permission for every step.
 
-The app runs natively on macOS. A small local AI handles simple tasks instantly. For complex tasks (multi-step planning, understanding what's on screen), it connects to a private cloud brain that the user pays for via subscription.
+The app runs natively on macOS. It uses a powerful cloud AI brain (Claude) by default. A local model handles fast, private fallback. Tools are extended via MCP (Model Context Protocol) — giving access to 2,800+ community-built integrations out of the box.
 
-**Target customer**: Anyone who wants to control their Mac by just telling it what to do.
+**Target customer**: Anyone who wants to control their Mac by talking to it — and wants it to just work, not ask for approval at every step.
 
-**Business model**: Free tier (local AI, simple tasks) + paid tier ($15-20/month, cloud brain for complex tasks).
+**Business model**: Free tier (local AI, 4 core tools) + paid tier ($15-20/month, cloud brain + MCP ecosystem + computer control).
 
 ---
 
 ## Product Principles
 
-### 1. Capability First
+### 1. Capability First, Privacy By Design
 
-The primary goal is to be the most capable AI companion on macOS. Users want an assistant that actually *does* things — autonomously, intelligently, without friction.
+The app is maximally capable. Privacy is preserved through architecture, not through restrictions that cripple the product.
 
-- **Cloud is the default brain.** Local model handles simple tasks instantly; cloud handles everything complex. Users get the best result by default.
-- **MCP (Model Context Protocol)** is the tool integration standard. It gives access to 2,800+ community-built tools and lets the assistant connect to virtually any service.
-- **The assistant acts; users review.** By default (Level 1 autonomy), safe actions execute automatically. The assistant does the work and reports back. Only dangerous or ambiguous actions pause for confirmation.
-- **Minimal friction.** No plan previews for simple requests. No excessive confirmation dialogs. JARVIS doesn't ask permission to turn on the lights.
-- **Maximum intelligence.** Claude (Anthropic) is the preferred cloud brain for complex reasoning, planning, and vision. OpenAI GPT-4o as fallback.
+- **Cloud brain is on by default.** Claude is the primary intelligence. Local model is the fast/offline fallback.
+- **Data is protected in transit** — TLS 1.3, never stored server-side, never used for training.
+- **Screen vision is available** when Screen Recording permission is granted — no per-session opt-in needed.
+- **Users can audit** everything via the action log.
+- **Users can disable cloud** in Settings if they choose — but it's opt-out, not opt-in.
+- No telemetry, no analytics, no data sold. Ever.
 
-### 2. Responsible Defaults, Not Privacy-First
+### 2. Security Is a System, Not a Feature
 
-Users trust this app with their computer. We take that seriously — but we don't let privacy concerns prevent building capable software.
-
-- **Simple tasks process locally** when the local model is sufficient.
-- **Cloud tasks are encrypted in transit.** Data is not stored by the provider.
-- **Users can audit what was sent** to the cloud via the action log.
-- **Screen vision is opt-in** (required for the model to see the screen).
-- **API keys live in macOS Keychain only.** Never in files, never in UserDefaults.
-
-### 3. Security Is a System, Not a Feature
-
-Security cannot be a prompt instruction or an afterthought. It is enforced in code.
+Security cannot be a prompt instruction or an afterthought. It is enforced in code. Capability-first does not mean security-last.
 
 - Every proposed action passes through a **policy engine** before execution.
-- Destructive actions (delete files, kill processes, send emails) **always require user confirmation**.
+- Destructive actions (delete files, kill processes, send emails) **always require user confirmation**, regardless of autonomy level.
 - No raw shell command execution. All system actions go through **structured, validated tool calls**.
 - API keys and credentials stored in **macOS Keychain only**. Never in files, never in UserDefaults.
 - All network traffic uses **HTTPS/TLS**. No exceptions.
 - Prompt injection defenses at every boundary where untrusted text enters the system.
 
-### 4. User Authority Over Agent Autonomy
+### 3. Autonomy Level 1 by Default
 
-The user is always the boss. The AI acts on the user's behalf and can be stopped at any time.
+The assistant acts. It doesn't ask for permission before every step.
 
-- **Level 1 (default)**: Safe actions (read-only, non-destructive, reversible) auto-execute without asking. Risky actions still need approval. This is the standard experience.
-- **Level 0**: AI explains what it wants to do and waits for approval before every action. Opt-in for users who want full control.
+- **Level 0**: AI explains what it wants to do and waits for approval before every action. (Available in Settings, not the default.)
+- **Level 1 (default)**: Safe and caution-level actions auto-execute. Only dangerous actions require confirmation. The user sees a brief "Doing X..." status, then results.
 - **Level 2**: Auto-execute within user-defined scopes (e.g., "you can manage files in ~/Downloads").
-- **Level 3**: Routine autonomy for scheduled/recurring tasks. Still has safety limits.
+- **Level 3**: Routine autonomy for scheduled/recurring tasks.
 - **No level allows silent destructive actions.** Ever.
-- **Kill switch**: User can instantly stop all agent activity at any time.
+- **Kill switch**: Cmd+Shift+Escape stops all agent activity instantly at any time.
 
-### 5. Transparency Always
+### 4. Transparent Action, Not Transparent Planning
 
-- The AI shows what it understood ("I think you want me to...")
-- For multi-step plans at Level 0: the AI shows its plan before acting.
-- For simple tasks at Level 1: the AI acts immediately and reports what it did.
-- The AI shows what happened ("Done. Opened Safari and moved it to the left half.")
-- If something failed, the AI explains why and what it tried.
-- Complete action history is viewable and searchable.
+Users see what happened. They don't need to approve every step before it happens.
+
+- The AI shows real-time status: "Opening Safari... navigating to Gmail... clicking Compose..."
+- The AI reports what it did: "Done. Drafted the email and put it in your drafts folder."
+- If something failed, the AI explains why and what it tried instead.
+- Complete action history is viewable in the audit log.
+- At Level 0, the old plan-preview-approve flow is still available for users who want it.
+
+### 5. MCP-Native Tool Ecosystem
+
+aiDAEMON uses Anthropic's **Model Context Protocol** as its tool interface — the industry standard.
+
+- All built-in tools (app launcher, file search, window manager, etc.) are registered as MCP tools.
+- Any community MCP server can be added in Settings — Google Calendar, GitHub, Notion, Slack, databases, and 2,800+ more.
+- Claude speaks MCP natively. No translation layer.
+- aiDAEMON's tool registry IS an MCP server — third-party agents and tools can call into it.
 
 ### 6. Works Offline, Better Online
 
 - **Offline**: Local 8B model handles simple tasks — open apps, find files, move windows, system info.
-- **Online**: Cloud brain handles complex tasks — multi-step planning, screen understanding, workflow automation.
+- **Online**: Claude claude-sonnet-4-5-20250929/Opus 4.6 handles complex tasks — multi-step planning, screen understanding, workflow automation, MCP tool use.
 - The app gracefully degrades. Losing internet means losing complex features, not all features.
 
 ---
@@ -89,21 +90,36 @@ The user is always the boss. The AI acts on the user's behalf and can be stopped
 - **Platform**: macOS 13.0+ (native Swift + SwiftUI)
 - **Bundle ID**: com.aidaemon
 - **Distribution**: Direct download (not App Store — sandbox restrictions conflict with automation capabilities)
-- **Local AI**: LLaMA 3.1 8B (Q4_K_M quantization) via llama.cpp / LlamaSwift
-- **Cloud AI**: Anthropic Claude (preferred) + OpenAI GPT-4o + Groq — provider is swappable
-- **Tool Protocol**: MCP (Model Context Protocol) — industry standard, 2,800+ community tools
-- **Browser Control**: CDP (Chrome DevTools Protocol) — far more powerful than AppleScript
+- **Primary Cloud AI**: Anthropic Claude (claude-sonnet-4-5-20250929 default, Opus 4.6 for max capability)
+- **Secondary Cloud AI**: OpenAI GPT-4o (fallback, already configured)
+- **Local AI**: LLaMA 3.1 8B (Q4_K_M quantization) via llama.cpp / LlamaSwift — for offline/fast tasks
+- **Tool Protocol**: MCP (Model Context Protocol) — Anthropic's open standard
+- **Voice Input**: Apple SFSpeechRecognizer (on-device) + Deepgram (cloud, better accuracy)
+- **Voice Output**: AVSpeechSynthesizer (on-device) + Deepgram TTS (cloud, better voices)
+- **Browser Control**: Chrome DevTools Protocol (CDP) — not AppleScript
 - **Auto-updates**: Sparkle framework
 - **Global hotkey**: KeyboardShortcuts framework
+
+---
+
+## Competitive Landscape
+
+**OpenClaw** (Peter Steinberger, acquired by OpenAI Feb 2026) proved the market — 157K GitHub stars in 60 days for an AI agent that controls your computer via messaging apps. Key lessons absorbed:
+
+- **MCP is the industry standard for tool integration.** aiDAEMON uses it natively (not a custom skill system).
+- **Claude is the best brain for agentic tasks.** OpenClaw explicitly recommends Claude for its tool-use loop quality.
+- **Autonomy is the product.** The viral demo was autonomous execution, not a chatbot. Level 1 by default.
+- **CDP for browser control.** Not AppleScript. aiDAEMON uses Chrome DevTools Protocol.
+
+**aiDAEMON's differentiator**: Native macOS Swift app. OpenClaw is Node.js — aiDAEMON gets faster screenshot analysis, native Accessibility API access, tighter system integration, and lower resource usage. The native advantage compounds with computer control (Phase 8) where milliseconds matter.
 
 ---
 
 ## What This Project Is NOT
 
 - **NOT a chatbot.** It doesn't just answer questions — it takes actions on your computer.
-- **NOT passive.** It acts. At Level 1 (default), safe tasks execute immediately without asking.
-- **NOT cloud-dependent.** Core features work entirely offline with the local model.
-- **NOT locked to one AI provider.** Claude, OpenAI, Groq, and local are all supported and swappable.
+- **NOT spyware.** It never watches, records, or transmits without architectural protections.
+- **NOT cloud-dependent.** Core features work entirely offline via local model.
 - **NOT open-source (yet).** May open-source in the future, but not a priority for v1.
 
 ---
@@ -112,15 +128,15 @@ The user is always the boss. The AI acts on the user's behalf and can be stopped
 
 These are absolute rules. If a milestone or feature would violate any of these, it must be redesigned.
 
-1. At autonomy Level 0, user sees every action before it executes
-2. Destructive actions always require explicit approval (no exceptions, at any level)
-3. Kill switch / emergency stop is always available and instant
-4. Local-first baseline works without internet
-5. All actions are logged and explainable
-6. Policy engine cannot be bypassed by prompt content
-7. Credentials are never stored outside macOS Keychain
-8. Network traffic is always encrypted (HTTPS/TLS)
-9. No user data is ever used for model training
+1. Kill switch (Cmd+Shift+Escape) is always available during execution and stops everything within 500ms
+2. Destructive actions (file delete, send email, process kill, terminal exec) always require explicit confirmation
+3. All actions are logged in the audit log and explainable to the user
+4. Local-only baseline works without internet (open apps, find files, move windows, system info)
+5. Policy engine cannot be bypassed by prompt content
+6. Credentials are never stored outside macOS Keychain
+7. Network traffic is always encrypted (HTTPS/TLS 1.3)
+8. No user data is ever used for model training (contractual with providers)
+9. No raw shell command execution — structured tool calls only
 
 ---
 
@@ -137,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M032)
+## Completed Foundation (M001-M033)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -159,15 +175,16 @@ The following capabilities already exist and should be reused, not rebuilt:
 | File search (Spotlight) | `FileSearcher.swift` | Working |
 | Window management | `WindowManager.swift` | Working |
 | System info | `SystemInfo.swift` | Working |
-| Command validation | `CommandValidator.swift` | Working |
+| Command validation + autonomy policy | `CommandValidator.swift` | Working |
 | Confirmation dialogs | `ConfirmationDialog.swift` | Working |
 | ModelProvider protocol | `ModelProvider.swift` | Working |
 | Local model backend | `LocalModelProvider.swift` | Working |
-| Cloud model backend | `CloudModelProvider.swift` | Working |
+| Cloud model backend (OpenAI-compat) | `CloudModelProvider.swift` | Working |
+| Anthropic Claude provider | `AnthropicModelProvider.swift` | Working |
 | Keychain credential storage | `KeychainHelper.swift` | Working |
 | Model routing (local/cloud) | `ModelRouter.swift` | Working |
 | Conversation data model | `Conversation.swift` | Working |
 | Chat conversation UI | `ChatView.swift` | Working |
 | Tool schema system | `ToolDefinition.swift`, `ToolRegistry.swift` | Working |
 
-This foundation is the "hands" of the assistant. The new milestones add the "brain" (cloud model + agent loop) and "eyes" (screen vision).
+This foundation is the "hands" of the assistant. The new milestones add the "brain" (Claude + MCP + agent loop), "voice" (speech in/out), and "eyes" (screen vision + computer control).

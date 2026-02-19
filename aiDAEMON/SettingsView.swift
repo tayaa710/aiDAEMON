@@ -75,6 +75,11 @@ private struct GeneralSettingsTab: View {
     @AppStorage("settings.themePreference")
     private var themePreferenceRawValue: String = ThemePreference.system.rawValue
 
+    /// Autonomy level — stored as Int in UserDefaults "autonomy.level".
+    /// 0 = confirm everything, 1 = auto-execute safe+caution (default), 2 = fully autonomous in approved scopes.
+    @AppStorage("autonomy.level")
+    private var autonomyLevel: Int = AutonomyLevel.autoExecute.rawValue
+
     var body: some View {
         Form {
             Section("Hotkey") {
@@ -115,6 +120,36 @@ private struct GeneralSettingsTab: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Autonomy") {
+                Picker("Action Mode", selection: $autonomyLevel) {
+                    Text("Level 0 — Confirm Everything")
+                        .tag(AutonomyLevel.confirmAll.rawValue)
+                    Text("Level 1 — Auto-Execute (Recommended)")
+                        .tag(AutonomyLevel.autoExecute.rawValue)
+                    Text("Level 2 — Fully Autonomous (Coming Soon)")
+                        .tag(AutonomyLevel.fullyAuto.rawValue)
+                }
+
+                switch AutonomyLevel(rawValue: autonomyLevel) ?? .autoExecute {
+                case .confirmAll:
+                    Text("Level 0: Every action requires your approval before executing. Most careful, most interruptions.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                case .autoExecute:
+                    Text("Level 1 (default): Safe and caution-level actions auto-execute. Only dangerous actions (delete files, terminal commands) require your approval.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                case .fullyAuto:
+                    Text("Level 2: Fully autonomous within user-approved scopes. Coming in a future milestone.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("Destructive actions (delete files, send email, kill processes, terminal) ALWAYS require confirmation, regardless of level.")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+            }
         }
         .padding(18)
     }
@@ -136,9 +171,14 @@ private struct CloudSettingsTab: View {
     @AppStorage("model.routingMode")
     private var routingModeRawValue: String = RoutingMode.auto.rawValue
 
-    // Provider choice (non-secret — safe in UserDefaults)
+    // Provider choice (non-secret — safe in UserDefaults).
+    // Default is Anthropic — the primary cloud brain.
     @AppStorage("cloud.provider")
-    private var providerRawValue: String = CloudProviderType.openAI.rawValue
+    private var providerRawValue: String = CloudProviderType.anthropic.rawValue
+
+    // Anthropic model selection (non-secret — model name only)
+    @AppStorage("cloud.anthropicModel")
+    private var anthropicModelRawValue: String = AnthropicModel.sonnet.rawValue
 
     // Custom provider configuration (non-secret)
     @AppStorage("cloud.customEndpoint")
@@ -204,6 +244,20 @@ private struct CloudSettingsTab: View {
                 }
 
                 providerHelpLink
+            }
+
+            // ── Anthropic Model (only shown when .anthropic is selected) ──────────
+            if selectedProvider == .anthropic {
+                Section("Anthropic Model") {
+                    Picker("Model", selection: $anthropicModelRawValue) {
+                        ForEach(AnthropicModel.allCases, id: \.rawValue) { model in
+                            Text(model.displayName).tag(model.rawValue)
+                        }
+                    }
+                    Text("Sonnet 4.5 is recommended for most tasks (fast and capable). Opus 4.6 is for maximum capability on complex multi-step plans.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // ── Custom Endpoint (only shown when .custom is selected) ─────────────
@@ -358,21 +412,32 @@ private struct CloudSettingsTab: View {
         testResult = nil
 
         Task {
-            let provider = CloudModelProvider(providerType: selectedProvider)
             do {
                 var testParams = GenerationParams()
                 testParams.maxTokens = 16
-                _ = try await provider.generate(
-                    prompt: "Reply with exactly one word: OK",
-                    params: testParams,
-                    onToken: nil
-                )
+                // Anthropic uses its own provider class (different API format from OpenAI)
+                if selectedProvider == .anthropic {
+                    let provider = AnthropicModelProvider()
+                    _ = try await provider.generate(
+                        prompt: "Reply with exactly one word: OK",
+                        params: testParams,
+                        onToken: nil
+                    )
+                } else {
+                    let provider = CloudModelProvider(providerType: selectedProvider)
+                    _ = try await provider.generate(
+                        prompt: "Reply with exactly one word: OK",
+                        params: testParams,
+                        onToken: nil
+                    )
+                }
                 await MainActor.run {
                     testResult = .success
                     isTesting = false
                 }
             } catch {
-                let message = (error as? CloudModelError)?.errorDescription
+                let message = (error as? AnthropicModelError)?.errorDescription
+                    ?? (error as? CloudModelError)?.errorDescription
                     ?? error.localizedDescription
                 await MainActor.run {
                     testResult = .failure(message)

@@ -1,5 +1,31 @@
 import Foundation
 
+// MARK: - Autonomy Level
+
+/// Controls how much the assistant auto-executes without user confirmation.
+/// Stored as Int in UserDefaults "autonomy.level".
+public enum AutonomyLevel: Int {
+    /// Level 0 — Confirm everything before executing (most cautious).
+    case confirmAll   = 0
+    /// Level 1 (default) — Auto-execute safe and caution actions. Only dangerous requires confirmation.
+    case autoExecute  = 1
+    /// Level 2 — Fully autonomous within user-approved scopes (future milestone).
+    case fullyAuto    = 2
+
+    /// Current level from UserDefaults, defaulting to Level 1 (autoExecute).
+    ///
+    /// IMPORTANT: UserDefaults.integer(forKey:) returns 0 when the key has NEVER been set,
+    /// which would incorrectly default to .confirmAll (Level 0). We use object(forKey:) to
+    /// distinguish "never set" (nil → default to Level 1) from "explicitly set to 0" (Level 0).
+    public static var current: AutonomyLevel {
+        guard UserDefaults.standard.object(forKey: "autonomy.level") != nil else {
+            return .autoExecute  // Level 1 default — key hasn't been set yet
+        }
+        let raw = UserDefaults.standard.integer(forKey: "autonomy.level")
+        return AutonomyLevel(rawValue: raw) ?? .autoExecute
+    }
+}
+
 // MARK: - Safety Level
 
 /// Classifies how safe a command is to execute without user confirmation.
@@ -44,6 +70,13 @@ public struct CommandValidator {
     // MARK: - Public API
 
     /// Validate and sanitize a command, returning a `ValidationResult`.
+    ///
+    /// Respects the current autonomy level from UserDefaults ("autonomy.level"):
+    ///   - Level 0: all commands (safe, caution, dangerous) require confirmation.
+    ///   - Level 1 (default): safe + caution auto-execute; dangerous always requires confirmation.
+    ///   - Level 2: same as Level 1 for now (full scope management comes in a future milestone).
+    ///
+    /// INVARIANT: dangerous actions ALWAYS require confirmation, regardless of autonomy level.
     public func validate(_ command: Command) -> ValidationResult {
         // Step 1: Sanitize all string fields
         let sanitized = sanitize(command)
@@ -58,17 +91,45 @@ public struct CommandValidator {
             return .rejected(reason: pathRejection)
         }
 
-        // Step 4: Classify safety and return appropriate result
+        // Step 4: Classify safety
         let safety = classifySafety(sanitized)
+        let level = AutonomyLevel.current
+
+        // Step 5: Apply autonomy policy
         switch safety {
-        case .safe:
-            return .valid(sanitized)
-        case .caution, .dangerous:
+        case .dangerous:
+            // Dangerous actions ALWAYS require confirmation — no autonomy level bypasses this.
             return .needsConfirmation(
                 sanitized,
                 reason: confirmationReason(for: sanitized),
                 level: safety
             )
+        case .caution:
+            switch level {
+            case .confirmAll:
+                // Level 0: confirm even caution-level actions
+                return .needsConfirmation(
+                    sanitized,
+                    reason: confirmationReason(for: sanitized),
+                    level: safety
+                )
+            case .autoExecute, .fullyAuto:
+                // Level 1+: caution actions auto-execute
+                return .valid(sanitized)
+            }
+        case .safe:
+            switch level {
+            case .confirmAll:
+                // Level 0: confirm even safe actions
+                return .needsConfirmation(
+                    sanitized,
+                    reason: confirmationReason(for: sanitized),
+                    level: safety
+                )
+            case .autoExecute, .fullyAuto:
+                // Level 1+: safe actions auto-execute
+                return .valid(sanitized)
+            }
         }
     }
 
