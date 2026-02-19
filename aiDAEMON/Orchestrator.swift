@@ -86,7 +86,9 @@ public final class Orchestrator {
     /// Entry point for a user turn.
     public func handleUserInput(text: String, conversation: Conversation) async -> OrchestratorTurnResult {
         setAbortRequested(false)
-        anthropicProvider.refreshAvailability()
+        if !anthropicProvider.isAvailable {
+            anthropicProvider.refreshAvailability()
+        }
 
         if anthropicProvider.isAvailable {
             return await runAgentLoop(text: text, conversation: conversation)
@@ -107,6 +109,18 @@ public final class Orchestrator {
 
     private func runAgentLoop(text: String, conversation: Conversation) async -> OrchestratorTurnResult {
         let deadline = Date().addingTimeInterval(totalTimeout)
+
+        // Ensure enabled MCP integrations are connected so Claude sees their tools.
+        let manager = MCPServerManager.shared
+        let hasPendingIntegrations = manager.servers.contains { server in
+            guard server.enabled else { return false }
+            return !(manager.statuses[server.id]?.isConnected ?? false)
+        }
+        if hasPendingIntegrations {
+            emitStatus("Connecting integrations...")
+        }
+        await manager.ensureEnabledServersReady(maxWaitSeconds: 30)
+
         let systemPrompt = buildSystemPrompt()
         let tools = ToolRegistry.shared.anthropicToolDefinitions()
         var messages = buildAnthropicMessages(conversation: conversation, currentInput: text)

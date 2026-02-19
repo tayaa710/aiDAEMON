@@ -98,6 +98,10 @@ public enum MCPPreset: String, CaseIterable, Identifiable {
 
     public var id: String { rawValue }
 
+    static var filesystemDefaultArguments: [String] {
+        ["-y", "@modelcontextprotocol/server-filesystem", "/"]
+    }
+
     var displayName: String {
         switch self {
         case .filesystem: return "Filesystem"
@@ -116,7 +120,7 @@ public enum MCPPreset: String, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
-        case .filesystem: return "Read, write, and search files in allowed directories"
+        case .filesystem: return "Read, write, and search files across the Mac filesystem"
         case .github: return "Browse repos, issues, pull requests, and files on GitHub"
         case .braveSearch: return "Search the web using Brave Search API"
         }
@@ -125,15 +129,11 @@ public enum MCPPreset: String, CaseIterable, Identifiable {
     func makeConfig() -> MCPServerConfig {
         switch self {
         case .filesystem:
-            let home = NSHomeDirectory()
             return MCPServerConfig(
                 name: "Filesystem",
                 transport: .stdio,
                 command: "npx",
-                arguments: ["-y", "@modelcontextprotocol/server-filesystem",
-                           home + "/Desktop",
-                           home + "/Documents",
-                           home + "/Downloads"],
+                arguments: Self.filesystemDefaultArguments,
                 enabled: true
             )
         case .github:
@@ -220,6 +220,22 @@ public final class MCPServerManager: ObservableObject {
     /// Connect to a server: create MCPClient, perform handshake, discover tools, register in ToolRegistry.
     public func connect(serverId: UUID) async {
         guard let config = servers.first(where: { $0.id == serverId }) else { return }
+        guard config.enabled else { return }
+
+        // Avoid duplicate concurrent connection attempts for the same server.
+        if case .connecting = statuses[serverId] {
+            return
+        }
+
+        // Already healthy.
+        if let existing = clients[serverId], existing.isConnected {
+            return
+        }
+
+        // Clean up stale client state before reconnecting.
+        if clients[serverId] != nil {
+            disconnect(serverId: serverId)
+        }
 
         await MainActor.run {
             statuses[serverId] = .connecting
@@ -249,6 +265,7 @@ public final class MCPServerManager: ObservableObject {
             clients[serverId] = client
 
             // Register discovered tools in ToolRegistry.
+            unregisterMCPTools(serverId: serverId)
             registerMCPTools(serverId: serverId, serverName: config.name, tools: client.discoveredTools)
 
             let toolNames = client.discoveredTools.map { $0.name }
@@ -263,9 +280,11 @@ public final class MCPServerManager: ObservableObject {
 
         } catch {
             clients.removeValue(forKey: serverId)
+            unregisterMCPTools(serverId: serverId)
             let errorMessage = error.localizedDescription
             await MainActor.run {
                 statuses[serverId] = .error(errorMessage)
+                serverToolNames.removeValue(forKey: serverId)
             }
             NSLog("MCPServerManager: failed to connect '%@': %@", config.name, errorMessage)
         }
@@ -294,6 +313,27 @@ public final class MCPServerManager: ObservableObject {
         }
     }
 
+    /// Ensure enabled servers are connected before a tool-using turn.
+    /// Waits briefly for in-flight `.connecting` states to settle.
+    public func ensureEnabledServersReady(maxWaitSeconds: TimeInterval = 12) async {
+        let enabledServerIDs = servers.filter { $0.enabled }.map(\.id)
+        guard !enabledServerIDs.isEmpty else { return }
+
+        for serverID in enabledServerIDs where shouldReconnect(serverId: serverID) {
+            await connect(serverId: serverID)
+        }
+
+        let deadline = Date().addingTimeInterval(max(0, maxWaitSeconds))
+        while Date() < deadline {
+            let hasConnectingServer = enabledServerIDs.contains { serverID in
+                if case .connecting = statuses[serverID] { return true }
+                return false
+            }
+            if !hasConnectingServer { break }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+    }
+
     /// Disconnect all servers (called on app termination).
     public func disconnectAll() {
         for serverId in clients.keys {
@@ -305,10 +345,28 @@ public final class MCPServerManager: ObservableObject {
 
     /// Route a tool call to the correct MCP server.
     public func callTool(serverId: UUID, toolName: String, arguments: [String: Any]) async throws -> MCPToolResult {
+        // Self-heal stale connections before executing a tool.
+        if clients[serverId]?.isConnected != true {
+            await connect(serverId: serverId)
+        }
+
         guard let client = clients[serverId], client.isConnected else {
             throw MCPClientError.notConnected
         }
-        return try await client.callTool(name: toolName, arguments: arguments)
+
+        do {
+            return try await client.callTool(name: toolName, arguments: arguments)
+        } catch {
+            // Retry once if the transport dropped between validation and execution.
+            if clients[serverId]?.isConnected != true {
+                await connect(serverId: serverId)
+                guard let retryClient = clients[serverId], retryClient.isConnected else {
+                    throw error
+                }
+                return try await retryClient.callTool(name: toolName, arguments: arguments)
+            }
+            throw error
+        }
     }
 
     // MARK: - ToolRegistry Integration
@@ -398,6 +456,7 @@ public final class MCPServerManager: ObservableObject {
         do {
             let data = try Data(contentsOf: path)
             servers = try JSONDecoder().decode([MCPServerConfig].self, from: data)
+            migrateLegacyFilesystemScopeIfNeeded()
             for server in servers {
                 statuses[server.id] = .disconnected
             }
@@ -416,6 +475,51 @@ public final class MCPServerManager: ObservableObject {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         return dir.appendingPathComponent(configFileName)
+    }
+
+    private func shouldReconnect(serverId: UUID) -> Bool {
+        if case .connecting = statuses[serverId] {
+            return false
+        }
+        return clients[serverId]?.isConnected != true
+    }
+
+    /// Upgrade legacy filesystem preset scopes (Desktop/Documents/Downloads) to full-root scope.
+    private func migrateLegacyFilesystemScopeIfNeeded() {
+        let home = NSHomeDirectory()
+        let legacyRoots: Set<String> = [
+            home + "/Desktop",
+            home + "/Documents",
+            home + "/Downloads"
+        ]
+
+        var didMigrate = false
+
+        for index in servers.indices {
+            let config = servers[index]
+            guard config.transport == .stdio else { continue }
+
+            let command = (config.command ?? "").lowercased()
+            let usesNpx = command == "npx" || command.hasSuffix("/npx")
+            guard usesNpx else { continue }
+
+            guard var args = config.arguments, args.count >= 3 else { continue }
+            guard args[1] == "@modelcontextprotocol/server-filesystem" else { continue }
+
+            let roots = Array(args.dropFirst(2))
+            guard !roots.contains("/") else { continue }
+            let rootSet = Set(roots)
+            guard !rootSet.isEmpty, rootSet.isSubset(of: legacyRoots) else { continue }
+
+            args = MCPPreset.filesystemDefaultArguments
+            servers[index].arguments = args
+            didMigrate = true
+        }
+
+        if didMigrate {
+            NSLog("MCPServerManager: migrated legacy filesystem scope to '/'")
+            save()
+        }
     }
 }
 

@@ -253,7 +253,7 @@ private struct GeneralSettingsTab: View {
                         .disabled(!hasDeepgramAPIKey)
                     }
 
-                    Text("Cloud STT uses Deepgram for improved accuracy. If unavailable, aiDAEMON falls back to on-device recognition.")
+                    Text("Deepgram STT key storage is enabled. Live cloud STT runtime is coming soon; voice input currently runs on-device.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
@@ -321,7 +321,7 @@ private struct GeneralSettingsTab: View {
                         .disabled(!hasDeepgramAPIKey)
                     }
 
-                    Text("Cloud TTS uses the same Deepgram key as cloud STT. If unavailable, aiDAEMON falls back to on-device speech.")
+                    Text("Deepgram TTS key storage is enabled. Live cloud TTS runtime is coming soon; voice output currently runs on-device.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {

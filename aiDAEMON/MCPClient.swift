@@ -139,8 +139,11 @@ final class MCPStdioTransport: MCPTransport {
 
         // Resolve the command to an absolute path using the full shell PATH.
         // Security: arguments are passed as an array, never through a shell.
-        proc.executableURL = resolveExecutable(command, searchPath: shellPath)
-        proc.arguments = arguments
+        let executableURL = resolveExecutable(command, searchPath: shellPath)
+        proc.executableURL = executableURL
+        // If we fall back to /usr/bin/env, prepend the original command name.
+        // Otherwise env would try to execute only the argument list.
+        proc.arguments = executableURL.path == "/usr/bin/env" ? [command] + arguments : arguments
         proc.standardInput = stdin
         proc.standardOutput = stdout
         proc.standardError = stderr
@@ -486,7 +489,7 @@ public final class MCPClient {
     private static let protocolVersion = "2025-03-26"
 
     /// Initialization timeout.
-    private static let initTimeout: TimeInterval = 10
+    private static let initTimeout: TimeInterval = 30
 
     /// Per-tool-call timeout.
     private static let callTimeout: TimeInterval = 30
