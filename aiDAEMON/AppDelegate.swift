@@ -55,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let windowManager = WindowManager()
         let systemInfo = SystemInfo()
         let screenCapture = ScreenCapture()
+        let mouseController = MouseController()
 
         CommandRegistry.shared.register(appLauncher, for: .APP_OPEN)
         CommandRegistry.shared.register(fileSearcher, for: .FILE_SEARCH)
@@ -67,6 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ToolRegistry.shared.register(tool: .windowManage, commandType: .WINDOW_MANAGE, commandExecutor: windowManager)
         ToolRegistry.shared.register(tool: .systemInfo, commandType: .SYSTEM_INFO, commandExecutor: systemInfo)
         ToolRegistry.shared.register(tool: .screenCapture, executor: screenCapture)
+        ToolRegistry.shared.register(tool: .mouseClick, executor: mouseController)
 
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()

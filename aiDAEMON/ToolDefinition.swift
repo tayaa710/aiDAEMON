@@ -250,6 +250,35 @@ extension ToolDefinition {
         riskLevel: .caution,
         requiredPermissions: [.screenRecording]
     )
+
+    /// MOUSE_CLICK tool schema
+    static let mouseClick = ToolDefinition(
+        id: "mouse_click",
+        name: "Mouse Click",
+        description: "Moves the mouse cursor to a screen coordinate and performs a click action.",
+        parameters: [
+            ToolParameter(
+                name: "x",
+                type: .int,
+                description: "Target X coordinate in global screen space.",
+                required: true
+            ),
+            ToolParameter(
+                name: "y",
+                type: .int,
+                description: "Target Y coordinate in global screen space.",
+                required: true
+            ),
+            ToolParameter(
+                name: "clickType",
+                type: .enumeration(["single", "double", "right"]),
+                description: "Type of click to perform. Defaults to `single`.",
+                required: false
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.accessibility]
+    )
 }
 
 // MARK: - Debug Tests
@@ -263,11 +292,11 @@ extension ToolDefinition {
 
         // Test 1: All built-in tool definitions have valid IDs
         do {
-            let tools: [ToolDefinition] = [.appOpen, .fileSearch, .windowManage, .systemInfo, .screenCapture]
+            let tools: [ToolDefinition] = [.appOpen, .fileSearch, .windowManage, .systemInfo, .screenCapture, .mouseClick]
             let ids = Set(tools.map { $0.id })
-            if ids.count == 5 && ids.contains("app_open") && ids.contains("file_search")
+            if ids.count == 6 && ids.contains("app_open") && ids.contains("file_search")
                 && ids.contains("window_manage") && ids.contains("system_info")
-                && ids.contains("screen_capture") {
+                && ids.contains("screen_capture") && ids.contains("mouse_click") {
                 print("  ✅ Test 1: All built-in tools have unique valid IDs")
                 passed += 1
             } else {
@@ -315,9 +344,10 @@ extension ToolDefinition {
         do {
             let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo]
                 .allSatisfy { $0.riskLevel == .safe }
-            let captureIsCaution = ToolDefinition.screenCapture.riskLevel == .caution
-            if allSafe && captureIsCaution {
-                print("  ✅ Test 5: Risk levels are correct (screen_capture is .caution)")
+            let cautionTools = [ToolDefinition.screenCapture, .mouseClick]
+                .allSatisfy { $0.riskLevel == .caution }
+            if allSafe && cautionTools {
+                print("  ✅ Test 5: Risk levels are correct (screen_capture/mouse_click are .caution)")
                 passed += 1
             } else {
                 print("  ❌ Test 5: Tool risk levels are incorrect")
@@ -344,6 +374,21 @@ extension ToolDefinition {
                 passed += 1
             } else {
                 print("  ❌ Test 7: screen_capture should require .screenRecording")
+                failed += 1
+            }
+        }
+
+        // Test 8: mouse_click requires accessibility and supports clickType enum
+        do {
+            let hasPermission = ToolDefinition.mouseClick.requiredPermissions.contains(.accessibility)
+            let clickTypeParam = ToolDefinition.mouseClick.parameters.first { $0.name == "clickType" }
+            if case .enumeration(let values) = clickTypeParam?.type,
+               hasPermission,
+               values == ["single", "double", "right"] {
+                print("  ✅ Test 8: mouse_click requires .accessibility and has clickType enum")
+                passed += 1
+            } else {
+                print("  ❌ Test 8: mouse_click schema is incorrect")
                 failed += 1
             }
         }

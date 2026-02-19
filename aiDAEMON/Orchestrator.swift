@@ -553,6 +553,8 @@ public final class Orchestrator {
             return "Checking system info..."
         case "screen_capture":
             return "Capturing screen..."
+        case "mouse_click":
+            return "Controlling mouse..."
         default:
             return "Running \(call.toolId)..."
         }
