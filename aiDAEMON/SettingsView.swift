@@ -3,6 +3,7 @@ import SwiftUI
 private enum SettingsTab: String {
     case general
     case cloud
+    case integrations
     case permissions
     case history
     case about
@@ -21,6 +22,10 @@ struct SettingsView: View {
             CloudSettingsTab()
                 .tabItem { Label("Cloud", systemImage: "cloud") }
                 .tag(SettingsTab.cloud)
+
+            IntegrationsSettingsTab()
+                .tabItem { Label("Integrations", systemImage: "puzzlepiece.extension") }
+                .tag(SettingsTab.integrations)
 
             PermissionsSettingsTab()
                 .tabItem { Label("Permissions", systemImage: "lock.shield") }
@@ -445,6 +450,363 @@ private struct CloudSettingsTab: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Integrations Settings Tab
+
+private struct IntegrationsSettingsTab: View {
+    @ObservedObject private var manager = MCPServerManager.shared
+    @State private var showingAddSheet = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Text("MCP Servers")
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                Button {
+                    showingAddSheet = true
+                } label: {
+                    Label("Add Server", systemImage: "plus")
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 10)
+
+            if manager.servers.isEmpty {
+                // Empty state
+                VStack(spacing: 8) {
+                    Image(systemName: "puzzlepiece.extension")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("No MCP servers configured")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text("MCP servers extend aiDAEMON with community tools — GitHub, Google Calendar, Notion, Brave Search, and 2,800+ more.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 350)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Server list
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(manager.servers) { server in
+                            MCPServerRow(
+                                server: server,
+                                status: manager.statuses[server.id] ?? .disconnected,
+                                toolNames: manager.serverToolNames[server.id] ?? []
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            AddMCPServerSheet()
+        }
+    }
+}
+
+private struct MCPServerRow: View {
+    let server: MCPServerConfig
+    let status: MCPServerStatus
+    let toolNames: [String]
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                // Status dot
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(server.name)
+                        .font(.headline)
+                    Text(status.displayText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Connect/Disconnect
+                if status.isConnected {
+                    Button("Disconnect") {
+                        MCPServerManager.shared.disconnect(serverId: server.id)
+                    }
+                    .controlSize(.small)
+                } else if case .connecting = status {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                } else {
+                    Button("Connect") {
+                        Task { await MCPServerManager.shared.connect(serverId: server.id) }
+                    }
+                    .controlSize(.small)
+                }
+
+                // Expand tools
+                if status.isConnected && !toolNames.isEmpty {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isExpanded.toggle()
+                        }
+                    } label: {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Remove
+                Button(role: .destructive) {
+                    MCPServerManager.shared.removeServer(id: server.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+            }
+
+            // Expanded tool list
+            if isExpanded && status.isConnected {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(toolNames, id: \.self) { name in
+                        HStack(spacing: 4) {
+                            Image(systemName: "wrench")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                            Text(name)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.leading, 20)
+                .padding(.top, 2)
+            }
+
+            // Transport info
+            HStack(spacing: 4) {
+                Image(systemName: server.transport == .stdio ? "terminal" : "globe")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                if let cmd = server.command {
+                    Text("\(cmd) \((server.arguments ?? []).joined(separator: " "))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } else if let url = server.url {
+                    Text(url)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .cornerRadius(8)
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .connected: return .green
+        case .connecting: return .yellow
+        case .error: return .red
+        case .disconnected: return .gray
+        }
+    }
+}
+
+private struct AddMCPServerSheet: View {
+    @State private var name = ""
+    @State private var transportType: MCPTransportType = .stdio
+    @State private var command = ""
+    @State private var arguments = ""
+    @State private var url = ""
+    @State private var envVarName = ""
+    @State private var envVarValue = ""
+    @State private var envVars: [(name: String, saved: Bool)] = []
+    @State private var serverIdForEnv: UUID = UUID()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Add MCP Server")
+                .font(.title3.weight(.semibold))
+
+            // Quick presets
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Quick Add")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    ForEach(MCPPreset.allCases) { preset in
+                        Button {
+                            addPreset(preset)
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: preset.icon)
+                                    .font(.title3)
+                                Text(preset.displayName)
+                                    .font(.caption)
+                            }
+                            .frame(width: 90, height: 60)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Manual configuration
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Custom Server")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                TextField("Server Name", text: $name)
+
+                Picker("Transport", selection: $transportType) {
+                    ForEach(MCPTransportType.allCases, id: \.self) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                }
+
+                if transportType == .stdio {
+                    TextField("Command (e.g., npx)", text: $command)
+                    TextField("Arguments (e.g., -y @modelcontextprotocol/server-filesystem /path)", text: $arguments)
+                        .font(.system(size: 12, design: .monospaced))
+                } else {
+                    TextField("URL (https://...)", text: $url)
+                        .font(.system(size: 12, design: .monospaced))
+                }
+
+                // Environment variables
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Environment Variables (optional)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        TextField("Variable name", text: $envVarName)
+                            .frame(width: 180)
+                        SecureField("Value", text: $envVarValue)
+                        Button("Add") {
+                            addEnvVar()
+                        }
+                        .disabled(envVarName.isEmpty || envVarValue.isEmpty)
+                        .controlSize(.small)
+                    }
+                    ForEach(envVars, id: \.name) { env in
+                        HStack {
+                            Text(env.name)
+                                .font(.caption.monospaced())
+                            Text(env.saved ? "(saved to Keychain)" : "")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                            Spacer()
+                        }
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            // Actions
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Add Server") {
+                    addCustomServer()
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 480, height: 480)
+    }
+
+    private func addPreset(_ preset: MCPPreset) {
+        let config = preset.makeConfig()
+        if let keys = config.environmentKeys, !keys.isEmpty {
+            // For presets with env vars, populate the custom form so user can enter keys.
+            name = config.name
+            command = config.command ?? ""
+            arguments = (config.arguments ?? []).joined(separator: " ")
+            transportType = .stdio
+            serverIdForEnv = config.id
+            for key in keys {
+                envVars.append((name: key, saved: false))
+            }
+        } else {
+            MCPServerManager.shared.addServer(config)
+            dismiss()
+        }
+    }
+
+    private func addEnvVar() {
+        let trimmedName = envVarName.trimmingCharacters(in: .whitespaces)
+        let trimmedValue = envVarValue.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, !trimmedValue.isEmpty else { return }
+
+        MCPServerManager.saveEnvironmentVariable(serverId: serverIdForEnv, name: trimmedName, value: trimmedValue)
+        envVars.append((name: trimmedName, saved: true))
+        envVarName = ""
+        envVarValue = ""
+    }
+
+    private func addCustomServer() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+
+        let config: MCPServerConfig
+        let envKeys = envVars.map { $0.name }
+
+        switch transportType {
+        case .stdio:
+            let args = arguments
+                .trimmingCharacters(in: .whitespaces)
+                .components(separatedBy: " ")
+                .filter { !$0.isEmpty }
+            config = MCPServerConfig(
+                id: serverIdForEnv,
+                name: trimmedName,
+                transport: .stdio,
+                command: command.trimmingCharacters(in: .whitespaces),
+                arguments: args.isEmpty ? nil : args,
+                environmentKeys: envKeys.isEmpty ? nil : envKeys,
+                enabled: true
+            )
+        case .http:
+            config = MCPServerConfig(
+                id: serverIdForEnv,
+                name: trimmedName,
+                transport: .http,
+                url: url.trimmingCharacters(in: .whitespaces),
+                environmentKeys: envKeys.isEmpty ? nil : envKeys,
+                enabled: true
+            )
+        }
+
+        MCPServerManager.shared.addServer(config)
     }
 }
 

@@ -18,6 +18,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ToolRegistry.runTests()
         ConfirmationState.runTests()
         ResultsView.runTests()
+        MCPClient.runTests()
+        MCPServerManager.runTests()
         #endif
 
         HotkeyManager.shared.startListening()
@@ -66,7 +68,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()
 
+        // Connect enabled MCP servers in background
+        Task {
+            await MCPServerManager.shared.connectAllEnabled()
+        }
+
         NSLog("aiDAEMON launched successfully")
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Clean up MCP server child processes before exit.
+        MCPServerManager.shared.disconnectAll()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -60,6 +60,9 @@ public final class ToolRegistry {
 
     private var tools: [String: RegisteredTool] = [:]
 
+    /// Raw JSON Schema `input_schema` for MCP tools (bypasses ToolParameter conversion).
+    private var rawSchemas: [String: [String: Any]] = [:]
+
     private init() {}
 
     // MARK: - Registration
@@ -74,6 +77,32 @@ public final class ToolRegistry {
     public func register(tool: ToolDefinition, commandType: CommandType, commandExecutor: CommandExecutor) {
         let adapter = CommandExecutorAdapter(commandType: commandType, executor: commandExecutor)
         register(tool: tool, executor: adapter)
+    }
+
+    /// Register an MCP tool using its raw JSON Schema input_schema directly.
+    /// MCP servers provide JSON Schema; converting to ToolParameter and back would be lossy.
+    public func register(toolId: String, name: String, description: String,
+                         inputSchema: [String: Any], riskLevel: RiskLevel,
+                         executor: ToolExecutor) {
+        let definition = ToolDefinition(
+            id: toolId,
+            name: name,
+            description: description,
+            parameters: [],        // Not used for MCP tools — raw schema is authoritative.
+            riskLevel: riskLevel,
+            requiredPermissions: []
+        )
+        tools[toolId] = RegisteredTool(definition: definition, executor: executor)
+        rawSchemas[toolId] = inputSchema
+        NSLog("ToolRegistry: registered MCP tool '%@' (%@)", toolId, name)
+    }
+
+    /// Unregister a tool by ID. Called when an MCP server disconnects.
+    public func unregister(toolId: String) {
+        if tools.removeValue(forKey: toolId) != nil {
+            rawSchemas.removeValue(forKey: toolId)
+            NSLog("ToolRegistry: unregistered tool '%@'", toolId)
+        }
     }
 
     // MARK: - Queries
@@ -105,6 +134,11 @@ public final class ToolRegistry {
         // Check tool exists
         guard let registered = tools[call.toolId] else {
             return .invalid(reason: "Unknown tool: '\(call.toolId)'")
+        }
+
+        // MCP tools use raw JSON Schema — the server validates arguments itself.
+        if rawSchemas[call.toolId] != nil {
+            return .valid
         }
 
         let definition = registered.definition
@@ -222,6 +256,16 @@ public final class ToolRegistry {
     /// ]
     public func anthropicToolDefinitions() -> [[String: Any]] {
         allTools().map { tool in
+            // MCP tools: use the raw JSON Schema directly (avoids lossy conversion).
+            if let rawSchema = rawSchemas[tool.id] {
+                return [
+                    "name": tool.id,
+                    "description": tool.description,
+                    "input_schema": rawSchema
+                ]
+            }
+
+            // Built-in tools: build input_schema from ToolParameter definitions.
             var properties: [String: Any] = [:]
             var required: [String] = []
 
@@ -270,6 +314,7 @@ public final class ToolRegistry {
     /// Reset registry to empty state — for testing only.
     func resetForTesting() {
         tools.removeAll()
+        rawSchemas.removeAll()
     }
     #endif
 }
