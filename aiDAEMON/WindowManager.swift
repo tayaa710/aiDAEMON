@@ -260,7 +260,7 @@ public struct WindowManager: CommandExecutor {
         return nil
     }
 
-    private static func rememberedExternalApplication() -> NSRunningApplication? {
+    static func rememberedExternalApplication() -> NSRunningApplication? {
         guard let pid = lastExternalAppPID else { return nil }
         return NSRunningApplication(processIdentifier: pid)
     }

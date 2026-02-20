@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 
@@ -28,8 +29,14 @@ final class SpeechOutput: NSObject, ObservableObject, @preconcurrency AVSpeechSy
 
     @Published private(set) var isSpeaking: Bool = false
     @Published private(set) var lastErrorMessage: String?
+    @Published private(set) var isTestingConnection: Bool = false
+    @Published private(set) var lastTestResult: String?
 
     private let synthesizer = AVSpeechSynthesizer()
+    /// Retains the player so it doesn't get deallocated mid-playback.
+    private var audioPlayer: AVAudioPlayer?
+    /// In-flight Deepgram request task so we can cancel it on stop().
+    private var deepgramTask: Task<Void, Never>?
 
     private override init() {
         super.init()
@@ -45,13 +52,31 @@ final class SpeechOutput: NSObject, ObservableObject, @preconcurrency AVSpeechSy
         stop()
         lastErrorMessage = nil
 
-        // Deepgram cloud TTS is an optional upgrade path; current runtime keeps
-        // on-device synthesis as the guaranteed path (offline + no network dependency).
         if Self.cloudTTSEnabled, Self.hasDeepgramKey {
-            NSLog("SpeechOutput: Cloud TTS enabled; using on-device fallback for this milestone")
+            isSpeaking = true
+            deepgramTask = Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await self.speakWithDeepgram(text: cleaned)
+                } catch {
+                    if Task.isCancelled { return }
+                    let msg = error.localizedDescription
+                    NSLog("SpeechOutput: Deepgram TTS failed (\(msg)), falling back to on-device")
+                    await MainActor.run {
+                        self.lastErrorMessage = "Cloud TTS failed: \(msg) — using on-device voice"
+                        self.speakOnDevice(text: cleaned)
+                    }
+                }
+            }
+            return
         }
 
-        let utterance = AVSpeechUtterance(string: cleaned)
+        speakOnDevice(text: cleaned)
+    }
+
+    /// On-device AVSpeechSynthesizer fallback (always available offline).
+    private func speakOnDevice(text: String) {
+        let utterance = AVSpeechUtterance(string: text)
         utterance.rate = Self.speechRate
         utterance.pitchMultiplier = 1.0
         utterance.volume = 1.0
@@ -65,14 +90,170 @@ final class SpeechOutput: NSObject, ObservableObject, @preconcurrency AVSpeechSy
         synthesizer.speak(utterance)
     }
 
+    /// Call Deepgram Aura TTS API and play the returned audio.
+    private func speakWithDeepgram(text: String) async throws {
+        guard let apiKey = KeychainHelper.load(key: Self.deepgramTTSAPIKeyKeychainKey) else {
+            throw DeepgramTTSError.noAPIKey
+        }
+
+        var components = URLComponents(string: "https://api.deepgram.com/v1/speak")!
+        components.queryItems = [
+            URLQueryItem(name: "model", value: "aura-2-thalia-en"),
+            URLQueryItem(name: "encoding", value: "linear16"),
+            URLQueryItem(name: "sample_rate", value: "24000"),
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "POST"
+        request.setValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+
+        let body: [String: String] = ["text": text]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw DeepgramTTSError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let detail = String(data: data.prefix(500), encoding: .utf8) ?? "no body"
+            throw DeepgramTTSError.httpError(httpResponse.statusCode, detail)
+        }
+        guard !data.isEmpty else {
+            throw DeepgramTTSError.emptyAudio
+        }
+
+        try Task.checkCancellation()
+
+        // linear16 PCM @ 24kHz, mono, 16-bit little-endian
+        let audioFormat = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: 24000,
+            channels: 1,
+            interleaved: true
+        )!
+        let frameCount = AVAudioFrameCount(data.count / 2) // 2 bytes per sample
+        guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frameCount) else {
+            throw DeepgramTTSError.bufferCreationFailed
+        }
+        pcmBuffer.frameLength = frameCount
+
+        // Copy PCM data into the buffer
+        data.withUnsafeBytes { rawBuffer in
+            guard let src = rawBuffer.baseAddress else { return }
+            memcpy(pcmBuffer.int16ChannelData![0], src, data.count)
+        }
+
+        // Convert to WAV in memory so AVAudioPlayer can play it
+        let wavData = try Self.wavData(from: pcmBuffer, format: audioFormat)
+
+        try Task.checkCancellation()
+
+        await MainActor.run { [weak self] in
+            guard let self else { return }
+            do {
+                let player = try AVAudioPlayer(data: wavData)
+                self.audioPlayer = player
+                player.play()
+                self.isSpeaking = true
+                // Poll for completion since AVAudioPlayer delegate is tricky with @MainActor
+                self.pollAudioPlayerCompletion()
+            } catch {
+                NSLog("SpeechOutput: AVAudioPlayer failed: \(error.localizedDescription)")
+                self.isSpeaking = false
+            }
+        }
+    }
+
+    /// Poll until the audio player finishes, then reset `isSpeaking`.
+    private func pollAudioPlayerCompletion() {
+        Task { [weak self] in
+            while let self = self, let player = self.audioPlayer, player.isPlaying {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                if self.audioPlayer != nil, !(self.audioPlayer?.isPlaying ?? false) {
+                    self.isSpeaking = false
+                    self.audioPlayer = nil
+                }
+            }
+        }
+    }
+
+    /// Wrap raw PCM data in a minimal WAV header so AVAudioPlayer can decode it.
+    private static func wavData(from buffer: AVAudioPCMBuffer, format: AVAudioFormat) throws -> Data {
+        let channels = UInt16(format.channelCount)
+        let sampleRate = UInt32(format.sampleRate)
+        let bitsPerSample: UInt16 = 16
+        let bytesPerSample = bitsPerSample / 8
+        let dataSize = UInt32(buffer.frameLength) * UInt32(channels) * UInt32(bytesPerSample)
+        let fileSize = 36 + dataSize
+
+        var header = Data()
+        header.append(contentsOf: "RIFF".utf8)
+        header.append(littleEndian: fileSize)
+        header.append(contentsOf: "WAVE".utf8)
+        header.append(contentsOf: "fmt ".utf8)
+        header.append(littleEndian: UInt32(16)) // PCM chunk size
+        header.append(littleEndian: UInt16(1))  // PCM format
+        header.append(littleEndian: channels)
+        header.append(littleEndian: sampleRate)
+        header.append(littleEndian: sampleRate * UInt32(channels) * UInt32(bytesPerSample)) // byte rate
+        header.append(littleEndian: channels * bytesPerSample) // block align
+        header.append(littleEndian: bitsPerSample)
+        header.append(contentsOf: "data".utf8)
+        header.append(littleEndian: dataSize)
+
+        // Append PCM samples
+        let rawBytes = Data(bytes: buffer.int16ChannelData![0], count: Int(dataSize))
+        header.append(rawBytes)
+        return header
+    }
+
     func stop() {
-        guard synthesizer.isSpeaking || synthesizer.isPaused else { return }
-        synthesizer.stopSpeaking(at: .immediate)
+        deepgramTask?.cancel()
+        deepgramTask = nil
+
+        if let player = audioPlayer, player.isPlaying {
+            player.stop()
+        }
+        audioPlayer = nil
+
+        if synthesizer.isSpeaking || synthesizer.isPaused {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+
         isSpeaking = false
     }
 
     func clearError() {
         lastErrorMessage = nil
+    }
+
+    /// Test the Deepgram TTS connection by synthesizing a short phrase and playing it.
+    func testDeepgramConnection() {
+        guard !isTestingConnection else { return }
+        isTestingConnection = true
+        lastTestResult = nil
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.speakWithDeepgram(text: "Deepgram cloud voice is connected.")
+                await MainActor.run {
+                    self.lastTestResult = "Connected — playing test audio"
+                    self.isTestingConnection = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.lastTestResult = "Failed: \(error.localizedDescription)"
+                    self.isTestingConnection = false
+                }
+            }
+        }
     }
 
     // MARK: - AVSpeechSynthesizerDelegate
@@ -171,5 +352,44 @@ final class SpeechOutput: NSObject, ObservableObject, @preconcurrency AVSpeechSy
                 }
                 return $0.languageCode.localizedCaseInsensitiveCompare($1.languageCode) == .orderedAscending
             }
+    }
+}
+
+// MARK: - Deepgram TTS Errors
+
+private enum DeepgramTTSError: Error, LocalizedError {
+    case noAPIKey
+    case invalidResponse
+    case httpError(Int, String)
+    case emptyAudio
+    case bufferCreationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .noAPIKey:
+            return "Deepgram API key not found in Keychain."
+        case .invalidResponse:
+            return "Invalid response from Deepgram TTS API."
+        case .httpError(let code, let detail):
+            return "Deepgram TTS HTTP \(code): \(detail)"
+        case .emptyAudio:
+            return "Deepgram TTS returned empty audio data."
+        case .bufferCreationFailed:
+            return "Failed to create audio buffer for Deepgram TTS output."
+        }
+    }
+}
+
+// MARK: - Data Little-Endian Helpers
+
+private extension Data {
+    mutating func append(littleEndian value: UInt16) {
+        var v = value.littleEndian
+        append(Data(bytes: &v, count: 2))
+    }
+
+    mutating func append(littleEndian value: UInt32) {
+        var v = value.littleEndian
+        append(Data(bytes: &v, count: 4))
     }
 }

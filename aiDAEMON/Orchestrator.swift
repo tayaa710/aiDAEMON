@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 // MARK: - UI Bridge Types
@@ -70,6 +71,14 @@ public final class Orchestrator {
     /// Optional UI callbacks (set by FloatingWindow).
     public var onStatusUpdate: ((String) -> Void)?
     public var onConfirmationRequest: ((ToolConfirmationRequest) async -> Bool)?
+
+    /// Fires before each tool execution with the tool name. Lets the UI hide the
+    /// floating window for computer-control tools so keyboard/mouse events reach
+    /// the target app instead of aiDAEMON's own text field.
+    public var onBeforeToolExecution: ((String) -> Void)?
+
+    /// Fires after the full orchestrator turn completes so the UI can restore itself.
+    public var onAfterTurnComplete: (() -> Void)?
 
     private let policyEngine = PolicyEngine.shared
     private let anthropicProvider = AnthropicModelProvider()
@@ -154,6 +163,7 @@ public final class Orchestrator {
                 switch response.stopReason {
                 case .endTurn:
                     let finalText = responseText.isEmpty ? "Done." : responseText
+                    onAfterTurnComplete?()
                     return OrchestratorTurnResult(
                         responseText: finalText,
                         modelUsed: anthropicProvider.providerName,
@@ -183,6 +193,7 @@ public final class Orchestrator {
                     let partial = responseText.isEmpty
                         ? "I hit the response length limit before finishing."
                         : responseText
+                    onAfterTurnComplete?()
                     return OrchestratorTurnResult(
                         responseText: partial,
                         modelUsed: anthropicProvider.providerName,
@@ -192,6 +203,7 @@ public final class Orchestrator {
 
                 case .stopSequence, .unknown:
                     if !responseText.isEmpty {
+                        onAfterTurnComplete?()
                         return OrchestratorTurnResult(
                             responseText: responseText,
                             modelUsed: anthropicProvider.providerName,
@@ -203,6 +215,7 @@ public final class Orchestrator {
                 }
             }
         } catch let error as OrchestratorError {
+            onAfterTurnComplete?()
             return OrchestratorTurnResult(
                 responseText: error.localizedDescription,
                 modelUsed: anthropicProvider.providerName,
@@ -210,6 +223,7 @@ public final class Orchestrator {
                 success: false
             )
         } catch {
+            onAfterTurnComplete?()
             return OrchestratorTurnResult(
                 responseText: "Agent loop failed: \(error.localizedDescription)",
                 modelUsed: anthropicProvider.providerName,
@@ -293,11 +307,24 @@ public final class Orchestrator {
         return toolResults
     }
 
+    private static let computerControlTools: Set<String> = [
+        "keyboard_type", "keyboard_shortcut", "mouse_click"
+    ]
+
     private func executeTool(_ call: ToolCall, deadline: Date) async throws -> ExecutionResult {
         try throwIfAborted()
         try throwIfPast(deadline)
 
         emitStatus(statusText(for: call))
+
+        // For computer-control tools, tell the UI to hide and activate the target app
+        // so keyboard/mouse events reach the correct window.
+        let isComputerControl = Self.computerControlTools.contains(call.toolId)
+        if isComputerControl {
+            onBeforeToolExecution?(call.toolId)
+            // Give the OS time to complete the app activation before sending events.
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
 
         return await withCheckedContinuation { continuation in
             ToolRegistry.shared.execute(call: call) { result in
@@ -494,11 +521,15 @@ public final class Orchestrator {
         let now = ISO8601DateFormatter().string(from: Date())
         let username = NSUserName()
         let home = NSHomeDirectory()
+        let screenBounds = CGDisplayBounds(CGMainDisplayID())
+        let screenWidth = Int(screenBounds.width)
+        let screenHeight = Int(screenBounds.height)
         return """
         You are aiDAEMON, a JARVIS-style AI companion for macOS.
         Current date/time: \(now)
         Current user: \(username)
         Home directory: \(home)
+        Primary display: \(screenWidth)x\(screenHeight) pixels
 
         Behavior requirements:
         - Execute tasks by calling tools when actions are needed.
@@ -508,6 +539,11 @@ public final class Orchestrator {
         - Keep final user-facing responses concise and concrete.
         - Respect safety constraints and policy denials.
         - You are running as the current macOS user. Do not assume a different username.
+
+        Computer control notes:
+        - When using screen_capture with vision, element coordinates are returned as percentages.
+        - To click on a vision-identified element, convert: absolute_x = xPercent/100 * \(screenWidth), absolute_y = yPercent/100 * \(screenHeight)
+        - Pass the computed absolute pixel values to mouse_click.
         """
     }
 

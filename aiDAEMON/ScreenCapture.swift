@@ -119,9 +119,14 @@ public final class ScreenCapture: ToolExecutor {
             let sizeKB = max(1, Int(Double(jpegBytes) / 1024.0))
             let dimensions = "\(Int(image.size.width))x\(Int(image.size.height))"
 
+            // Include the primary display dimensions so Claude can convert
+            // percentage-based vision coordinates to absolute pixels.
+            let screenBounds = CGDisplayBounds(CGMainDisplayID())
+            let screenDims = "\(Int(screenBounds.width))x\(Int(screenBounds.height))"
+
             return .ok(
                 "Vision analysis completed.",
-                details: "Capture mode: \(mode.displayName)\nImage: \(dimensions), ~\(sizeKB)KB JPEG (in-memory)\n\n\(analysis)"
+                details: "Capture mode: \(mode.displayName)\nImage: \(dimensions), ~\(sizeKB)KB JPEG (in-memory)\nScreen dimensions: \(screenDims)\n\n\(analysis)"
             )
         } catch {
             return .error(

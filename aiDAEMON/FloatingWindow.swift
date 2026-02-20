@@ -25,6 +25,12 @@ final class FloatingWindow: NSWindow {
     private var activationStartedVoice = false
     private var submitVoiceTranscriptOnStop = false
 
+    /// The app that was frontmost before the user submitted a command.
+    /// Used to re-activate it for computer-control tools (keyboard/mouse).
+    private var targetApp: NSRunningApplication?
+    /// Whether the window was hidden for a computer-control tool and needs restoring.
+    private var windowHiddenForToolExecution = false
+
     init() {
         super.init(
             contentRect: NSRect(origin: .zero, size: Self.compactSize),
@@ -168,6 +174,10 @@ final class FloatingWindow: NSWindow {
             return
         }
 
+        // Capture the most recent non-aiDAEMON app so computer-control tools
+        // (keyboard, mouse) can re-activate it before sending events.
+        targetApp = WindowManager.rememberedExternalApplication()
+
         conversationStore.conversation.addUserMessage(trimmed)
         commandInputState.clear()
         chatState.isGenerating = true
@@ -238,6 +248,39 @@ final class FloatingWindow: NSWindow {
             guard let self else { return false }
             return await self.awaitConfirmation(for: request)
         }
+
+        orchestrator.onBeforeToolExecution = { [weak self] toolName in
+            DispatchQueue.main.async {
+                self?.hideForComputerControlTool()
+            }
+        }
+
+        orchestrator.onAfterTurnComplete = { [weak self] in
+            DispatchQueue.main.async {
+                self?.restoreAfterComputerControlTool()
+            }
+        }
+    }
+
+    /// Hide the floating window and activate the target app so keyboard/mouse
+    /// events reach the correct window instead of aiDAEMON's text field.
+    private func hideForComputerControlTool() {
+        guard !windowHiddenForToolExecution else { return }
+        windowHiddenForToolExecution = true
+        orderOut(nil)
+
+        if let app = targetApp, !app.isTerminated {
+            app.activate()
+        }
+    }
+
+    /// Re-show the floating window after computer-control tools are done.
+    private func restoreAfterComputerControlTool() {
+        guard windowHiddenForToolExecution else { return }
+        windowHiddenForToolExecution = false
+        NSApp.activate(ignoringOtherApps: true)
+        makeKeyAndOrderFront(nil)
+        commandInputState.requestFocus()
     }
 
     private func awaitConfirmation(for request: ToolConfirmationRequest) async -> Bool {
@@ -721,6 +764,27 @@ private struct FloatingWindowShellView: View {
                     ConfirmationDialogView(state: confirmationState)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
+                }
+
+                if let ttsError = speechOutput.lastErrorMessage {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                        Text(ttsError)
+                            .font(.system(size: 10))
+                            .lineLimit(1)
+                        Spacer()
+                        Button {
+                            speechOutput.clearError()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 4)
                 }
 
                 HStack(spacing: 10) {

@@ -113,6 +113,8 @@ private struct GeneralSettingsTab: View {
     @AppStorage(SpeechOutput.speechRateDefaultsKey)
     private var voiceRateMultiplier: Double = 1.0
 
+    @ObservedObject private var speechOutput = SpeechOutput.shared
+
     @State private var deepgramAPIKeyInput: String = ""
     @State private var hasDeepgramAPIKey: Bool = SpeechOutput.hasDeepgramKey
     @State private var availableVoices: [SpeechVoiceOption] = []
@@ -321,7 +323,29 @@ private struct GeneralSettingsTab: View {
                         .disabled(!hasDeepgramAPIKey)
                     }
 
-                    Text("Deepgram TTS key storage is enabled. Live cloud TTS runtime is coming soon; voice output currently runs on-device.")
+                    if hasDeepgramAPIKey {
+                        HStack(spacing: 12) {
+                            Button {
+                                speechOutput.testDeepgramConnection()
+                            } label: {
+                                if speechOutput.isTestingConnection {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Text("Test Connection")
+                                }
+                            }
+                            .disabled(speechOutput.isTestingConnection)
+
+                            if let result = speechOutput.lastTestResult {
+                                Text(result)
+                                    .font(.footnote)
+                                    .foregroundStyle(result.hasPrefix("Failed") ? .red : .green)
+                            }
+                        }
+                    }
+
+                    Text("Cloud TTS uses Deepgram Aura for natural-sounding voice. Falls back to on-device if unavailable.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
