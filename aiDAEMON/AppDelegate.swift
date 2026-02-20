@@ -80,6 +80,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         ToolRegistry.shared.register(tool: .computerAction, executor: computerControl)
 
+        // AX-first computer intelligence tools (M043)
+        let uiStateProvider = UIStateProvider()
+        ToolRegistry.shared.register(tool: .getUIState, executor: uiStateProvider)
+        ToolRegistry.shared.register(tool: .axAction, executor: uiStateProvider.actionExecutor)
+        ToolRegistry.shared.register(tool: .axFind, executor: uiStateProvider.findExecutor)
+
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()
 

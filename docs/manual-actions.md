@@ -58,3 +58,13 @@ You do not need to look at this file for upcoming tasks. This file is a historic
 
 - [x] Build succeeds with AccessibilityService.swift added (no new permissions needed)
 - [x] App launches and all existing features work (no regressions)
+
+## Completed Setup (M043)
+
+- [x] Build succeeds with UIStateProvider.swift added (no new permissions needed)
+- [x] App launches and all existing features work (no regressions)
+- [x] Open TextEdit, ask aiDAEMON "What's on my screen?" — Claude calls `get_ui_state` (not `screen_capture`) and describes the TextEdit UI with element refs like @e1, @e2
+- [x] Ask aiDAEMON to type into TextEdit — Claude uses `ax_action` with `set_value` (not `keyboard_type` or `computer_action`)
+- [x] Ask aiDAEMON to click a menu item — Claude uses `ax_action` with `press`
+- [x] Ask "find the text area" — Claude calls `ax_find` with `role=AXTextArea`
+- [x] Verify Claude does NOT call `screen_capture` or `computer_action` as the first step for native macOS apps

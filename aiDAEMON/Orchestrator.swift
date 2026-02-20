@@ -308,7 +308,7 @@ public final class Orchestrator {
     }
 
     private static let computerControlTools: Set<String> = [
-        "keyboard_type", "keyboard_shortcut", "mouse_click"
+        "keyboard_type", "keyboard_shortcut", "mouse_click", "ax_action"
     ]
 
     private func executeTool(_ call: ToolCall, deadline: Date) async throws -> ExecutionResult {
@@ -539,26 +539,34 @@ public final class Orchestrator {
         - Keep final user-facing responses concise. Report what actually happened, not what you hoped would happen.
         - You are running as the current macOS user. Do not assume a different username.
 
-        Computer control — MANDATORY workflow:
-        1. ALWAYS start by calling screen_capture to SEE what is currently on screen. Do NOT guess what is on screen.
-        2. Read the vision analysis result carefully. It tells you what apps are open and what UI elements are visible.
-        3. Only interact with elements that the vision analysis CONFIRMED exist on screen.
-        4. For clicking UI elements: use computer_action with a clear description (e.g., "click the Compose button"). It handles screenshot → vision → coordinate conversion → click → verification automatically.
-        5. After performing actions, call screen_capture AGAIN to verify the screen actually changed. Do NOT assume success.
+        Computer control — MANDATORY workflow (accessibility-first):
+        1. ALWAYS start by calling get_ui_state to read the structured accessibility tree. This is instant, free, and gives you every UI element with a ref like @e1.
+        2. Read the UI tree carefully. Each element shows its role (AXButton, AXTextField, etc.), title, value, and state (focused, disabled).
+        3. To interact with elements, use ax_action with the element's ref:
+           - "press" to click buttons, menu items, checkboxes
+           - "set_value" to type text into text fields/areas
+           - "focus" to bring focus to an element
+           - "raise" to bring a window to front
+           - "show_menu" to open a context menu
+        4. Use ax_find to search for specific elements by role, title, or value when the tree is large.
+        5. After performing actions, call get_ui_state AGAIN to verify the state changed. Do NOT assume success.
         6. If something didn't work, try a different approach. Do NOT repeat the same failed action.
 
-        Computer control — tool selection:
-        - computer_action: Best for clicking buttons, links, menu items, and typing into fields. Handles the full capture→vision→click→verify flow with retry logic.
-        - screen_capture: Use to see what's on screen. ALWAYS do this first before any GUI interaction.
-        - mouse_click: Only use when you already know the exact pixel coordinates (e.g., from a previous screen_capture result).
-        - keyboard_type: Types text into the currently focused application. Only use AFTER clicking the target field.
+        Computer control — tool selection priority:
+        - get_ui_state: ALWAYS use this FIRST to see what's on screen. Instant, free, structured data.
+        - ax_action: PREFERRED way to interact with UI elements. Use refs from get_ui_state (e.g., ax_action ref=@e3 action=press).
+        - ax_find: Search for elements when you need to find something specific in a large tree.
+        - screen_capture + computer_action: FALLBACK ONLY. Use these only when AX tools fail (e.g., non-native apps, web content inside browsers, or elements not exposed via accessibility). These are slow (~90s) and expensive ($0.02-0.06/action).
+        - mouse_click: Only use when you already know exact pixel coordinates.
+        - keyboard_type: Types text via keyboard events. Prefer ax_action with set_value when possible.
         - keyboard_shortcut: For shortcuts like cmd+c, cmd+v, cmd+t, etc.
 
         NEVER do these:
-        - Do NOT say "I can see the Gmail inbox" without first calling screen_capture.
-        - Do NOT say "I clicked the button" without calling computer_action or mouse_click.
-        - Do NOT say "Done" unless you verified the action worked via screen_capture.
-        - Do NOT make up coordinates. Always get them from vision analysis.
+        - Do NOT use screen_capture or computer_action as your first step. Use get_ui_state first.
+        - Do NOT say "I can see the Gmail inbox" without first calling get_ui_state or screen_capture.
+        - Do NOT say "I clicked the button" without calling ax_action, computer_action, or mouse_click.
+        - Do NOT say "Done" unless you verified the action worked via get_ui_state or screen_capture.
+        - Do NOT make up element refs. Always get them from get_ui_state or ax_find.
         """
     }
 
@@ -614,6 +622,14 @@ public final class Orchestrator {
             let action = (call.arguments["action"] as? String) ?? "controlling computer"
             let truncated = action.count > 50 ? String(action.prefix(47)) + "..." : action
             return "Computer control: \(truncated)"
+        case "get_ui_state":
+            return "Reading screen state..."
+        case "ax_action":
+            let action = (call.arguments["action"] as? String) ?? "action"
+            let ref = (call.arguments["ref"] as? String) ?? ""
+            return "AX \(action) on \(ref)..."
+        case "ax_find":
+            return "Searching UI elements..."
         default:
             return "Running \(call.toolId)..."
         }

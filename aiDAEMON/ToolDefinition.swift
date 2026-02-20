@@ -202,7 +202,7 @@ extension ToolDefinition {
     static let screenCapture = ToolDefinition(
         id: "screen_capture",
         name: "Screen Capture",
-        description: "Captures the screen (full display, app window, or region) and analyzes it with vision.",
+        description: "FALLBACK ONLY — use get_ui_state instead for native macOS apps. Captures the screen and analyzes it with vision AI. Slow (~90s) and costly. Only use when get_ui_state/ax_action cannot see the element (e.g., non-native apps, images, web content inside browsers).",
         parameters: [
             ToolParameter(
                 name: "mode",
@@ -255,7 +255,7 @@ extension ToolDefinition {
     static let mouseClick = ToolDefinition(
         id: "mouse_click",
         name: "Mouse Click",
-        description: "Moves the mouse cursor to a screen coordinate and performs a click action.",
+        description: "Moves the mouse cursor to a screen coordinate and clicks. Prefer ax_action with 'press' instead — it targets elements by ref and is more reliable. Only use mouse_click when you need pixel-precise clicking.",
         parameters: [
             ToolParameter(
                 name: "x",
@@ -284,7 +284,7 @@ extension ToolDefinition {
     static let keyboardType = ToolDefinition(
         id: "keyboard_type",
         name: "Keyboard Type",
-        description: "Types text into the currently focused field using keyboard events.",
+        description: "Types text into the currently focused field using keyboard events. Prefer ax_action with 'set_value' when targeting a known text field — it's faster and more reliable. Use keyboard_type only when set_value doesn't work or you need character-by-character input.",
         parameters: [
             ToolParameter(
                 name: "text",
@@ -314,12 +314,81 @@ extension ToolDefinition {
         requiredPermissions: [.accessibility]
     )
 
+    /// GET_UI_STATE tool schema — returns a compact text snapshot of the current
+    /// computer state: frontmost app, visible windows, and AX element tree.
+    static let getUIState = ToolDefinition(
+        id: "get_ui_state",
+        name: "Get UI State",
+        description: "Returns a structured snapshot of the current screen: frontmost app, visible windows, and the accessibility (AX) element tree. Each UI element has a ref like @e1 that you can use with ax_action or ax_find. Much faster and more accurate than screenshot+vision for native macOS apps.",
+        parameters: [],
+        riskLevel: .safe,
+        requiredPermissions: [.accessibility]
+    )
+
+    /// AX_ACTION tool schema — performs an accessibility action on an element by ref.
+    static let axAction = ToolDefinition(
+        id: "ax_action",
+        name: "AX Action",
+        description: "Performs an accessibility action on a UI element identified by its ref (e.g. @e1 from get_ui_state). Actions: press (click/activate), set_value (set text content), focus (bring focus), raise (bring window to front), show_menu (open context menu).",
+        parameters: [
+            ToolParameter(
+                name: "ref",
+                type: .string,
+                description: "Element reference from get_ui_state (e.g. '@e3').",
+                required: true
+            ),
+            ToolParameter(
+                name: "action",
+                type: .enumeration(["press", "set_value", "focus", "raise", "show_menu"]),
+                description: "The action to perform on the element.",
+                required: true
+            ),
+            ToolParameter(
+                name: "value",
+                type: .string,
+                description: "Value to set (required when action is 'set_value').",
+                required: false
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.accessibility]
+    )
+
+    /// AX_FIND tool schema — searches the frontmost app's AX tree for elements.
+    static let axFind = ToolDefinition(
+        id: "ax_find",
+        name: "AX Find",
+        description: "Searches the frontmost app's accessibility tree for elements matching role, title, and/or value (case-insensitive substring match). Returns matching elements with their refs. Provide at least one filter parameter.",
+        parameters: [
+            ToolParameter(
+                name: "role",
+                type: .string,
+                description: "AX role to match (e.g. 'AXButton', 'AXTextField', 'AXMenuItem').",
+                required: false
+            ),
+            ToolParameter(
+                name: "title",
+                type: .string,
+                description: "Title or description substring to match.",
+                required: false
+            ),
+            ToolParameter(
+                name: "value",
+                type: .string,
+                description: "Value substring to match.",
+                required: false
+            )
+        ],
+        riskLevel: .safe,
+        requiredPermissions: [.accessibility]
+    )
+
     /// COMPUTER_ACTION tool schema — high-level computer control that chains
     /// screenshot → vision → mouse/keyboard → verify into a single call.
     static let computerAction = ToolDefinition(
         id: "computer_action",
         name: "Computer Action",
-        description: "Performs a GUI interaction: captures the screen, uses vision to find the target element, clicks/types at its coordinates, then captures again to verify success. Returns the ACTUAL result including whether it succeeded or failed — read the result carefully. Use for clicking buttons, links, menus, or typing into fields. If it reports failure, try a different approach.",
+        description: "FALLBACK ONLY — use get_ui_state + ax_action instead for native macOS apps. Performs a slow, expensive GUI interaction via screenshot+vision+mouse. Only use when accessibility tools cannot see or interact with the target element (e.g., non-native apps, canvas-based UIs, web content). Returns the ACTUAL result — read it carefully.",
         parameters: [
             ToolParameter(
                 name: "action",
@@ -353,15 +422,20 @@ extension ToolDefinition {
                 .mouseClick,
                 .keyboardType,
                 .keyboardShortcut,
-                .computerAction
+                .computerAction,
+                .getUIState,
+                .axAction,
+                .axFind
             ]
             let ids = Set(tools.map { $0.id })
-            if ids.count == 9 && ids.contains("app_open") && ids.contains("file_search")
+            if ids.count == 12 && ids.contains("app_open") && ids.contains("file_search")
                 && ids.contains("window_manage") && ids.contains("system_info")
                 && ids.contains("screen_capture") && ids.contains("mouse_click")
                 && ids.contains("keyboard_type") && ids.contains("keyboard_shortcut")
-                && ids.contains("computer_action") {
-                print("  ✅ Test 1: All built-in tools have unique valid IDs (including computer_action)")
+                && ids.contains("computer_action")
+                && ids.contains("get_ui_state") && ids.contains("ax_action")
+                && ids.contains("ax_find") {
+                print("  ✅ Test 1: All 12 built-in tools have unique valid IDs")
                 passed += 1
             } else {
                 print("  ❌ Test 1: Built-in tool IDs are wrong: \(ids)")
@@ -406,12 +480,12 @@ extension ToolDefinition {
 
         // Test 5: RiskLevel is correct for each tool
         do {
-            let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo]
+            let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo, .getUIState, .axFind]
                 .allSatisfy { $0.riskLevel == .safe }
-            let cautionTools = [ToolDefinition.screenCapture, .mouseClick, .keyboardType, .keyboardShortcut, .computerAction]
+            let cautionTools = [ToolDefinition.screenCapture, .mouseClick, .keyboardType, .keyboardShortcut, .computerAction, .axAction]
                 .allSatisfy { $0.riskLevel == .caution }
             if allSafe && cautionTools {
-                print("  ✅ Test 5: Risk levels are correct (screen/mouse/keyboard/computerAction tools are .caution)")
+                print("  ✅ Test 5: Risk levels are correct (safe: 6 tools, caution: 6 tools)")
                 passed += 1
             } else {
                 print("  ❌ Test 5: Tool risk levels are incorrect")
@@ -506,6 +580,63 @@ extension ToolDefinition {
                 passed += 1
             } else {
                 print("  ❌ Test 10: computer_action schema or permissions are incorrect")
+                failed += 1
+            }
+        }
+
+        // Test 11: get_ui_state has no parameters and requires accessibility
+        do {
+            let tool = ToolDefinition.getUIState
+            if tool.parameters.isEmpty && tool.requiredPermissions.contains(.accessibility) && tool.riskLevel == .safe {
+                print("  ✅ Test 11: get_ui_state has no params, requires accessibility, is safe")
+                passed += 1
+            } else {
+                print("  ❌ Test 11: get_ui_state schema is incorrect")
+                failed += 1
+            }
+        }
+
+        // Test 12: ax_action has ref (required), action (required enum), value (optional)
+        do {
+            let tool = ToolDefinition.axAction
+            let refParam = tool.parameters.first { $0.name == "ref" }
+            let actionParam = tool.parameters.first { $0.name == "action" }
+            let valueParam = tool.parameters.first { $0.name == "value" }
+
+            let refOk = refParam?.required == true && refParam?.type == .string
+            let valueOk = valueParam?.required == false && valueParam?.type == .string
+
+            var actionOk = false
+            if let actionParam, actionParam.required,
+               case .enumeration(let vals) = actionParam.type,
+               vals.contains("press") && vals.contains("set_value") && vals.contains("focus")
+                && vals.contains("raise") && vals.contains("show_menu") {
+                actionOk = true
+            }
+
+            if refOk && actionOk && valueOk && tool.riskLevel == .caution {
+                print("  ✅ Test 12: ax_action has correct params and caution risk")
+                passed += 1
+            } else {
+                print("  ❌ Test 12: ax_action schema is incorrect")
+                failed += 1
+            }
+        }
+
+        // Test 13: ax_find has 3 optional params and is safe
+        do {
+            let tool = ToolDefinition.axFind
+            let allOptional = tool.parameters.allSatisfy { !$0.required }
+            let hasRole = tool.parameters.contains { $0.name == "role" }
+            let hasTitle = tool.parameters.contains { $0.name == "title" }
+            let hasValue = tool.parameters.contains { $0.name == "value" }
+
+            if tool.parameters.count == 3 && allOptional && hasRole && hasTitle && hasValue
+                && tool.riskLevel == .safe {
+                print("  ✅ Test 13: ax_find has 3 optional params and safe risk")
+                passed += 1
+            } else {
+                print("  ❌ Test 13: ax_find schema is incorrect")
                 failed += 1
             }
         }

@@ -153,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M042)
+## Completed Foundation (M001-M043)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -198,5 +198,6 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Keyboard control (CGEvent) | `KeyboardController.swift` | Working |
 | Computer control coordinator | `ComputerControl.swift` | Working |
 | Accessibility API wrapper | `AccessibilityService.swift` | Working |
+| UI state provider + AX tools | `UIStateProvider.swift` | Working |
 
-Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search — the foundation for AX-first computer control. Upcoming milestones wire this into Claude's tool-use loop (M043-M046), add essential tools, memory, and ship.
+Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search. The UI state provider (M043) wires this into Claude's tool-use loop with `get_ui_state`, `ax_action`, and `ax_find` tools — Claude now defaults to the AX-first approach for native macOS apps. Screenshot+vision is kept as fallback only. Upcoming milestones add context lock safety (M044-M046), essential tools, memory, and ship.

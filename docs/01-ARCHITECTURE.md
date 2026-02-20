@@ -3,7 +3,7 @@
 System architecture for aiDAEMON: a native macOS AI companion with reactive Claude tool-use, accessibility-first computer control, and local fallback.
 
 Last Updated: 2026-02-20
-Version: 5.0 (Accessibility-First Computer Intelligence)
+Version: 6.0 (Accessibility-First Computer Intelligence)
 
 ---
 
@@ -45,7 +45,7 @@ TOOL RUNTIME (ToolRegistry)
   ↓
 TOOL EXECUTORS
   Built-in: app_open, file_search, window_manage, system_info
-  Computer: get_ui_state, ax_action, ax_find (AX-first, M042 foundation done, M043 tool registration)
+  Computer: get_ui_state, ax_action, ax_find (AX-first, M042-M043 complete)
   Vision:   screen_capture, computer_action (fallback for non-AX apps)
   Input:    mouse_click, keyboard_type, keyboard_shortcut
   MCP:      2,800+ community tools via MCP protocol
@@ -145,19 +145,18 @@ Current behavior:
 ### 7. Computer Control Layer
 
 Current files:
-- `ScreenCapture.swift` - screenshot capture (CGWindowListCreateImage)
-- `VisionAnalyzer.swift` - Claude vision analysis of screenshots
-- `MouseController.swift` - CGEvent mouse control
-- `KeyboardController.swift` - CGEvent keyboard control
-- `ComputerControl.swift` - high-level coordinator (screenshot -> vision -> click/type -> verify)
 - `AccessibilityService.swift` - AXUIElement API wrapper (tree walking, attribute reading, action execution, element search)
-
-Planned files (M043):
-- `UIStateProvider.swift` - combines NSWorkspace + CGWindowList + AX tree into structured snapshot
+- `UIStateProvider.swift` - combines NSWorkspace + CGWindowList + AX tree into structured snapshot; contains AXActionExecutor and AXFindExecutor
+- `ScreenCapture.swift` - screenshot capture (CGWindowListCreateImage) — fallback only
+- `VisionAnalyzer.swift` - Claude vision analysis of screenshots — fallback only
+- `MouseController.swift` - CGEvent mouse control — fallback only
+- `KeyboardController.swift` - CGEvent keyboard control
+- `ComputerControl.swift` - high-level coordinator (screenshot -> vision -> click/type -> verify) — fallback only
 
 Current behavior:
-- Screenshot-based path: capture -> Claude Vision -> coordinate guessing -> click (fallback)
-- AX-first path (M042 foundation complete): `AccessibilityService` walks the AX tree, reads attributes (role, title, value, enabled, focused, frame), maps elements to per-turn refs (@e1, @e2, ...), executes actions (press, setValue, focus, raise, showMenu), and searches by role/title/value. Tool registration + orchestrator integration pending in M043.
+- **AX-first path (primary, M042-M043)**: `get_ui_state` returns structured snapshot → Claude targets elements by ref → `ax_action` executes press/setValue/focus/raise/showMenu → `get_ui_state` verifies. Fast (<5s), free ($0), accurate (~99%).
+- **Screenshot-based path (fallback)**: capture → Claude Vision → coordinate guessing → CGEvent click. Slow (~90s), expensive ($0.02-0.06/action). Used only when AX tree is empty/unusable (non-native apps, canvas-based UIs, web content).
+- System prompt and tool descriptions direct Claude to prefer AX-first approach.
 
 ### 8. MCP Integration Layer
 
@@ -181,26 +180,28 @@ Current behavior:
 - `window_manage` - window positioning
 - `system_info` - system status queries
 
-**Computer control tools (current -- screenshot-based, being replaced by AX-first in M042-M046):**
+**Computer control tools (accessibility-first -- primary, M042-M043):**
+- `get_ui_state` - returns structured accessibility tree of frontmost app (zero API cost, instant)
+- `ax_action` - interact with UI elements by ref (press, set_value, focus, raise, show_menu -- ~99% accurate)
+- `ax_find` - search for elements by role/title/value across the app
+
+**Computer control tools (screenshot-based -- fallback only for non-AX apps):**
 - `screen_capture` - screenshot + Claude vision analysis
 - `computer_action` - high-level GUI interaction (screenshot -> vision -> click/type -> verify)
 - `mouse_click` - mouse movement and clicking via CGEvent
 - `keyboard_type` - text typing via CGEvent
 - `keyboard_shortcut` - keyboard shortcuts via CGEvent
 
-**Computer control tools (accessibility-first -- M042 foundation complete, tool registration in M043):**
-- `get_ui_state` - returns structured accessibility tree of frontmost app (zero API cost)
-- `ax_action` - interact with UI elements by ref (press, set_value, focus -- 100% accurate)
-- `ax_find` - search for elements by role/title/value across the app
-
 **MCP tools (M035):**
 - Any tool from connected MCP servers (e.g., filesystem, GitHub, Brave Search)
 - Tool naming: `mcp__<serverName>__<toolName>`
 
-**Computer control strategy (M044):**
+**Computer control strategy (active since M043):**
 1. Use built-in tools (app_open, etc.) when possible
-2. Use `get_ui_state` + `ax_action` for GUI interaction (primary -- fast, free, accurate)
-3. Fall back to `computer_action` (screenshot+vision) only when AX tree is empty/unusable
+2. Call `get_ui_state` to read the structured AX tree (primary -- instant, free)
+3. Use `ax_action` with element refs for interaction (press, set_value, focus, etc.)
+4. Use `ax_find` to search for specific elements by role/title/value
+5. Fall back to `screen_capture` + `computer_action` (screenshot+vision) ONLY when AX tree is empty/unusable
 
 ---
 
@@ -208,7 +209,7 @@ Current behavior:
 
 **Screenshot path (M038-M041):** Screenshot -> Claude Vision -> coordinate guess -> CGEvent click. Slow (~90s), expensive ($0.02-0.06/action), unreliable (~70-80% accuracy). Kept as fallback.
 
-**AX-first path (M042 foundation complete, M043-M046 integration):** Accessibility tree -> element refs -> direct AX actions. Fast (<5s), free ($0/action), accurate (~99%). `AccessibilityService.swift` provides the core API. Tool registration and orchestrator wiring are next (M043-M044).
+**AX-first path (M042-M043 complete):** Accessibility tree -> element refs -> direct AX actions. Fast (<5s), free ($0/action), accurate (~99%). `AccessibilityService.swift` provides the core API. `UIStateProvider.swift` produces compact snapshots. Tools (`get_ui_state`, `ax_action`, `ax_find`) are registered and Claude's system prompt defaults to this path.
 
 ```text
 Control path priority (highest to lowest):
@@ -287,7 +288,7 @@ User input
 | Local model | llama.cpp via LlamaSwift |
 | Primary cloud model | Anthropic Messages API (claude-sonnet-4-5-20250929) |
 | Optional cloud providers | OpenAI-compatible APIs |
-| Computer control (primary) | macOS Accessibility API (AXUIElement) — M042 foundation complete, M043-M046 integration |
+| Computer control (primary) | macOS Accessibility API (AXUIElement) — M042-M043 complete, M044-M046 refinement |
 | Computer control (fallback) | CGEvent (mouse/keyboard) + Claude Vision (screenshots) |
 | Tool ecosystem | MCP (Model Context Protocol) — 2,800+ community tools |
 | Voice input | SFSpeechRecognizer (on-device) + Deepgram (cloud upgrade) |

@@ -56,5 +56,5 @@
 
 ## Current Status
 
-**Completed**: M001–M042 (foundation, UI, local/cloud model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy, native orchestrator + tool-use loop, MCP client integration, voice I/O, screenshot-based computer control, accessibility service foundation)
-**Next**: M043 — UI State Provider + AX Tools. See 03-MILESTONES.md for details.
+**Completed**: M001–M043 (foundation, UI, local/cloud model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy, native orchestrator + tool-use loop, MCP client integration, voice I/O, screenshot-based computer control, accessibility service foundation, UI state provider + AX tools with AX-first system prompt)
+**Next**: M044 — Foreground Context Lock + ComputerControl AX Integration. See 03-MILESTONES.md for details.
