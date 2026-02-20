@@ -73,6 +73,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ToolRegistry.shared.register(tool: .keyboardType, executor: keyboardController)
         ToolRegistry.shared.register(tool: .keyboardShortcut, executor: keyboardController)
 
+        let computerControl = ComputerControl(
+            screenCapture: screenCapture,
+            mouseController: mouseController,
+            keyboardController: keyboardController
+        )
+        ToolRegistry.shared.register(tool: .computerAction, executor: computerControl)
+
         // Load LLM model in background
         LLMManager.shared.loadModelAsync()
 

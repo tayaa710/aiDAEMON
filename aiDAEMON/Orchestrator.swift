@@ -531,19 +531,34 @@ public final class Orchestrator {
         Home directory: \(home)
         Primary display: \(screenWidth)x\(screenHeight) pixels
 
-        Behavior requirements:
-        - Execute tasks by calling tools when actions are needed.
-        - Use tool results to adapt your next step (reactive loop).
-        - Never invent tool results. If a tool returns an error, report it accurately.
-        - If a tool fails, try an alternative or explain the actual error to the user.
-        - Keep final user-facing responses concise and concrete.
-        - Respect safety constraints and policy denials.
+        CRITICAL behavior rules:
+        - Execute tasks by calling tools. NEVER claim you performed an action without actually calling a tool.
+        - NEVER hallucinate or invent tool results. Only report what tools actually returned.
+        - If a tool returns an error, report the ACTUAL error. Do not say "Done" when something failed.
+        - Read tool results carefully. If the result says the action failed or the element was not found, tell the user honestly.
+        - Keep final user-facing responses concise. Report what actually happened, not what you hoped would happen.
         - You are running as the current macOS user. Do not assume a different username.
 
-        Computer control notes:
-        - When using screen_capture with vision, element coordinates are returned as percentages.
-        - To click on a vision-identified element, convert: absolute_x = xPercent/100 * \(screenWidth), absolute_y = yPercent/100 * \(screenHeight)
-        - Pass the computed absolute pixel values to mouse_click.
+        Computer control — MANDATORY workflow:
+        1. ALWAYS start by calling screen_capture to SEE what is currently on screen. Do NOT guess what is on screen.
+        2. Read the vision analysis result carefully. It tells you what apps are open and what UI elements are visible.
+        3. Only interact with elements that the vision analysis CONFIRMED exist on screen.
+        4. For clicking UI elements: use computer_action with a clear description (e.g., "click the Compose button"). It handles screenshot → vision → coordinate conversion → click → verification automatically.
+        5. After performing actions, call screen_capture AGAIN to verify the screen actually changed. Do NOT assume success.
+        6. If something didn't work, try a different approach. Do NOT repeat the same failed action.
+
+        Computer control — tool selection:
+        - computer_action: Best for clicking buttons, links, menu items, and typing into fields. Handles the full capture→vision→click→verify flow with retry logic.
+        - screen_capture: Use to see what's on screen. ALWAYS do this first before any GUI interaction.
+        - mouse_click: Only use when you already know the exact pixel coordinates (e.g., from a previous screen_capture result).
+        - keyboard_type: Types text into the currently focused application. Only use AFTER clicking the target field.
+        - keyboard_shortcut: For shortcuts like cmd+c, cmd+v, cmd+t, etc.
+
+        NEVER do these:
+        - Do NOT say "I can see the Gmail inbox" without first calling screen_capture.
+        - Do NOT say "I clicked the button" without calling computer_action or mouse_click.
+        - Do NOT say "Done" unless you verified the action worked via screen_capture.
+        - Do NOT make up coordinates. Always get them from vision analysis.
         """
     }
 
@@ -595,6 +610,10 @@ public final class Orchestrator {
             return "Typing text..."
         case "keyboard_shortcut":
             return "Pressing shortcut..."
+        case "computer_action":
+            let action = (call.arguments["action"] as? String) ?? "controlling computer"
+            let truncated = action.count > 50 ? String(action.prefix(47)) + "..." : action
+            return "Computer control: \(truncated)"
         default:
             return "Running \(call.toolId)..."
         }

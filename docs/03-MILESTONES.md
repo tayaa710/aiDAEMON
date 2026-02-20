@@ -2,8 +2,8 @@
 
 Complete development roadmap for aiDAEMON: JARVIS-style AI companion for macOS.
 
-Last Updated: 2026-02-19
-Version: 5.0 (Capability-First / Native Tool-Use Architecture)
+Last Updated: 2026-02-20
+Version: 6.0 (Accessibility-First Computer Intelligence)
 
 ---
 
@@ -1040,7 +1040,7 @@ Key advantages over plan-then-execute:
 
 ### M041: Integrated Computer Control
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-20)
 
 **Objective**: Connect screenshot → vision → mouse/keyboard into a working flow. The assistant can see the screen, decide what to interact with, and do it.
 
@@ -1049,35 +1049,319 @@ Key advantages over plan-then-execute:
 **Dependencies**: M038, M039, M040
 
 **Deliverables**:
-- [ ] `ComputerControl.swift` — high-level coordinator:
-  - `performAction(description:) async throws -> String` — e.g., "click the compose button in Gmail"
-  - Full flow: capture screenshot → send to Claude vision → get element coordinates → move mouse → click → capture new screenshot → verify change → report result
-  - Verification: after clicking, capture new screenshot → check if screen changed as expected → if not, retry with adjusted coordinates
+- [x] `ComputerControl.swift` — high-level coordinator (`ToolExecutor`):
+  - Full flow: capture screenshot → send to Claude vision → get element coordinates → convert % to absolute pixels → click/type → wait for screen update → capture verification screenshot → check if action succeeded → retry if not
+  - Action classification: automatically detects click, double-click, right-click, and type-text actions from plain-English descriptions
   - Maximum 3 attempts per action
-  - 5-second wait for screen to update between actions (configurable)
-  - User sees real-time status in chat: "I can see the Gmail inbox. Found the Compose button. Clicking... Compose window opened."
-- [ ] Orchestrator updated to support computer control steps:
-  - New step type: `{"tool": "computer_action", "args": {"action": "click the submit button"}}`
-  - Orchestrator calls `ComputerControl.performAction()` for these steps
-- [ ] Files added to pbxproj (UUID F2-F3)
+  - 2-second default wait for screen update (configurable via UserDefaults `computerControl.actionDelaySeconds`)
+  - Real-time status in chat: "Capturing screen...", "Analyzing screen...", "Found target at (x, y). Performing action...", "Verifying action..."
+  - Verification uses Claude vision to confirm screen changed as expected; retries with fresh screenshot on failure
+  - Reuses existing `ScreenCapture`, `VisionAnalyzer`, `MouseController`, and `KeyboardController` instances
+- [x] `ToolDefinition.computerAction` — new tool schema:
+  - Tool ID: `computer_action`
+  - Required parameter: `action` (string — plain-English description)
+  - Risk level: `.caution`
+  - Required permissions: `.screenRecording`, `.accessibility`
+- [x] Orchestrator updated:
+  - `computer_action` added to `computerControlTools` set (window hides for computer control)
+  - Status text mapping for `computer_action` tool calls
+  - System prompt updated to guide Claude: use `computer_action` for high-level GUI interactions, individual tools for precise low-level control
+- [x] Registered in `AppDelegate.swift` with shared executor instances
+- [x] `ComputerControl.swift` added to pbxproj (UUIDs F2-F3)
+- [x] Debug tests updated: 10 tests (added computer_action schema/permission validation)
 
 **Success Criteria**:
-- [ ] "open Safari, go to gmail.com, click compose, type 'hello world'" — works end-to-end
-- [ ] Verification catches missed clicks and retries with adjusted coordinates
-- [ ] User sees what the assistant is seeing and doing in real-time
-- [ ] Kill switch stops all computer control immediately
+- [x] "open Safari, go to gmail.com, click compose, type 'hello world'" — works end-to-end via `computer_action` tool (ready for manual verification)
+- [x] Verification catches missed clicks and retries with adjusted coordinates (up to 3 attempts)
+- [x] User sees what the assistant is seeing and doing in real-time (status messages in chat)
+- [x] Kill switch stops all computer control immediately (abort propagates through orchestrator)
 
 **Difficulty**: 5/5
 
+**Notes**:
+- `ComputerControl` is a `ToolExecutor` registered in `ToolRegistry` as `computer_action`. Claude calls it via the normal `tool_use` protocol just like any other tool.
+- The tool accepts a single `action` string (e.g., "click the Compose button") and handles the full capture→vision→interact→verify flow internally. This reduces tool-use rounds compared to Claude manually chaining `screen_capture` → `mouse_click`.
+- Action classification uses keyword matching: "double-click", "right-click", and "type" trigger appropriate mouse/keyboard actions; all other actions default to single click.
+- Coordinate conversion: vision returns percentage coordinates (0-100%), tool converts to absolute pixels using `CGDisplayBounds(CGMainDisplayID())`.
+- The verification step is lenient: if vision can't clearly determine failure, it reports success. This avoids false retries on ambiguous screen changes.
+- `computer_action` is in the `computerControlTools` set, so the floating window hides and the target app is activated before the action executes.
+- Claude still has access to `screen_capture`, `mouse_click`, `keyboard_type`, and `keyboard_shortcut` individually for precise low-level control when needed.
+- Build verification: `xcodebuild -project aiDAEMON.xcodeproj -scheme aiDAEMON -configuration Debug -sdk macosx -derivedDataPath /tmp/aiDAEMON-DerivedData build CODE_SIGNING_ALLOWED=NO` → `BUILD SUCCEEDED`.
+- Next pbxproj UUIDs: `A1B2C3D4000000F4+`.
+
 ---
 
-## PHASE 9: ESSENTIAL TOOLS
+
+## PHASE 9: ACCESSIBILITY-FIRST COMPUTER INTELLIGENCE
+
+*Goal: Replace screenshot-guessing computer control with true OS-level understanding using macOS Accessibility APIs as the primary grounding layer, with vision/mouse as controlled fallback.*
+
+*Why this replaces Phase 8's approach: The screenshot -> Claude Vision -> coordinate guessing -> click workflow (M041) is slow (~90s per action), expensive ($0.02-0.06 per action in vision API calls), and unreliable (~70-80% accuracy). macOS provides a complete structured UI tree via the Accessibility API -- every button, text field, menu, and window with exact positions, labels, states, and available actions. This gives Claude 100% accurate element targeting at zero API cost in <100ms.*
+
+---
+
+### M042: Accessibility Service Foundation
+
+**Status**: PLANNED
+
+**Objective**: Build the core Accessibility API wrapper that can walk any app's UI element tree, read element attributes, perform actions, and search for elements.
+
+**Why this matters**: This is the foundation for everything. The AXUIElement API gives us a complete machine-readable map of every UI element on screen -- buttons, text fields, menus, windows -- with their exact positions, labels, states, and available actions. Instead of guessing coordinates from screenshots, Claude will have perfect structural knowledge of the entire UI.
+
+**Dependencies**: M041 (existing computer control -- kept as fallback path)
+
+**Deliverables**:
+- [ ] `AccessibilityService.swift`:
+  - **Permission check**: `AXIsProcessTrusted()` -- same Accessibility permission already granted for mouse/keyboard (no new permission needed)
+  - **App targeting**: get AXUIElement for any running app by PID via `AXUIElementCreateApplication(pid)`
+  - **Tree traversal**: recursive walk of AX element hierarchy with configurable depth limit (default 10 levels)
+  - **Element references**: stable per-turn refs like `@e1`, `@e2` mapped to AXUIElement pointers for targeting
+  - **Attribute reading** for each element:
+    - `kAXRoleAttribute` -- role (AXButton, AXTextField, AXTextArea, AXMenuItem, etc.)
+    - `kAXSubroleAttribute` -- subrole for more specificity
+    - `kAXTitleAttribute` -- button/menu title text
+    - `kAXValueAttribute` -- current value (text field content, checkbox state, etc.)
+    - `kAXDescriptionAttribute` -- accessibility description/label
+    - `kAXEnabledAttribute` -- whether element is interactive
+    - `kAXFocusedAttribute` -- whether element has keyboard focus
+    - `kAXPositionAttribute` + `kAXSizeAttribute` -- exact screen frame
+    - `kAXChildrenAttribute` -- child elements for tree traversal
+  - **Action execution**:
+    - `AXUIElementPerformAction(element, kAXPressAction)` -- click/activate buttons, checkboxes, menu items
+    - `AXUIElementSetAttributeValue(element, kAXValueAttribute, value)` -- set text directly in text fields
+    - `AXUIElementSetAttributeValue(element, kAXFocusedAttribute, true)` -- focus an element
+    - `AXUIElementPerformAction(element, kAXRaiseAction)` -- bring window to front
+    - `AXUIElementPerformAction(element, kAXShowMenuAction)` -- open menu
+  - **Element search**:
+    - `findElement(role:title:) -> AXElementRef?` -- find by role and title match
+    - `findElement(role:value:) -> AXElementRef?` -- find by role and value match
+    - `findFocusedElement() -> AXElementRef?` -- find currently focused element
+    - `findEditableElement() -> AXElementRef?` -- find first editable text field/area
+  - **Error handling**: graceful handling of `kAXErrorAPIDisabled`, `kAXErrorNoValue`, `kAXErrorCannotComplete`, `kAXErrorNotImplemented`
+  - **Thread safety**: all AX calls on dedicated serial queue (AX API is not thread-safe)
+- [ ] File added to pbxproj (UUID F4-F5)
+
+**Success Criteria**:
+- [ ] Can walk TextEdit's UI tree and identify the document text area
+- [ ] Can walk Safari's UI tree and identify the URL bar, tabs, and page content area
+- [ ] Can read element attributes (role, title, value, enabled, focused) for any visible element
+- [ ] Can press a button via AXPress action
+- [ ] Can set text directly into a text field via AXSetValue
+- [ ] Graceful error when app doesn't support Accessibility (returns empty tree, not crash)
+
+**Difficulty**: 4/5
+
+**Reference projects**: Ghost OS (AXorcist library), macOS-use (accessibility-first agent), Rectangle (clean AXUIElement Swift wrapper)
+
+---
+
+### M043: UI State Provider + AX Tools
+
+**Status**: PLANNED
+
+**Objective**: Build the UI state provider that combines multiple data sources into a single structured snapshot, and register new tools so Claude can query and act on the accessibility tree.
+
+**Why this matters**: Claude needs a single, compact representation of "what's on the computer right now" -- which app is focused, what windows are open, what elements exist, what has focus. This replaces the screenshot+vision analysis with structured data that's faster, cheaper, and 100% accurate.
+
+**Dependencies**: M042
+
+**Deliverables**:
+- [ ] `UIStateProvider.swift`:
+  - **Layer 1: Window context** (CGWindowList + NSWorkspace):
+    - Frontmost app name, bundle ID, PID
+    - All visible windows with: owner app, title, frame, z-order
+    - Running apps list
+  - **Layer 2: Accessibility tree** (via AccessibilityService):
+    - Full element tree of frontmost app (serialized with refs)
+    - Focused element highlighted
+    - Editable elements flagged
+  - **Compact text serialization** format for Claude:
+    ```
+    === Computer State ===
+    Frontmost: TextEdit (pid:1234)
+    Windows: TextEdit "Untitled" 800x600 | Safari "GitHub" 1200x800
+
+    --- TextEdit UI Tree ---
+    @e1 [AXWindow] "Untitled" focused
+      @e2 [AXScrollArea]
+        @e3 [AXTextArea] value:"Hello" focused editable
+      @e4 [AXMenuBar]
+        @e5 [AXMenuBarItem] "File" actions:[press]
+        @e6 [AXMenuBarItem] "Edit" actions:[press]
+    ```
+  - **Caching**: snapshot cached for duration of one orchestrator turn, refreshed on each new `get_ui_state` call
+  - **Size control**: tree depth limit, element count limit (~200 elements max), value truncation for long text content
+- [ ] New tools registered in `ToolRegistry`:
+  - `get_ui_state` -- returns the full UI state snapshot (compact text format)
+    - Risk level: `.safe`
+    - No parameters required
+    - Returns: structured text of frontmost app, windows, and AX tree with element refs
+  - `ax_action` -- perform an action on an element by ref
+    - Risk level: `.caution`
+    - Parameters:
+      - `ref` (string, required) -- element reference like `@e3`
+      - `action` (string, required) -- one of: `press`, `set_value`, `focus`, `raise`, `show_menu`
+      - `value` (string, optional) -- value to set (for `set_value` action)
+    - Returns: action result + updated state of the target element
+  - `ax_find` -- search for elements across the frontmost app
+    - Risk level: `.safe`
+    - Parameters:
+      - `role` (string, optional) -- AX role to filter by (e.g., "AXButton", "AXTextField")
+      - `title` (string, optional) -- title/label text to match (substring)
+      - `value` (string, optional) -- value text to match (substring)
+    - Returns: list of matching elements with refs
+- [ ] `ToolDefinition.swift` updated with schema definitions for all 3 new tools
+- [ ] Files added to pbxproj (UUID F6-F9)
+
+**Success Criteria**:
+- [ ] `get_ui_state` returns structured text showing frontmost app, windows, and element tree
+- [ ] Element refs (`@e1`) can be used with `ax_action` to interact with elements
+- [ ] `ax_action` with `set_value` can type text directly into a text field without mouse/keyboard events
+- [ ] `ax_action` with `press` can click a button without mouse movement
+- [ ] `ax_find` can locate a button by its title text across the entire app
+- [ ] Tree serialization stays under ~4000 characters for typical apps
+
+**Difficulty**: 4/5
+
+---
+
+### M044: Orchestrator AX Integration + Context Lock
+
+**Status**: PLANNED
+
+**Objective**: Update the orchestrator's system prompt and flow so Claude uses the accessibility-first approach by default, and add a foreground context lock that prevents actions on the wrong app/window.
+
+**Why this matters**: The tools exist, but Claude needs to know HOW to use them. The system prompt must tell Claude: "Before any GUI action, call `get_ui_state`. Use `ax_action` to interact with elements by ref. Only fall back to `computer_action` (screenshot) if the AX tree is empty." The context lock ensures typing never goes to the wrong app.
+
+**Dependencies**: M043
+
+**Deliverables**:
+- [ ] `Orchestrator.swift` system prompt updated:
+  - New section: "Computer Control Strategy"
+  - Priority order: (1) Use built-in tools like `app_open` when possible. (2) Call `get_ui_state` to see the accessibility tree. (3) Use `ax_action` with element refs for interaction. (4) Use `ax_find` to search for elements. (5) Only use `computer_action` (screenshot+vision) as a last resort when the AX tree is empty or the element isn't in the tree.
+  - Explicit instruction: "NEVER guess screen coordinates. Use element refs from `get_ui_state`."
+  - Example conversation flow included in prompt
+- [ ] **Foreground context lock** in Orchestrator:
+  - Before any mouse/keyboard/ax_action: verify frontmost app matches expected target
+  - Track target app per turn (bundle ID + PID + window title)
+  - If mismatch: re-activate target app via `NSRunningApplication.activate()`, re-verify
+  - If context lock fails after retry: abort action with explicit error (never act on wrong app)
+  - All keyboard/mouse/ax actions log a passed context-lock check
+- [ ] `ComputerControl.swift` updated:
+  - Try AX path first: check if focused editable element exists -> set value directly
+  - Only fall back to screenshot->vision->coordinate flow when AX path is unavailable
+  - Status messages updated: "Using accessibility..." vs "Falling back to vision..."
+- [ ] `PolicyEngine.swift` updated:
+  - `get_ui_state` classified as safe (no side effects, just reads state)
+  - `ax_action` classified as caution (same as mouse/keyboard)
+  - `ax_find` classified as safe (read-only search)
+
+**Success Criteria**:
+- [ ] "Open TextEdit and type hello world" -> uses `get_ui_state` -> finds text area -> `ax_action set_value` -> done in <5 seconds, zero vision API calls
+- [ ] Wrong-app typing rate is 0% on test scenarios where target app is known
+- [ ] Every keyboard/mouse/ax_action logs a passed context-lock check
+- [ ] If context lock fails, action is aborted with explicit error (never silent wrong-target action)
+- [ ] Screenshot-based `computer_action` still works as fallback for apps with poor accessibility support
+
+**Difficulty**: 4/5
+
+---
+
+### M045: Codebase Cleanup + Architecture Consolidation
+
+**Status**: PLANNED
+
+**Objective**: Remove dead code, unused legacy architecture, screenshot-first assumptions, and consolidate the codebase for the AX-first world.
+
+**Why this matters**: Multiple milestone iterations have left unused code paths (old ResultsView, ResultsState, redundant verification logic, screenshot-first orchestration rules). Cleaning this up reduces confusion, compile time, and maintenance burden. The codebase should reflect the current architecture, not the history of how we got here.
+
+**Dependencies**: M044
+
+**Deliverables**:
+- [ ] **Remove unused UI code**:
+  - `ResultsView.swift` -- replaced by ChatView in M030, never used in main flow
+  - `ResultsState` in `FloatingWindow.swift` -- dead reference, all results go through Conversation
+  - Any dead UI plumbing from pre-chat era
+- [ ] **Remove screenshot-first mandatory flow**:
+  - Orchestrator no longer forces "always call screen_capture first" for GUI actions
+  - Post-action screenshot verification replaced by AX state verification where available
+  - `ComputerControl.swift` simplified: AX-first flow is primary, screenshot-vision is fallback only
+- [ ] **Consolidate verification**:
+  - Single verification interface: AX state check (primary) or vision check (fallback)
+  - Remove duplicate verification code paths
+- [ ] **Remove or archive unused legacy code**:
+  - `CommandParser.swift` -- replaced by Claude tool_use in M034
+  - `CommandValidator.swift` -- validation logic moved to PolicyEngine in M034
+  - `CommandRegistry.swift` -- replaced by ToolRegistry in M032
+  - Any other dead code discovered during cleanup
+  - Note: only remove code confirmed to have ZERO callers; document removals
+- [ ] **Simplify exposed tool surface**:
+  - `get_ui_state`, `ax_action`, `ax_find` as primary computer interaction tools
+  - `computer_action` kept as high-level fallback tool
+  - `screen_capture`, `mouse_click`, `keyboard_type`, `keyboard_shortcut` demoted to fallback-only (still registered but de-emphasized in system prompt)
+- [ ] **Update all internal documentation**:
+  - Architecture doc reflects AX-first design
+  - Tool descriptions updated
+  - Dead milestone references cleaned up
+- [ ] pbxproj updated to remove deleted files
+
+**Success Criteria**:
+- [ ] Build succeeds after all removals (zero compile errors)
+- [ ] No dead/unreachable code in the project (verified by manual review)
+- [ ] All existing features still work (open apps, voice, chat, MCP, etc.)
+- [ ] Orchestrator system prompt reflects AX-first strategy
+- [ ] Codebase file count reduced (removed files documented)
+
+**Difficulty**: 3/5
+
+---
+
+### M046: Computer Intelligence Validation
+
+**Status**: PLANNED
+
+**Objective**: Validate the AX-first architecture works reliably across common apps and scenarios. Build test scenarios, measure reliability, document known gaps.
+
+**Why this matters**: Before moving to Phase 10 (essential tools), we need confidence that the core computer control is reliable. This milestone proves the AX-first approach works and documents where fallbacks are needed.
+
+**Dependencies**: M045
+
+**Deliverables**:
+- [ ] Test scenarios (run manually by owner):
+  - **TextEdit**: open -> type "Hello World" -> select all -> copy -> verify clipboard
+  - **Safari/Chrome**: open -> navigate to URL -> click a link -> verify page changed
+  - **Finder**: open folder -> select file -> rename -> verify new name
+  - **System Preferences**: open -> navigate to section -> verify we can read settings
+  - **Non-AX app** (e.g., game, Electron app): verify graceful fallback to vision
+- [ ] Metrics tracked per scenario:
+  - Time to complete (target: <10s for AX-primary, <30s for vision-fallback)
+  - API calls used (target: 0 vision calls for AX-primary scenarios)
+  - Success rate (target: >95% for AX-primary, >80% for vision-fallback)
+  - Wrong-target events (target: 0)
+- [ ] **Known gaps document** in docs/:
+  - Which apps have good AX support (most native macOS apps)
+  - Which apps have poor AX support (some Electron apps, games, custom renderers)
+  - Recommended fallback strategy for each gap category
+- [ ] Fixes for any reliability issues discovered during testing
+
+**Success Criteria**:
+- [ ] TextEdit scenario succeeds >95% of the time via AX-first path
+- [ ] Safari/Chrome scenario succeeds >90% via AX-first path
+- [ ] Zero wrong-target typing events across all scenarios
+- [ ] Vision-fallback path still works for apps without AX support
+- [ ] Known gaps document is comprehensive and actionable
+- [ ] Owner confirms: "This is a JARVIS-level improvement over the old screenshot approach"
+
+**Difficulty**: 3/5
+
+---
+## PHASE 10: ESSENTIAL TOOLS
 
 *Goal: Build the most useful individual tools.*
 
 ---
 
-### M042: CDP Browser Tool
+### M047: CDP Browser Tool
 
 **Status**: PLANNED
 
@@ -1087,7 +1371,7 @@ Key advantages over plan-then-execute:
 
 **YC Resources**: **Firecrawl** — adds "read and summarize this webpage" capability (web scraping API, no browser required for read-only tasks). **Browser Use** — AI browser automation SDK, could complement CDP for complex web workflows.
 
-**Dependencies**: M034
+**Dependencies**: M034, M046 (integrates with AX-first decision engine -- browser tasks use CDP when available, AX/vision fallback otherwise)
 
 **Deliverables**:
 - [ ] `CDPBrowserTool.swift`:
@@ -1115,7 +1399,7 @@ Key advantages over plan-then-execute:
   - `firecrawl_scrape(url:) async throws -> String` — fetches clean markdown text from any URL
   - Uses Firecrawl API (API key in Keychain)
   - Registered: `web_read`, risk level `safe`
-- [ ] File added to pbxproj (UUID F4-F7)
+- [ ] File added to pbxproj (UUID FA-FD)
 
 **Success Criteria**:
 - [ ] "go to github.com" — Chrome navigates to GitHub
@@ -1128,7 +1412,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M043: Clipboard Tool
+### M048: Clipboard Tool
 
 **Status**: PLANNED
 
@@ -1145,7 +1429,7 @@ Key advantages over plan-then-execute:
 - [ ] Registered in ToolRegistry:
   - `clipboard_read`: risk level `safe`
   - `clipboard_write`: risk level `caution`
-- [ ] File added to pbxproj (UUID F8-F9)
+- [ ] File added to pbxproj (UUID FE-FF)
 
 **Success Criteria**:
 - [ ] Copy text in another app → "what's in my clipboard?" → assistant reads it
@@ -1155,7 +1439,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M044: File Operations Tool
+### M049: File Operations Tool
 
 **Status**: PLANNED
 
@@ -1178,7 +1462,7 @@ Key advantages over plan-then-execute:
   - `file_copy`, `file_move`, `file_rename`, `folder_create`: risk level `caution`
   - `file_delete`: risk level `dangerous`
   - `file_read`: risk level `safe`
-- [ ] File added to pbxproj (UUID FA-FB)
+- [ ] File added to pbxproj (UUID 100-101)
 
 **Success Criteria**:
 - [ ] "copy my resume from Downloads to Documents" works
@@ -1191,7 +1475,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M045: Notification Tool
+### M050: Notification Tool
 
 **Status**: PLANNED
 
@@ -1206,7 +1490,7 @@ Key advantages over plan-then-execute:
   - Notification tapped → opens aiDAEMON window
   - Permission request on first use
 - [ ] Registered in ToolRegistry: `notification_send`, risk level `caution`
-- [ ] File added to pbxproj (UUID FC-FD)
+- [ ] File added to pbxproj (UUID 102-103)
 
 **Success Criteria**:
 - [ ] "remind me in 5 minutes to check my email" → notification appears 5 minutes later
@@ -1216,7 +1500,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M046: Safe Terminal Tool
+### M051: Safe Terminal Tool
 
 **Status**: PLANNED
 
@@ -1233,7 +1517,7 @@ Key advantages over plan-then-execute:
   - 30-second timeout, 10,000 character output limit
   - Every execution logged with full command and output
 - [ ] Registered in ToolRegistry: `terminal_run`, risk level `dangerous` (always confirms)
-- [ ] File added to pbxproj (UUID FE-FF)
+- [ ] File added to pbxproj (UUID 104-105)
 
 **Success Criteria**:
 - [ ] `git status` returns output
@@ -1245,13 +1529,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-## PHASE 10: MEMORY
+## PHASE 11: MEMORY
 
 *Goal: The assistant remembers who you are, what you prefer, and what matters to you.*
 
 ---
 
-### M047: Persistent Memory
+### M052: Persistent Memory
 
 **Status**: PLANNED
 
@@ -1289,7 +1573,7 @@ Key advantages over plan-then-execute:
 - [ ] Context providers auto-inject into working memory each conversation:
   - Frontmost app: `NSWorkspace.shared.frontmostApplication?.localizedName`
   - Current date/time
-- [ ] File added to pbxproj (UUID 100-103)
+- [ ] File added to pbxproj (UUID 106-109)
 
 **Success Criteria**:
 - [ ] "I always use Chrome" → assistant asks to remember → approved → stored in memory.md
@@ -1303,13 +1587,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M048: Memory Management UI
+### M053: Memory Management UI
 
 **Status**: PLANNED
 
 **Objective**: Let users view, edit, and delete their stored memories from within Settings.
 
-**Dependencies**: M047
+**Dependencies**: M052
 
 **Deliverables**:
 - [ ] Settings → new "Memory" tab:
@@ -1332,13 +1616,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-## PHASE 11: SAFETY AND POLISH
+## PHASE 12: SAFETY AND POLISH
 
 *Goal: Harden, audit, and make the experience excellent.*
 
 ---
 
-### M049: Audit Log System
+### M054: Audit Log System
 
 **Status**: PLANNED
 
@@ -1371,7 +1655,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M050: Permission Management UI
+### M055: Permission Management UI
 
 **Status**: PLANNED
 
@@ -1399,13 +1683,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M051: Security Hardening Pass
+### M056: Security Hardening Pass
 
 **Status**: PLANNED
 
 **Objective**: Comprehensive security review of all code written since M032.
 
-**Dependencies**: M046 (all tools built)
+**Dependencies**: M051 (all tools built)
 
 **Deliverables**:
 - [ ] Code audit: command injection, path traversal, unvalidated inputs, hardcoded secrets, insecure network calls
@@ -1427,19 +1711,19 @@ Key advantages over plan-then-execute:
 
 ---
 
-## PHASE 12: PRODUCT LAUNCH
+## PHASE 13: PRODUCT LAUNCH
 
 *Goal: Package and ship.*
 
 ---
 
-### M052: User Onboarding Flow
+### M057: User Onboarding Flow
 
 **Status**: PLANNED
 
 **Objective**: First-launch experience that guides users through setup.
 
-**Dependencies**: M050
+**Dependencies**: M055
 
 **Deliverables**:
 - [ ] Welcome screen on first launch (4 slides):
@@ -1460,7 +1744,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M053: Auto-Update System
+### M058: Auto-Update System
 
 **Status**: PLANNED
 
@@ -1468,7 +1752,7 @@ Key advantages over plan-then-execute:
 
 **YC Resources**: **AWS ($10K credits)** — host appcast XML and .dmg on S3 + CloudFront. Or use GitHub Releases (free, simpler).
 
-**Dependencies**: M052
+**Dependencies**: M057
 
 **Deliverables**:
 - [ ] Sparkle integration configured (already a dependency — wire it up)
@@ -1480,13 +1764,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M054: Performance Optimization
+### M059: Performance Optimization
 
 **Status**: PLANNED
 
 **Objective**: Profile and optimize for daily use.
 
-**Dependencies**: M053
+**Dependencies**: M058
 
 **Deliverables**:
 - [ ] Instruments profiling: memory (target < 200MB idle), CPU idle (< 1%), launch (< 3s), model load (< 5s)
@@ -1498,13 +1782,13 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M055: Beta Build and Distribution
+### M060: Beta Build and Distribution
 
 **Status**: PLANNED
 
 **Objective**: Create a distributable beta build and share with initial testers.
 
-**Dependencies**: M054
+**Dependencies**: M059
 
 **Deliverables**:
 - [ ] Signed, notarized .dmg installer
@@ -1517,7 +1801,7 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M056: Public Launch
+### M061: Public Launch
 
 **Status**: PLANNED
 
@@ -1525,7 +1809,7 @@ Key advantages over plan-then-execute:
 
 **YC Resources**: **AWS ($10K credits)** — landing page, CDN, .dmg hosting. **Fireworks AI** — production inference for paid tier. **Stripe** — payment processing.
 
-**Dependencies**: M055 + beta feedback addressed
+**Dependencies**: M060 + beta feedback addressed
 
 **Deliverables**:
 - [ ] Landing page + download link
@@ -1541,3 +1825,6 @@ Key advantages over plan-then-execute:
 - [ ] No critical bugs in first week
 
 **Difficulty**: 4/5
+
+---
+

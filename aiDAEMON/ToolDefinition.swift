@@ -313,6 +313,24 @@ extension ToolDefinition {
         riskLevel: .caution,
         requiredPermissions: [.accessibility]
     )
+
+    /// COMPUTER_ACTION tool schema — high-level computer control that chains
+    /// screenshot → vision → mouse/keyboard → verify into a single call.
+    static let computerAction = ToolDefinition(
+        id: "computer_action",
+        name: "Computer Action",
+        description: "Performs a GUI interaction: captures the screen, uses vision to find the target element, clicks/types at its coordinates, then captures again to verify success. Returns the ACTUAL result including whether it succeeded or failed — read the result carefully. Use for clicking buttons, links, menus, or typing into fields. If it reports failure, try a different approach.",
+        parameters: [
+            ToolParameter(
+                name: "action",
+                type: .string,
+                description: "Plain-English description of the action to perform (e.g., 'click the Compose button in Gmail', 'type hello world in the search field', 'right-click the file icon').",
+                required: true
+            )
+        ],
+        riskLevel: .caution,
+        requiredPermissions: [.screenRecording, .accessibility]
+    )
 }
 
 // MARK: - Debug Tests
@@ -334,14 +352,16 @@ extension ToolDefinition {
                 .screenCapture,
                 .mouseClick,
                 .keyboardType,
-                .keyboardShortcut
+                .keyboardShortcut,
+                .computerAction
             ]
             let ids = Set(tools.map { $0.id })
-            if ids.count == 8 && ids.contains("app_open") && ids.contains("file_search")
+            if ids.count == 9 && ids.contains("app_open") && ids.contains("file_search")
                 && ids.contains("window_manage") && ids.contains("system_info")
                 && ids.contains("screen_capture") && ids.contains("mouse_click")
-                && ids.contains("keyboard_type") && ids.contains("keyboard_shortcut") {
-                print("  ✅ Test 1: All built-in tools have unique valid IDs (including keyboard tools)")
+                && ids.contains("keyboard_type") && ids.contains("keyboard_shortcut")
+                && ids.contains("computer_action") {
+                print("  ✅ Test 1: All built-in tools have unique valid IDs (including computer_action)")
                 passed += 1
             } else {
                 print("  ❌ Test 1: Built-in tool IDs are wrong: \(ids)")
@@ -388,10 +408,10 @@ extension ToolDefinition {
         do {
             let allSafe = [ToolDefinition.appOpen, .fileSearch, .windowManage, .systemInfo]
                 .allSatisfy { $0.riskLevel == .safe }
-            let cautionTools = [ToolDefinition.screenCapture, .mouseClick, .keyboardType, .keyboardShortcut]
+            let cautionTools = [ToolDefinition.screenCapture, .mouseClick, .keyboardType, .keyboardShortcut, .computerAction]
                 .allSatisfy { $0.riskLevel == .caution }
             if allSafe && cautionTools {
-                print("  ✅ Test 5: Risk levels are correct (screen/mouse/keyboard tools are .caution)")
+                print("  ✅ Test 5: Risk levels are correct (screen/mouse/keyboard/computerAction tools are .caution)")
                 passed += 1
             } else {
                 print("  ❌ Test 5: Tool risk levels are incorrect")
@@ -463,6 +483,29 @@ extension ToolDefinition {
                 passed += 1
             } else {
                 print("  ❌ Test 9: keyboard tool schema or permission requirements are incorrect")
+                failed += 1
+            }
+        }
+
+        // Test 10: computer_action requires both screenRecording and accessibility
+        do {
+            let perms = ToolDefinition.computerAction.requiredPermissions
+            let actionParam = ToolDefinition.computerAction.parameters.first { $0.name == "action" }
+            let hasScreenRecording = perms.contains(.screenRecording)
+            let hasAccessibility = perms.contains(.accessibility)
+
+            let actionOk: Bool
+            if let actionParam {
+                actionOk = actionParam.required && actionParam.type == .string
+            } else {
+                actionOk = false
+            }
+
+            if hasScreenRecording && hasAccessibility && actionOk {
+                print("  ✅ Test 10: computer_action requires screenRecording + accessibility with action param")
+                passed += 1
+            } else {
+                print("  ❌ Test 10: computer_action schema or permissions are incorrect")
                 failed += 1
             }
         }
