@@ -2,8 +2,8 @@
 
 Security boundaries, privacy architecture, and attack mitigations for aiDAEMON.
 
-Last Updated: 2026-02-19
-Version: 5.0 (Capability-First / Native Tool-Use Architecture)
+Last Updated: 2026-02-20
+Version: 6.0 (Accessibility-First Computer Intelligence)
 
 ---
 
@@ -249,6 +249,9 @@ When writing code for aiDAEMON, you MUST follow these rules:
 | clipboard_write | caution | confirm | auto | auto |
 | keyboard_type | caution | confirm | auto | auto |
 | mouse_click | caution | confirm | auto | auto |
+| get_ui_state | safe | confirm | auto | auto |
+| ax_action | caution | confirm | auto | auto |
+| ax_find | safe | confirm | auto | auto |
 | file_copy/move | caution | confirm | auto | auto |
 | notification_send | caution | confirm | auto | auto |
 | file_delete | dangerous | confirm | confirm | confirm |

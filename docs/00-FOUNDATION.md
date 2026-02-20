@@ -4,8 +4,8 @@
 
 When in doubt, this file overrides issues, chat messages, code comments, and secondary docs.
 
-Last Updated: 2026-02-19
-Version: 5.0 (Capability-First / Native Tool-Use Architecture)
+Last Updated: 2026-02-20
+Version: 6.0 (Accessibility-First Computer Intelligence)
 
 ---
 
@@ -153,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M034)
+## Completed Foundation (M001-M042)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -189,5 +189,14 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Reactive orchestrator loop | `Orchestrator.swift` | Working |
 | Tool policy gate | `PolicyEngine.swift` | Working |
 | Kill switch hotkey + UI stop | `HotkeyManager.swift`, `FloatingWindow.swift` | Working |
+| MCP client + server manager | `MCPClient.swift`, `MCPServerManager.swift` | Working |
+| Voice input (on-device STT) | `SpeechInput.swift` | Working |
+| Voice output (on-device TTS) | `SpeechOutput.swift` | Working |
+| Screen capture | `ScreenCapture.swift` | Working |
+| Claude vision analysis | `VisionAnalyzer.swift` | Working |
+| Mouse control (CGEvent) | `MouseController.swift` | Working |
+| Keyboard control (CGEvent) | `KeyboardController.swift` | Working |
+| Computer control coordinator | `ComputerControl.swift` | Working |
+| Accessibility API wrapper | `AccessibilityService.swift` | Working |
 
-Current foundation includes the core "hands + brain loop" baseline. Upcoming milestones extend reach (MCP ecosystem), voice, vision, computer control, memory, and shipping hardening.
+Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search — the foundation for AX-first computer control. Upcoming milestones wire this into Claude's tool-use loop (M043-M046), add essential tools, memory, and ship.

@@ -2,7 +2,7 @@
 
 This file records manual setup tasks that have been completed. New manual tasks are provided by the LLM agent after each milestone — they are NOT pre-listed here.
 
-Last Updated: 2026-02-19
+Last Updated: 2026-02-20
 
 ---
 
@@ -29,7 +29,7 @@ You do not need to look at this file for upcoming tasks. This file is a historic
 - [x] Verify hotkey (Cmd+Shift+Space) summons floating window
 - [x] Verify basic commands work: open apps, find files, move windows, system info
 
-## Completed Setup (M025–M034)
+## Completed Setup (M025–M035)
 
 - [x] Configure cloud provider in Settings → Cloud (Anthropic supported as first-class provider)
 - [x] Save API key in macOS Keychain via Settings UI
@@ -40,3 +40,21 @@ You do not need to look at this file for upcoming tasks. This file is a historic
 - [x] Verify orchestrator multi-step loop is active for cloud requests
 - [x] Verify inline confirmation flow appears when policy requires it
 - [x] Verify emergency stop using Cmd+Shift+Escape
+- [x] Verify MCP server connection and tool discovery
+
+## Completed Setup (M036–M041)
+
+- [x] Grant Microphone permission for voice input (System Settings → Privacy & Security → Microphone)
+- [x] Grant Screen Recording permission for screenshot-based computer control
+- [x] Grant Accessibility permission for mouse/keyboard control (already done for window management)
+- [x] Verify voice input via hold Cmd+Shift+Space
+- [x] Verify voice output (assistant speaks responses)
+- [x] Verify screen capture + Claude vision analysis
+- [x] Verify mouse control (mouse_click tool)
+- [x] Verify keyboard control (keyboard_type, keyboard_shortcut tools)
+- [x] Verify computer_action high-level GUI interaction
+
+## Completed Setup (M042)
+
+- [x] Build succeeds with AccessibilityService.swift added (no new permissions needed)
+- [x] App launches and all existing features work (no regressions)

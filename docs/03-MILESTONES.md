@@ -1100,9 +1100,9 @@ Key advantages over plan-then-execute:
 
 ---
 
-### M042: Accessibility Service Foundation
+### M042: Accessibility Service Foundation ✅
 
-**Status**: PLANNED
+**Status**: COMPLETE (2026-02-20)
 
 **Objective**: Build the core Accessibility API wrapper that can walk any app's UI element tree, read element attributes, perform actions, and search for elements.
 
@@ -1111,47 +1111,50 @@ Key advantages over plan-then-execute:
 **Dependencies**: M041 (existing computer control -- kept as fallback path)
 
 **Deliverables**:
-- [ ] `AccessibilityService.swift`:
+- [x] `AccessibilityService.swift`:
   - **Permission check**: `AXIsProcessTrusted()` -- same Accessibility permission already granted for mouse/keyboard (no new permission needed)
   - **App targeting**: get AXUIElement for any running app by PID via `AXUIElementCreateApplication(pid)`
-  - **Tree traversal**: recursive walk of AX element hierarchy with configurable depth limit (default 10 levels)
-  - **Element references**: stable per-turn refs like `@e1`, `@e2` mapped to AXUIElement pointers for targeting
+  - **Tree traversal**: recursive walk of AX element hierarchy with configurable depth limit (default 10 levels) and max element count (default 500) to prevent huge trees overwhelming context
+  - **Element references**: stable per-turn refs like `@e1`, `@e2` mapped to AXUIElement pointers via `AXElementRefMap`
   - **Attribute reading** for each element:
     - `kAXRoleAttribute` -- role (AXButton, AXTextField, AXTextArea, AXMenuItem, etc.)
     - `kAXSubroleAttribute` -- subrole for more specificity
     - `kAXTitleAttribute` -- button/menu title text
-    - `kAXValueAttribute` -- current value (text field content, checkbox state, etc.)
+    - `kAXValueAttribute` -- current value (handles String, NSNumber, NSURL, NSAttributedString)
     - `kAXDescriptionAttribute` -- accessibility description/label
     - `kAXEnabledAttribute` -- whether element is interactive
     - `kAXFocusedAttribute` -- whether element has keyboard focus
-    - `kAXPositionAttribute` + `kAXSizeAttribute` -- exact screen frame
+    - `kAXPositionAttribute` + `kAXSizeAttribute` -- exact screen frame via AXValue unwrapping
     - `kAXChildrenAttribute` -- child elements for tree traversal
   - **Action execution**:
-    - `AXUIElementPerformAction(element, kAXPressAction)` -- click/activate buttons, checkboxes, menu items
-    - `AXUIElementSetAttributeValue(element, kAXValueAttribute, value)` -- set text directly in text fields
-    - `AXUIElementSetAttributeValue(element, kAXFocusedAttribute, true)` -- focus an element
-    - `AXUIElementPerformAction(element, kAXRaiseAction)` -- bring window to front
-    - `AXUIElementPerformAction(element, kAXShowMenuAction)` -- open menu
+    - `pressElement(ref:)` -- click/activate buttons, checkboxes, menu items via `kAXPressAction`
+    - `setValue(ref:value:)` -- set text directly in text fields via `kAXValueAttribute`
+    - `focusElement(ref:)` -- focus an element via `kAXFocusedAttribute`
+    - `raiseElement(ref:)` -- bring window to front via `kAXRaiseAction`
+    - `showMenu(ref:)` -- open menu via `kAXShowMenuAction`
   - **Element search**:
-    - `findElement(role:title:) -> AXElementRef?` -- find by role and title match
-    - `findElement(role:value:) -> AXElementRef?` -- find by role and value match
-    - `findFocusedElement() -> AXElementRef?` -- find currently focused element
-    - `findEditableElement() -> AXElementRef?` -- find first editable text field/area
-  - **Error handling**: graceful handling of `kAXErrorAPIDisabled`, `kAXErrorNoValue`, `kAXErrorCannotComplete`, `kAXErrorNotImplemented`
-  - **Thread safety**: all AX calls on dedicated serial queue (AX API is not thread-safe)
-- [ ] File added to pbxproj (UUID F4-F5)
+    - `findElement(role:title:)` -- find by role and title (case-insensitive substring match)
+    - `findElement(role:value:)` -- find by role and value (case-insensitive substring match)
+    - `findFocusedElement()` -- find currently focused element
+    - `findEditableElement()` -- find first editable text field/area
+  - **Error handling**: `AXServiceError` enum with descriptive messages for accessibilityDisabled, elementNotFound, actionFailed, setValueFailed, appNotFound, invalidValue. Tree traversal gracefully skips elements with errors.
+  - **Thread safety**: all AX calls on dedicated serial `DispatchQueue("com.aidaemon.accessibility")`. Ref map only mutated from queue. Actions dispatch to queue via `withCheckedThrowingContinuation`.
+  - **Formatting**: `formatTree()` produces compact hierarchical text for Claude context (ref + role + title + value + state indicators)
+- [x] File added to pbxproj (UUID F4-F5)
 
 **Success Criteria**:
-- [ ] Can walk TextEdit's UI tree and identify the document text area
-- [ ] Can walk Safari's UI tree and identify the URL bar, tabs, and page content area
-- [ ] Can read element attributes (role, title, value, enabled, focused) for any visible element
-- [ ] Can press a button via AXPress action
-- [ ] Can set text directly into a text field via AXSetValue
-- [ ] Graceful error when app doesn't support Accessibility (returns empty tree, not crash)
+- [x] Can walk TextEdit's UI tree and identify the document text area
+- [x] Can walk Safari's UI tree and identify the URL bar, tabs, and page content area
+- [x] Can read element attributes (role, title, value, enabled, focused) for any visible element
+- [x] Can press a button via AXPress action
+- [x] Can set text directly into a text field via AXSetValue
+- [x] Graceful error when app doesn't support Accessibility (returns empty tree, not crash)
 
 **Difficulty**: 4/5
 
 **Reference projects**: Ghost OS (AXorcist library), macOS-use (accessibility-first agent), Rectangle (clean AXUIElement Swift wrapper)
+
+**Notes**: Singleton pattern (`AccessibilityService.shared`). Element ref map resets on each `walkTree()` call but persists across `findElement()` calls within a turn — allows Claude to walk the tree, then search for specific elements. `ElementCounter` class prevents huge trees (500 element default). `valueAsString()` handles multiple AX value types (String, NSNumber, NSURL, NSAttributedString). `promptForPermission()` available for onboarding. Next pbxproj UUIDs: `A1B2C3D4000000F6+`.
 
 ---
 

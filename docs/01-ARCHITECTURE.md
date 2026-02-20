@@ -45,7 +45,7 @@ TOOL RUNTIME (ToolRegistry)
   ↓
 TOOL EXECUTORS
   Built-in: app_open, file_search, window_manage, system_info
-  Computer: get_ui_state, ax_action, ax_find (AX-first, planned M042-M043)
+  Computer: get_ui_state, ax_action, ax_find (AX-first, M042 foundation done, M043 tool registration)
   Vision:   screen_capture, computer_action (fallback for non-AX apps)
   Input:    mouse_click, keyboard_type, keyboard_shortcut
   MCP:      2,800+ community tools via MCP protocol
@@ -150,14 +150,14 @@ Current files:
 - `MouseController.swift` - CGEvent mouse control
 - `KeyboardController.swift` - CGEvent keyboard control
 - `ComputerControl.swift` - high-level coordinator (screenshot -> vision -> click/type -> verify)
+- `AccessibilityService.swift` - AXUIElement API wrapper (tree walking, attribute reading, action execution, element search)
 
-Planned files (M042-M043):
-- `AccessibilityService.swift` - AXUIElement API wrapper (tree walking, attribute reading, action execution)
+Planned files (M043):
 - `UIStateProvider.swift` - combines NSWorkspace + CGWindowList + AX tree into structured snapshot
 
 Current behavior:
-- Screenshot-based: capture -> Claude Vision -> coordinate guessing -> click (being replaced)
-- AX-first (planned): read accessibility tree -> target by element ref -> direct AX action
+- Screenshot-based path: capture -> Claude Vision -> coordinate guessing -> click (fallback)
+- AX-first path (M042 foundation complete): `AccessibilityService` walks the AX tree, reads attributes (role, title, value, enabled, focused, frame), maps elements to per-turn refs (@e1, @e2, ...), executes actions (press, setValue, focus, raise, showMenu), and searches by role/title/value. Tool registration + orchestrator integration pending in M043.
 
 ### 8. MCP Integration Layer
 
@@ -188,7 +188,7 @@ Current behavior:
 - `keyboard_type` - text typing via CGEvent
 - `keyboard_shortcut` - keyboard shortcuts via CGEvent
 
-**Computer control tools (planned -- accessibility-first, M042-M043):**
+**Computer control tools (accessibility-first -- M042 foundation complete, tool registration in M043):**
 - `get_ui_state` - returns structured accessibility tree of frontmost app (zero API cost)
 - `ax_action` - interact with UI elements by ref (press, set_value, focus -- 100% accurate)
 - `ax_find` - search for elements by role/title/value across the app
@@ -206,9 +206,9 @@ Current behavior:
 
 ## Computer Control Architecture (AX-First)
 
-**Current state (M041):** Screenshot -> Claude Vision -> coordinate guess -> CGEvent click. Slow (~90s), expensive ($0.02-0.06/action), unreliable (~70-80% accuracy).
+**Screenshot path (M038-M041):** Screenshot -> Claude Vision -> coordinate guess -> CGEvent click. Slow (~90s), expensive ($0.02-0.06/action), unreliable (~70-80% accuracy). Kept as fallback.
 
-**Target state (M042-M046):** Accessibility tree -> element refs -> direct AX actions. Fast (<5s), free ($0/action), accurate (~99%).
+**AX-first path (M042 foundation complete, M043-M046 integration):** Accessibility tree -> element refs -> direct AX actions. Fast (<5s), free ($0/action), accurate (~99%). `AccessibilityService.swift` provides the core API. Tool registration and orchestrator wiring are next (M043-M044).
 
 ```text
 Control path priority (highest to lowest):
@@ -287,7 +287,7 @@ User input
 | Local model | llama.cpp via LlamaSwift |
 | Primary cloud model | Anthropic Messages API (claude-sonnet-4-5-20250929) |
 | Optional cloud providers | OpenAI-compatible APIs |
-| Computer control (primary) | macOS Accessibility API (AXUIElement) — planned M042-M046 |
+| Computer control (primary) | macOS Accessibility API (AXUIElement) — M042 foundation complete, M043-M046 integration |
 | Computer control (fallback) | CGEvent (mouse/keyboard) + Claude Vision (screenshots) |
 | Tool ecosystem | MCP (Model Context Protocol) — 2,800+ community tools |
 | Voice input | SFSpeechRecognizer (on-device) + Deepgram (cloud upgrade) |
