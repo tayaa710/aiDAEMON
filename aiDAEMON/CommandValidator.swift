@@ -1,3 +1,10 @@
+// =============================================================================
+// LEGACY LOCAL FALLBACK — This file validates commands in the offline/local
+// LLM pipeline. Used ONLY when the Anthropic cloud provider is unavailable.
+// The primary path (M034+) uses PolicyEngine for tool call validation.
+// Do NOT add new validation rules here — extend PolicyEngine instead.
+// =============================================================================
+
 import Foundation
 
 // MARK: - Autonomy Level

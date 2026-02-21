@@ -1,3 +1,10 @@
+// =============================================================================
+// LEGACY LOCAL FALLBACK — This file dispatches commands in the offline/local
+// LLM pipeline. Used ONLY when the Anthropic cloud provider is unavailable.
+// The primary path (M032+) uses ToolRegistry for tool dispatch.
+// Do NOT register new tools here — extend ToolRegistry/ToolDefinition instead.
+// =============================================================================
+
 import Foundation
 
 // MARK: - Execution Result

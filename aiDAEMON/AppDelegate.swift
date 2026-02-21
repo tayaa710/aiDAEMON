@@ -18,7 +18,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ToolDefinition.runTests()
         ToolRegistry.runTests()
         ConfirmationState.runTests()
-        ResultsView.runTests()
         MCPClient.runTests()
         MCPServerManager.runTests()
         #endif
@@ -49,7 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.floatingWindow.emergencyStop()
         }
 
-        // Register command executors (legacy CommandRegistry — kept for backward compatibility)
+        // Register command executors (legacy CommandRegistry — used for offline/local fallback only)
         let appLauncher = AppLauncher()
         let fileSearcher = FileSearcher()
         let windowManager = WindowManager()

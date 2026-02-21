@@ -1,3 +1,10 @@
+// =============================================================================
+// LEGACY LOCAL FALLBACK — This file is part of the offline/local LLM pipeline.
+// It is used ONLY when the Anthropic cloud provider is unavailable.
+// The primary path (M032+) uses Claude's native tool_use via ToolRegistry.
+// Do NOT add new features here — extend ToolRegistry/ToolDefinition instead.
+// =============================================================================
+
 import Foundation
 
 // MARK: - Command Types

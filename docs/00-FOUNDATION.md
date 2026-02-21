@@ -153,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M044)
+## Completed Foundation (M001-M045)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -163,19 +163,18 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Global hotkey (Cmd+Shift+Space) | `HotkeyManager.swift` | Working |
 | Floating window UI | `FloatingWindow.swift` | Working |
 | Text input | `CommandInputView.swift` | Working |
-| Results display + model badge | `ResultsView.swift` | Working |
 | Settings window | `SettingsView.swift` | Working |
 | Local LLM loading | `ModelLoader.swift` | Working |
 | llama.cpp bridge | `LLMBridge.swift` | Working |
 | LLM inference manager | `LLMManager.swift` | Working |
 | Prompt builder | `PromptBuilder.swift` | Working |
-| JSON command parsing | `CommandParser.swift` | Working |
-| Command registry + dispatch | `CommandRegistry.swift` | Working |
+| JSON command parsing (legacy fallback) | `CommandParser.swift` | Legacy |
+| Command registry + dispatch (legacy fallback) | `CommandRegistry.swift` | Legacy |
 | App launcher | `AppLauncher.swift` | Working |
 | File search (Spotlight) | `FileSearcher.swift` | Working |
 | Window management | `WindowManager.swift` | Working |
 | System info | `SystemInfo.swift` | Working |
-| Command validation + autonomy policy | `CommandValidator.swift` | Working |
+| Command validation (legacy fallback) | `CommandValidator.swift` | Legacy |
 | Confirmation dialogs | `ConfirmationDialog.swift` | Working |
 | ModelProvider protocol | `ModelProvider.swift` | Working |
 | Local model backend | `LocalModelProvider.swift` | Working |
@@ -192,14 +191,17 @@ The following capabilities already exist and should be reused, not rebuilt:
 | MCP client + server manager | `MCPClient.swift`, `MCPServerManager.swift` | Working |
 | Voice input (on-device STT) | `SpeechInput.swift` | Working |
 | Voice output (on-device TTS) | `SpeechOutput.swift` | Working |
-| Screen capture | `ScreenCapture.swift` | Working |
-| Claude vision analysis | `VisionAnalyzer.swift` | Working |
-| Mouse control (CGEvent) | `MouseController.swift` | Working |
+| Screen capture (fallback) | `ScreenCapture.swift` | Working |
+| Claude vision analysis (fallback) | `VisionAnalyzer.swift` | Working |
+| Mouse control (CGEvent, fallback) | `MouseController.swift` | Working |
 | Keyboard control (CGEvent) | `KeyboardController.swift` | Working |
-| Computer control coordinator | `ComputerControl.swift` | Working |
+| Computer control coordinator (AX-first) | `ComputerControl.swift` | Working |
 | Accessibility API wrapper | `AccessibilityService.swift` | Working |
 | UI state provider + AX tools | `UIStateProvider.swift` | Working |
 | Foreground context lock | `Orchestrator.swift` | Working |
-| ComputerControl AX-first path | `ComputerControl.swift` | Working |
 
-Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search. The UI state provider (M043) wires this into Claude's tool-use loop with `get_ui_state`, `ax_action`, and `ax_find` tools — Claude now defaults to the AX-first approach for native macOS apps. Screenshot+vision is kept as fallback only. The foreground context lock (M044) prevents actions from landing on the wrong app — the orchestrator tracks the target app per turn and verifies before every action tool. ComputerControl now tries AX path before falling back to screenshot+vision. Upcoming milestones add cleanup (M045-M046), essential tools, memory, and ship.
+**Removed in M045**: `ResultsView.swift` (dead code — replaced by ChatView in M030, never used in the main UI flow).
+
+**Legacy files** (marked with headers, used for offline/local fallback only): `CommandParser.swift`, `CommandValidator.swift`, `CommandRegistry.swift`. The primary path uses Claude tool_use via `ToolRegistry` + `PolicyEngine`.
+
+Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search. The UI state provider (M043) wires this into Claude's tool-use loop with `get_ui_state`, `ax_action`, and `ax_find` tools — Claude now defaults to the AX-first approach for native macOS apps. Screenshot+vision is kept as fallback only. The foreground context lock (M044) prevents actions from landing on the wrong app — the orchestrator tracks the target app per turn and verifies before every action tool. ComputerControl now tries AX path before falling back to screenshot+vision. M045 cleaned up dead code and documented legacy files. Upcoming milestones: validation (M046), essential tools, memory, and ship.

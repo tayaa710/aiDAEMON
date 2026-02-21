@@ -17,7 +17,6 @@
 		A1B2C3D4000000A3 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000A2 /* HotkeyManager.swift */; };
 		A1B2C3D4000000A4 /* FloatingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000A5 /* FloatingWindow.swift */; };
 		A1B2C3D4000000A7 /* CommandInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000A6 /* CommandInputView.swift */; };
-		A1B2C3D4000000A9 /* ResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000A8 /* ResultsView.swift */; };
 		A1B2C3D4000000AA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000AB /* SettingsView.swift */; };
 		A1B2C3D4000000AC /* ModelLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000AD /* ModelLoader.swift */; };
 		A1B2C3D4000000AF /* LLMBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4000000AE /* LLMBridge.swift */; };
@@ -70,7 +69,6 @@
 		A1B2C3D4000000A2 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000A5 /* FloatingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingWindow.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000A6 /* CommandInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandInputView.swift; sourceTree = "<group>"; };
-		A1B2C3D4000000A8 /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000AB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000AD /* ModelLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoader.swift; sourceTree = "<group>"; };
 		A1B2C3D4000000AE /* LLMBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMBridge.swift; sourceTree = "<group>"; };
@@ -143,7 +141,6 @@
 				A1B2C3D4000000A2 /* HotkeyManager.swift */,
 				A1B2C3D4000000A5 /* FloatingWindow.swift */,
 				A1B2C3D4000000A6 /* CommandInputView.swift */,
-				A1B2C3D4000000A8 /* ResultsView.swift */,
 				A1B2C3D4000000AB /* SettingsView.swift */,
 				A1B2C3D4000000AD /* ModelLoader.swift */,
 				A1B2C3D4000000AE /* LLMBridge.swift */,
@@ -279,7 +276,6 @@
 				A1B2C3D4000000A3 /* HotkeyManager.swift in Sources */,
 				A1B2C3D4000000A4 /* FloatingWindow.swift in Sources */,
 				A1B2C3D4000000A7 /* CommandInputView.swift in Sources */,
-				A1B2C3D4000000A9 /* ResultsView.swift in Sources */,
 				A1B2C3D4000000AA /* SettingsView.swift in Sources */,
 				A1B2C3D4000000AC /* ModelLoader.swift in Sources */,
 				A1B2C3D4000000AF /* LLMBridge.swift in Sources */,

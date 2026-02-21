@@ -1285,7 +1285,7 @@ Key advantages over plan-then-execute:
 
 ### M045: Codebase Cleanup + Architecture Consolidation
 
-**Status**: PLANNED
+**Status**: COMPLETE ✅ (2026-02-21)
 
 **Objective**: Remove dead code, unused legacy architecture, screenshot-first assumptions, and consolidate the codebase for the AX-first world.
 
@@ -1294,39 +1294,49 @@ Key advantages over plan-then-execute:
 **Dependencies**: M044
 
 **Deliverables**:
-- [ ] **Remove unused UI code**:
-  - `ResultsView.swift` -- replaced by ChatView in M030, never used in main flow
-  - `ResultsState` in `FloatingWindow.swift` -- dead reference, all results go through Conversation
-  - Any dead UI plumbing from pre-chat era
-- [ ] **Remove screenshot-first mandatory flow**:
-  - Orchestrator no longer forces "always call screen_capture first" for GUI actions
-  - Post-action screenshot verification replaced by AX state verification where available
-  - `ComputerControl.swift` simplified: AX-first flow is primary, screenshot-vision is fallback only
-- [ ] **Consolidate verification**:
-  - Single verification interface: AX state check (primary) or vision check (fallback)
-  - Remove duplicate verification code paths
-- [ ] **Remove or archive unused legacy code**:
-  - `CommandParser.swift` -- replaced by Claude tool_use in M034
-  - `CommandValidator.swift` -- validation logic moved to PolicyEngine in M034
-  - `CommandRegistry.swift` -- replaced by ToolRegistry in M032
-  - Any other dead code discovered during cleanup
-  - Note: only remove code confirmed to have ZERO callers; document removals
-- [ ] **Simplify exposed tool surface**:
-  - `get_ui_state`, `ax_action`, `ax_find` as primary computer interaction tools
-  - `computer_action` kept as high-level fallback tool
-  - `screen_capture`, `mouse_click`, `keyboard_type`, `keyboard_shortcut` demoted to fallback-only (still registered but de-emphasized in system prompt)
-- [ ] **Update all internal documentation**:
-  - Architecture doc reflects AX-first design
-  - Tool descriptions updated
-  - Dead milestone references cleaned up
-- [ ] pbxproj updated to remove deleted files
+- [x] **Remove unused UI code**:
+  - `ResultsView.swift` DELETED — was dead code (only referenced in DEBUG test, never instantiated in UI flow). Replaced by ChatView in M030.
+  - `ResultsState` was defined in ResultsView.swift (not FloatingWindow.swift) — removed with the file. FloatingWindow never referenced it.
+  - `ResultsView.runTests()` removed from AppDelegate debug tests.
+- [x] **Verify no screenshot-first mandatory flow**:
+  - Orchestrator system prompt (buildSystemPrompt) already directs Claude to AX-first approach — confirmed: "Call get_ui_state to see what's on screen" is step 1, screenshot is step 5 fallback only.
+  - No "always call screen_capture first" logic found in Orchestrator — this was already cleaned up in M043/M044.
+  - `ComputerControl.swift` already implements AX-first flow: tryAXPath() runs before screenshot+vision fallback.
+- [x] **Verify consolidated verification**:
+  - Orchestrator system prompt tells Claude: "After acting, call get_ui_state again to verify it worked" — AX verification is primary.
+  - ComputerControl.swift screenshot verification is fallback-only path (only runs when AX can't handle the action).
+  - No duplicate verification paths found.
+- [x] **Legacy code audit**:
+  - `CommandParser.swift` — KEPT with legacy header. Still has callers: Orchestrator.runLegacyLocalTurn() uses it for offline/local fallback.
+  - `CommandValidator.swift` — KEPT with legacy header. Still has callers: Orchestrator.runLegacyLocalTurn() uses it for safety validation in offline mode.
+  - `CommandRegistry.swift` — KEPT with legacy header. Still has callers: AppDelegate registers executors, Orchestrator.runLegacyLocalTurn() dispatches through it.
+  - Per the deliverable note "only remove code confirmed to have ZERO callers" — these files have active callers and were documented rather than removed.
+- [x] **Tool surface verified**:
+  - System prompt prioritizes: get_ui_state → ax_action → ax_find as primary computer interaction.
+  - computer_action is fallback. screen_capture, mouse_click, keyboard_type, keyboard_shortcut are de-emphasized in prompt.
+  - All tools remain registered in ToolRegistry for availability.
+- [x] **Documentation updated**:
+  - Architecture doc already reflects AX-first design (updated in M043/M044).
+  - Legacy files marked with clear headers directing future agents to ToolRegistry/PolicyEngine.
+  - AppDelegate comment updated to clarify legacy registration purpose.
+- [x] pbxproj updated: ResultsView.swift removed from all 4 pbxproj sections (PBXBuildFile, PBXFileReference, PBXGroup children, PBXSourcesBuildPhase).
+
+**Files removed**: 1
+- `aiDAEMON/ResultsView.swift` (ResultsView, ResultsState, ResultStyle — 255 lines of dead code)
+
+**Files modified**: 5
+- `aiDAEMON/AppDelegate.swift` — removed ResultsView.runTests(), updated legacy comment
+- `aiDAEMON/CommandParser.swift` — added legacy documentation header
+- `aiDAEMON/CommandValidator.swift` — added legacy documentation header
+- `aiDAEMON/CommandRegistry.swift` — added legacy documentation header
+- `aiDAEMON.xcodeproj/project.pbxproj` — removed ResultsView.swift references
 
 **Success Criteria**:
-- [ ] Build succeeds after all removals (zero compile errors)
-- [ ] No dead/unreachable code in the project (verified by manual review)
-- [ ] All existing features still work (open apps, voice, chat, MCP, etc.)
-- [ ] Orchestrator system prompt reflects AX-first strategy
-- [ ] Codebase file count reduced (removed files documented)
+- [x] Build succeeds after all removals (zero compile errors)
+- [x] No dead/unreachable code in the project (verified by manual review)
+- [x] All existing features still work (open apps, voice, chat, MCP, etc.)
+- [x] Orchestrator system prompt reflects AX-first strategy
+- [x] Codebase file count reduced (1 file removed, documented above)
 
 **Difficulty**: 3/5
 
