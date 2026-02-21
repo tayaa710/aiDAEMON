@@ -1,5 +1,16 @@
+import Cocoa
 import CoreGraphics
 import Foundation
+
+// MARK: - Foreground Context Lock
+
+/// Tracks the expected frontmost app for context-lock verification.
+/// Set when `get_ui_state` executes; checked before every action tool.
+private struct ForegroundContext {
+    let bundleID: String
+    let pid: pid_t
+    let appName: String
+}
 
 // MARK: - UI Bridge Types
 
@@ -88,6 +99,9 @@ public final class Orchestrator {
     private let stateLock = NSLock()
     private var abortRequested = false
 
+    /// The expected frontmost app for this turn. Set by get_ui_state, checked before action tools.
+    private var targetContext: ForegroundContext?
+
     private init() {}
 
     // MARK: - Public API
@@ -117,6 +131,9 @@ public final class Orchestrator {
     // MARK: - Claude Tool-Use Loop
 
     private func runAgentLoop(text: String, conversation: Conversation) async -> OrchestratorTurnResult {
+        // Reset per-turn state
+        targetContext = nil
+
         let deadline = Date().addingTimeInterval(totalTimeout)
 
         // Ensure enabled MCP integrations are connected so Claude sees their tools.
@@ -307,8 +324,15 @@ public final class Orchestrator {
         return toolResults
     }
 
+    /// Tools that need the floating window hidden so events reach the target app.
     private static let computerControlTools: Set<String> = [
-        "keyboard_type", "keyboard_shortcut", "mouse_click", "ax_action"
+        "keyboard_type", "keyboard_shortcut", "mouse_click", "ax_action", "computer_action"
+    ]
+
+    /// Tools that require the foreground context lock check before execution.
+    /// These tools interact with UI elements and must verify the correct app is frontmost.
+    private static let contextLockedTools: Set<String> = [
+        "keyboard_type", "keyboard_shortcut", "mouse_click", "ax_action", "computer_action"
     ]
 
     private func executeTool(_ call: ToolCall, deadline: Date) async throws -> ExecutionResult {
@@ -316,6 +340,15 @@ public final class Orchestrator {
         try throwIfPast(deadline)
 
         emitStatus(statusText(for: call))
+
+        // Context lock: verify the correct app is frontmost before action tools.
+        if Self.contextLockedTools.contains(call.toolId) {
+            if let lockError = await verifyForegroundContext() {
+                NSLog("Orchestrator: context lock FAILED for %@: %@", call.toolId, lockError)
+                return .error(lockError)
+            }
+            NSLog("Orchestrator: context lock passed for %@", call.toolId)
+        }
 
         // For computer-control tools, tell the UI to hide and activate the target app
         // so keyboard/mouse events reach the correct window.
@@ -326,11 +359,18 @@ public final class Orchestrator {
             try await Task.sleep(nanoseconds: 200_000_000)
         }
 
-        return await withCheckedContinuation { continuation in
+        let result = await withCheckedContinuation { continuation in
             ToolRegistry.shared.execute(call: call) { result in
                 continuation.resume(returning: result)
             }
         }
+
+        // After get_ui_state executes, capture the frontmost app as the target context.
+        if call.toolId == "get_ui_state" {
+            captureTargetContext()
+        }
+
+        return result
     }
 
     // MARK: - Local fallback (legacy single-step path)
@@ -525,49 +565,118 @@ public final class Orchestrator {
         let screenWidth = Int(screenBounds.width)
         let screenHeight = Int(screenBounds.height)
         return """
-        You are aiDAEMON, a JARVIS-style AI companion for macOS.
-        Current date/time: \(now)
-        Current user: \(username)
-        Home directory: \(home)
-        Primary display: \(screenWidth)x\(screenHeight) pixels
+        You are aiDAEMON — a JARVIS-style AI companion that controls this Mac. You are not a chatbot. You are an autonomous agent that takes action.
 
-        CRITICAL behavior rules:
-        - Execute tasks by calling tools. NEVER claim you performed an action without actually calling a tool.
-        - NEVER hallucinate or invent tool results. Only report what tools actually returned.
-        - If a tool returns an error, report the ACTUAL error. Do not say "Done" when something failed.
-        - Read tool results carefully. If the result says the action failed or the element was not found, tell the user honestly.
-        - Keep final user-facing responses concise. Report what actually happened, not what you hoped would happen.
-        - You are running as the current macOS user. Do not assume a different username.
+        Environment: \(username)@macOS | \(home) | \(screenWidth)x\(screenHeight) | \(now)
 
-        Computer control — MANDATORY workflow (accessibility-first):
-        1. ALWAYS start by calling get_ui_state to read the structured accessibility tree. This is instant, free, and gives you every UI element with a ref like @e1.
-        2. Read the UI tree carefully. Each element shows its role (AXButton, AXTextField, etc.), title, value, and state (focused, disabled).
-        3. To interact with elements, use ax_action with the element's ref:
-           - "press" to click buttons, menu items, checkboxes
-           - "set_value" to type text into text fields/areas
-           - "focus" to bring focus to an element
-           - "raise" to bring a window to front
-           - "show_menu" to open a context menu
-        4. Use ax_find to search for specific elements by role, title, or value when the tree is large.
-        5. After performing actions, call get_ui_state AGAIN to verify the state changed. Do NOT assume success.
-        6. If something didn't work, try a different approach. Do NOT repeat the same failed action.
+        YOUR PERSONALITY:
+        - Be like JARVIS: competent, concise, proactive. Just do things — don't ask for permission on safe actions.
+        - When the user says "open Safari and go to google.com" — just do it. Don't explain your plan first.
+        - When the user says "write a haiku in TextEdit" — open TextEdit, write the haiku. Done.
+        - Respond in 1-2 sentences max. "Done — opened Safari to google.com." Not a paragraph.
+        - If something fails, say what went wrong briefly and try a different approach automatically.
+        - You can handle multi-step tasks. Break them down and execute them one by one.
+        - Treat the user's requests as natural conversation. "make this window bigger" = resize the frontmost window. "what's my battery at?" = check system info. "find my tax docs" = search files.
 
-        Computer control — tool selection priority:
-        - get_ui_state: ALWAYS use this FIRST to see what's on screen. Instant, free, structured data.
-        - ax_action: PREFERRED way to interact with UI elements. Use refs from get_ui_state (e.g., ax_action ref=@e3 action=press).
-        - ax_find: Search for elements when you need to find something specific in a large tree.
-        - screen_capture + computer_action: FALLBACK ONLY. Use these only when AX tools fail (e.g., non-native apps, web content inside browsers, or elements not exposed via accessibility). These are slow (~90s) and expensive ($0.02-0.06/action).
-        - mouse_click: Only use when you already know exact pixel coordinates.
-        - keyboard_type: Types text via keyboard events. Prefer ax_action with set_value when possible.
-        - keyboard_shortcut: For shortcuts like cmd+c, cmd+v, cmd+t, etc.
+        HOW YOU CONTROL THE COMPUTER:
+        When you need to interact with apps on screen, follow this approach automatically — the user should never need to tell you which tool to use:
+        1. Call get_ui_state to see what's on screen (instant, free — gives you every button, menu, text field with refs like @e1).
+        2. Use ax_action with the ref to press buttons, type in fields (set_value), focus elements, etc.
+        3. Use ax_find if you need to search for something specific in a large app.
+        4. After acting, call get_ui_state again to verify it worked. Don't assume — check.
+        5. If AX tools can't see the element (non-native app, web content, canvas), fall back to screen_capture + computer_action.
+        6. Use keyboard_shortcut for common shortcuts (cmd+c, cmd+v, cmd+t, cmd+w, etc.).
+        7. Use keyboard_type only when set_value doesn't work for a text field.
 
-        NEVER do these:
-        - Do NOT use screen_capture or computer_action as your first step. Use get_ui_state first.
-        - Do NOT say "I can see the Gmail inbox" without first calling get_ui_state or screen_capture.
-        - Do NOT say "I clicked the button" without calling ax_action, computer_action, or mouse_click.
-        - Do NOT say "Done" unless you verified the action worked via get_ui_state or screen_capture.
-        - Do NOT make up element refs. Always get them from get_ui_state or ax_find.
+        IMPORTANT — typing into apps:
+        - Before typing text into ANY app, ALWAYS use ax_action with "focus" on the text field first, or use "set_value" to put text directly into it.
+        - If you just opened an app, call get_ui_state first to find the text area, then focus it or set_value on it. Do NOT blindly use keyboard_type without a focused text field — it will cause error beeps.
+        - Prefer ax_action set_value over keyboard_type whenever possible — it's faster and more reliable.
+
+        For non-GUI tasks, use the right tool directly:
+        - app_open: launch apps or open URLs
+        - file_search: find files via Spotlight
+        - window_manage: move/resize windows (left_half, right_half, full_screen, center, etc.)
+        - system_info: battery, disk space, IP, memory, uptime, etc.
+
+        RULES YOU MUST FOLLOW:
+        - NEVER claim you did something without calling a tool. Every action requires a tool call.
+        - NEVER invent or hallucinate tool results. Only report what actually happened.
+        - If a tool returns an error, report the real error — don't say "Done" when it failed.
+        - Don't make up element refs. Get them from get_ui_state or ax_find.
+        - If the same approach fails twice, try something different.
         """
+    }
+
+    // MARK: - Foreground Context Lock
+
+    /// Capture the current frontmost app as the target for this turn.
+    /// Called after get_ui_state completes so subsequent actions verify against it.
+    private func captureTargetContext() {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let name = app.localizedName ?? "Unknown"
+        let bundle = app.bundleIdentifier ?? "unknown"
+        let pid = app.processIdentifier
+
+        // Don't lock to aiDAEMON itself — we want to lock to the app Claude is targeting.
+        if bundle == "com.aidaemon" { return }
+
+        targetContext = ForegroundContext(bundleID: bundle, pid: pid, appName: name)
+        NSLog("Orchestrator: target context set → %@ (pid:%d, bundle:%@)", name, pid, bundle)
+    }
+
+    /// Verify the target app is still frontmost. If not, try to re-activate it.
+    /// Returns nil if the lock passes, or an error message string if it fails.
+    private func verifyForegroundContext() async -> String? {
+        guard let target = targetContext else {
+            // No context set yet (get_ui_state hasn't been called). Allow the action
+            // to proceed — the tool may be used independently.
+            return nil
+        }
+
+        guard let frontmost = NSWorkspace.shared.frontmostApplication else {
+            return "Context lock failed: no frontmost application detected. Action aborted."
+        }
+
+        let currentBundle = frontmost.bundleIdentifier ?? ""
+        let currentPID = frontmost.processIdentifier
+
+        // Allow if aiDAEMON is frontmost (the UI may be showing; onBeforeToolExecution will
+        // hide it and activate the target app after this check passes).
+        if currentBundle == "com.aidaemon" {
+            return nil
+        }
+
+        // Match by bundle ID or PID (PID handles apps without bundle IDs).
+        if currentBundle == target.bundleID || currentPID == target.pid {
+            return nil  // Context lock passed
+        }
+
+        // Mismatch detected — try to re-activate the target app.
+        emitStatus("Re-activating \(target.appName)...")
+        NSLog("Orchestrator: context lock mismatch — expected %@ (pid:%d) but got %@ (pid:%d). Attempting re-activation.",
+              target.appName, target.pid,
+              frontmost.localizedName ?? "unknown", currentPID)
+
+        let apps = NSWorkspace.shared.runningApplications
+        if let targetApp = apps.first(where: { $0.processIdentifier == target.pid }) {
+            targetApp.activate(options: [.activateIgnoringOtherApps])
+            // Wait for macOS to complete the app switch.
+            try? await Task.sleep(nanoseconds: 500_000_000)  // 500ms
+
+            // Re-check after activation attempt.
+            if let recheck = NSWorkspace.shared.frontmostApplication {
+                let recheckBundle = recheck.bundleIdentifier ?? ""
+                let recheckPID = recheck.processIdentifier
+                if recheckBundle == target.bundleID || recheckPID == target.pid {
+                    NSLog("Orchestrator: re-activation succeeded for %@", target.appName)
+                    return nil  // Re-activation succeeded
+                }
+            }
+        }
+
+        // Re-activation failed — abort the action.
+        return "Context lock FAILED: Expected '\(target.appName)' (\(target.bundleID)) to be frontmost, but '\(frontmost.localizedName ?? "unknown")' (\(currentBundle)) is. Action aborted to prevent wrong-app interaction. Call get_ui_state again to refresh the target."
     }
 
     // MARK: - Helpers

@@ -32,6 +32,7 @@
 - **The owner is not a cloud/backend expert.** When a milestone requires cloud setup (AWS, API keys, server config), provide instructions a non-technical person can follow. Include screenshots references, exact URLs, exact button names.
 - **Do not skip manual setup or test instructions.** This is the most important part of your output after code. The owner cannot verify your work without them.
 - **Do not start the next milestone without being told.** The owner needs to build in Xcode and manually verify before moving on.
+- **For permission-sensitive testing (Accessibility, Microphone, Screen Recording), use signed builds.** Avoid `CODE_SIGNING_ALLOWED=NO` for those tests, or macOS may re-prompt/reset permissions.
 
 ---
 
@@ -56,5 +57,5 @@
 
 ## Current Status
 
-**Completed**: M001–M043 (foundation, UI, local/cloud model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy, native orchestrator + tool-use loop, MCP client integration, voice I/O, screenshot-based computer control, accessibility service foundation, UI state provider + AX tools with AX-first system prompt)
-**Next**: M044 — Foreground Context Lock + ComputerControl AX Integration. See 03-MILESTONES.md for details.
+**Completed**: M001–M044 (foundation, UI, local/cloud model layer, chat interface, tool schema system, Anthropic Claude provider, Level 1 autonomy, native orchestrator + tool-use loop, MCP client integration, voice I/O, screenshot-based computer control, accessibility service foundation, UI state provider + AX tools, foreground context lock + ComputerControl AX integration)
+**Next**: M045 — Codebase Cleanup + Architecture Consolidation. See 03-MILESTONES.md for details.

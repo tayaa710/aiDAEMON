@@ -47,4 +47,13 @@ rg --files docs
 
 # Find next planned milestone
 rg -n "Status\\*\\*: PLANNED" docs/03-MILESTONES.md
+
+# Build + run a signed Debug app from a stable path (best for persistent TCC permissions)
+./scripts/run-dev-signed.sh
 ```
+
+## 6. Permission-Stable Testing (TCC)
+
+- Always test a signed Debug build (do not use `CODE_SIGNING_ALLOWED=NO` for permission-sensitive QA).
+- Keep bundle ID stable (`com.aarontaylor.aidaemon`) and run from the stable path created by `./scripts/run-dev-signed.sh` (`.dev/aiDAEMON.app`).
+- By default, the script uses `/tmp/aiDAEMON-DevDerivedData`; avoid deleting it between test cycles unless you intentionally want a clean environment.

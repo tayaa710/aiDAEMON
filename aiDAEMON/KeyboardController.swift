@@ -59,6 +59,8 @@ public final class KeyboardController: ToolExecutor {
         "ctrl": .maskControl
     ]
 
+    private let axService = AccessibilityService.shared
+
     public init() {}
 
     // MARK: - ToolExecutor
@@ -72,13 +74,25 @@ public final class KeyboardController: ToolExecutor {
             return
         }
 
-        do {
-            if let text = firstStringValue(for: ["text", "value", "target"], in: arguments) {
-                try typeText(text: text)
-                completion(.ok("Typed \(text.count) characters."))
-                return
+        if let text = firstStringValue(for: ["text", "value", "target"], in: arguments) {
+            // Ensure a text field is focused before typing — prevents the macOS error beep.
+            Task { [weak self] in
+                guard let self else {
+                    completion(.error("Keyboard controller unavailable."))
+                    return
+                }
+                await self.ensureEditableFocused()
+                do {
+                    try self.typeText(text: text)
+                    completion(.ok("Typed \(text.count) characters."))
+                } catch {
+                    completion(.error("Keyboard action failed.", details: error.localizedDescription))
+                }
             }
+            return
+        }
 
+        do {
             if let shortcut = firstStringValue(for: ["shortcut", "keys"], in: arguments) {
                 try pressShortcut(shortcut: shortcut)
                 completion(.ok("Pressed shortcut '\(shortcut)'."))
@@ -99,6 +113,35 @@ public final class KeyboardController: ToolExecutor {
             ))
         } catch {
             completion(.error("Keyboard action failed.", details: error.localizedDescription))
+        }
+    }
+
+    // MARK: - Auto-Focus
+
+    /// Before typing, ensure an editable text field has focus. If nothing is focused
+    /// (or the focused element isn't editable), find the first editable element and
+    /// focus it. This prevents the macOS error beep when typing into nothing.
+    private func ensureEditableFocused() async {
+        // Check if current focused element is already editable.
+        if let focusedRef = await axService.findFocusedElement() {
+            // We have a focused element — good enough. The user or Claude put focus there.
+            NSLog("KeyboardController: focused element found (%@), proceeding to type", focusedRef)
+            return
+        }
+
+        // Nothing is focused — try to find and focus an editable element.
+        NSLog("KeyboardController: no focused element found, searching for editable field...")
+        if let editableRef = await axService.findEditableElement() {
+            do {
+                try await axService.focusElement(ref: editableRef)
+                // Small delay for macOS to process the focus change.
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                NSLog("KeyboardController: auto-focused editable element %@", editableRef)
+            } catch {
+                NSLog("KeyboardController: failed to auto-focus editable element: %@", error.localizedDescription)
+            }
+        } else {
+            NSLog("KeyboardController: no editable element found in frontmost app — typing may fail")
         }
     }
 

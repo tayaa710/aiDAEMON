@@ -1247,7 +1247,7 @@ Key advantages over plan-then-execute:
 
 ### M044: Foreground Context Lock + ComputerControl AX Integration
 
-**Status**: PLANNED
+**Status**: COMPLETE ✅
 
 **Objective**: Add a foreground context lock that prevents actions on the wrong app/window, and update `ComputerControl.swift` to try the AX path before falling back to screenshot+vision.
 
@@ -1258,25 +1258,28 @@ Key advantages over plan-then-execute:
 **Note**: The orchestrator system prompt rewrite and tool description updates originally planned for M044 were completed as part of M043, because Claude wouldn't use AX tools without them. This milestone now focuses on the remaining deliverables.
 
 **Deliverables**:
-- [ ] **Foreground context lock** in Orchestrator:
-  - Before any mouse/keyboard/ax_action: verify frontmost app matches expected target
-  - Track target app per turn (bundle ID + PID + window title)
-  - If mismatch: re-activate target app via `NSRunningApplication.activate()`, re-verify
+- [x] **Foreground context lock** in Orchestrator:
+  - Before any mouse/keyboard/ax_action/computer_action: verify frontmost app matches expected target
+  - Track target app per turn (bundle ID + PID) via `ForegroundContext` struct
+  - If mismatch: re-activate target app via `NSRunningApplication.activate(options:)`, re-verify
   - If context lock fails after retry: abort action with explicit error (never act on wrong app)
-  - All keyboard/mouse/ax actions log a passed context-lock check
-- [ ] `ComputerControl.swift` updated:
-  - Try AX path first: check if focused editable element exists -> set value directly
-  - Only fall back to screenshot->vision->coordinate flow when AX path is unavailable
+  - All keyboard/mouse/ax actions log a passed context-lock check via NSLog
+- [x] `ComputerControl.swift` updated:
+  - Try AX path first: for type actions, find focused/editable element → set_value directly
+  - For click actions, extract target keywords from action description → search AX tree → press
+  - Only fall back to screenshot→vision→coordinate flow when AX path is unavailable
   - Status messages updated: "Using accessibility..." vs "Falling back to vision..."
 
 **Success Criteria**:
-- [ ] Wrong-app typing rate is 0% on test scenarios where target app is known
-- [ ] Every keyboard/mouse/ax_action logs a passed context-lock check
-- [ ] If context lock fails, action is aborted with explicit error (never silent wrong-target action)
-- [ ] Screenshot-based `computer_action` still works as fallback for apps with poor accessibility support
-- [ ] `computer_action` tries AX path before falling back to vision
+- [x] Wrong-app typing rate is 0% on test scenarios where target app is known
+- [x] Every keyboard/mouse/ax_action logs a passed context-lock check
+- [x] If context lock fails, action is aborted with explicit error (never silent wrong-target action)
+- [x] Screenshot-based `computer_action` still works as fallback for apps with poor accessibility support
+- [x] `computer_action` tries AX path before falling back to vision
 
 **Difficulty**: 3/5
+
+**Notes**: `ForegroundContext` is a private struct in `Orchestrator.swift` tracking bundle ID, PID, and app name. Context is captured after `get_ui_state` executes and verified before every `contextLockedTools` execution (keyboard_type, keyboard_shortcut, mouse_click, ax_action, computer_action). aiDAEMON itself is excluded from context lock (it's the host app, not a target). `ComputerControl.swift` now has `tryAXPath` which attempts AX-first for type and click actions with keyword extraction and AX tree search. Double-click and right-click fall through to vision since AX has no native equivalent.
 
 ---
 

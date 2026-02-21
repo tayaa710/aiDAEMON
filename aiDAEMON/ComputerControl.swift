@@ -27,6 +27,7 @@ public final class ComputerControl: ToolExecutor {
     private let mouseController: MouseController
     private let keyboardController: KeyboardController
     private let visionAnalyzer: VisionAnalyzer
+    private let axService = AccessibilityService.shared
 
     /// Closure that the orchestrator can set to emit real-time status messages.
     public var onStatusUpdate: ((String) -> Void)?
@@ -78,6 +79,18 @@ public final class ComputerControl: ToolExecutor {
 
         // Determine action type from the description
         let actionType = classifyAction(trimmedAction)
+
+        // --- AX-first path: try accessibility before screenshot+vision ---
+        if axService.isAccessibilityEnabled {
+            if let axResult = await tryAXPath(action: trimmedAction, actionType: actionType) {
+                return axResult
+            }
+            // AX path didn't handle it — fall through to screenshot+vision.
+            emitStatus("Falling back to vision...")
+            NSLog("ComputerControl: AX path unavailable for action, falling back to screenshot+vision: %@", trimmedAction)
+        }
+
+        // --- Screenshot+vision fallback path ---
         let actionDelay = UserDefaults.standard.double(forKey: Self.actionDelayDefaultsKey)
         let delay = actionDelay > 0 ? actionDelay : Self.defaultActionDelay
 
@@ -226,6 +239,183 @@ public final class ComputerControl: ToolExecutor {
         }
 
         return .error("Computer action failed after \(Self.maxAttempts) attempts: \(trimmedAction)")
+    }
+
+    // MARK: - AX-First Path
+
+    /// Attempt to handle the action via accessibility APIs.
+    /// Returns an ExecutionResult if AX handled it, or nil if AX can't handle this action.
+    private func tryAXPath(action: String, actionType: ActionType) async -> ExecutionResult? {
+        switch actionType {
+        case .typeText(let text):
+            return await tryAXType(text: text, action: action)
+
+        case .click, .generic:
+            return await tryAXClick(action: action)
+
+        case .doubleClick, .rightClick:
+            // AX doesn't have native double-click/right-click — fall back to vision.
+            return nil
+        }
+    }
+
+    /// Try to type text via AX: find focused or editable element, set value directly.
+    private func tryAXType(text: String, action: String) async -> ExecutionResult? {
+        emitStatus("Using accessibility to type text...")
+
+        // First try the focused element.
+        if let focusedRef = await axService.findFocusedElement() {
+            do {
+                try await axService.setValue(ref: focusedRef, value: text)
+                NSLog("ComputerControl: AX set_value succeeded on focused element %@", focusedRef)
+                return .ok(
+                    "Typed \(text.count) characters via accessibility (focused element).",
+                    details: "Action: \(action)\nMethod: AX set_value on \(focusedRef)"
+                )
+            } catch {
+                NSLog("ComputerControl: AX set_value on focused element failed: %@", error.localizedDescription)
+                // Fall through to try editable element search.
+            }
+        }
+
+        // Try finding any editable text field.
+        if let editableRef = await axService.findEditableElement() {
+            do {
+                try await axService.focusElement(ref: editableRef)
+                try await axService.setValue(ref: editableRef, value: text)
+                NSLog("ComputerControl: AX set_value succeeded on editable element %@", editableRef)
+                return .ok(
+                    "Typed \(text.count) characters via accessibility (editable field).",
+                    details: "Action: \(action)\nMethod: AX focus + set_value on \(editableRef)"
+                )
+            } catch {
+                NSLog("ComputerControl: AX set_value on editable element failed: %@", error.localizedDescription)
+            }
+        }
+
+        // AX can't handle this type action.
+        return nil
+    }
+
+    /// Try to click an element via AX: extract target keywords, search the tree, press.
+    private func tryAXClick(action: String) async -> ExecutionResult? {
+        // Extract likely target name from the action description.
+        let keywords = extractTargetKeywords(from: action)
+        guard !keywords.isEmpty else { return nil }
+
+        emitStatus("Using accessibility to find element...")
+
+        // Walk the frontmost app's AX tree.
+        guard let snapshot = await axService.walkFrontmostApp(maxDepth: 8, maxElements: 200) else {
+            return nil
+        }
+
+        // Search for an element whose title matches any keyword.
+        for keyword in keywords {
+            if let matchRef = findElementByTitle(keyword: keyword, in: snapshot) {
+                do {
+                    try await axService.pressElement(ref: matchRef)
+                    NSLog("ComputerControl: AX press succeeded on %@ (keyword: %@)", matchRef, keyword)
+                    return .ok(
+                        "Clicked '\(keyword)' via accessibility.",
+                        details: "Action: \(action)\nMethod: AX press on \(matchRef)"
+                    )
+                } catch {
+                    NSLog("ComputerControl: AX press on %@ failed: %@", matchRef, error.localizedDescription)
+                    // Try next keyword.
+                }
+            }
+        }
+
+        // No matching element found in AX tree.
+        return nil
+    }
+
+    /// Extract likely target element names from an action description.
+    /// For "click the Compose button" → ["Compose"]
+    /// For "press the File menu" → ["File"]
+    private func extractTargetKeywords(from action: String) -> [String] {
+        let lowered = action.lowercased()
+        var keywords: [String] = []
+
+        // Try quoted text first — most specific.
+        if let quoted = extractQuotedText(from: action) {
+            keywords.append(quoted)
+        }
+
+        // Extract noun after "click/press/select/open/close the ..." pattern.
+        let patterns = ["click the ", "click on the ", "press the ", "press on the ",
+                        "select the ", "open the ", "close the ", "click on ", "press on ",
+                        "click ", "press ", "select ", "open ", "close "]
+        for pattern in patterns {
+            guard let range = lowered.range(of: pattern) else { continue }
+            let remainder = String(action[range.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            // Take words up to common stopwords.
+            let stopwords: Set<String> = ["button", "menu", "item", "tab", "link",
+                                          "icon", "in", "on", "at", "from", "of", "the"]
+            let words = remainder.components(separatedBy: .whitespaces)
+            var target: [String] = []
+            for word in words {
+                let cleanWord = word.trimmingCharacters(in: .punctuationCharacters)
+                if stopwords.contains(cleanWord.lowercased()) {
+                    if !target.isEmpty { break }
+                    continue
+                }
+                if !cleanWord.isEmpty {
+                    target.append(cleanWord)
+                }
+                if target.count >= 3 { break }
+            }
+            if !target.isEmpty {
+                keywords.append(target.joined(separator: " "))
+                break
+            }
+        }
+
+        // Deduplicate while preserving order.
+        var seen: Set<String> = []
+        return keywords.filter { kw in
+            let key = kw.lowercased()
+            if seen.contains(key) { return false }
+            seen.insert(key)
+            return true
+        }
+    }
+
+    /// Search a snapshot tree for an element whose title contains the keyword.
+    /// Returns the element's ref, or nil.
+    private func findElementByTitle(keyword: String, in snapshot: AXElementSnapshot) -> String? {
+        // Check this element.
+        let title = snapshot.title ?? ""
+        let desc = snapshot.elementDescription ?? ""
+        if title.localizedCaseInsensitiveContains(keyword)
+            || desc.localizedCaseInsensitiveContains(keyword) {
+            // Prefer interactive elements (buttons, menu items, etc.)
+            let interactiveRoles: Set<String> = [
+                "AXButton", "AXMenuItem", "AXMenuBarItem", "AXCheckBox",
+                "AXRadioButton", "AXPopUpButton", "AXLink", "AXTab"
+            ]
+            if interactiveRoles.contains(snapshot.role) && snapshot.enabled {
+                return snapshot.ref
+            }
+        }
+
+        // Recurse into children.
+        for child in snapshot.children {
+            if let ref = findElementByTitle(keyword: keyword, in: child) {
+                return ref
+            }
+        }
+
+        // Second pass: accept non-interactive elements too (e.g., AXStaticText in a menu).
+        if (title.localizedCaseInsensitiveContains(keyword)
+            || desc.localizedCaseInsensitiveContains(keyword))
+            && snapshot.enabled {
+            return snapshot.ref
+        }
+
+        return nil
     }
 
     // MARK: - Action Classification

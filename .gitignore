@@ -181,3 +181,5 @@ credentials/
 
 # Project specific
 # (Add any project-specific ignores here)
+.derived-data-dev/
+.dev/

@@ -153,7 +153,7 @@ See `README.md` for the mandatory LLM agent workflow.
 
 ---
 
-## Completed Foundation (M001-M043)
+## Completed Foundation (M001-M044)
 
 The following capabilities already exist and should be reused, not rebuilt:
 
@@ -199,5 +199,7 @@ The following capabilities already exist and should be reused, not rebuilt:
 | Computer control coordinator | `ComputerControl.swift` | Working |
 | Accessibility API wrapper | `AccessibilityService.swift` | Working |
 | UI state provider + AX tools | `UIStateProvider.swift` | Working |
+| Foreground context lock | `Orchestrator.swift` | Working |
+| ComputerControl AX-first path | `ComputerControl.swift` | Working |
 
-Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search. The UI state provider (M043) wires this into Claude's tool-use loop with `get_ui_state`, `ax_action`, and `ax_find` tools — Claude now defaults to the AX-first approach for native macOS apps. Screenshot+vision is kept as fallback only. Upcoming milestones add context lock safety (M044-M046), essential tools, memory, and ship.
+Current foundation includes the full "hands + brain + eyes + ears + voice" stack. The accessibility service (M042) provides AX tree walking, element refs, attribute reading, action execution, and element search. The UI state provider (M043) wires this into Claude's tool-use loop with `get_ui_state`, `ax_action`, and `ax_find` tools — Claude now defaults to the AX-first approach for native macOS apps. Screenshot+vision is kept as fallback only. The foreground context lock (M044) prevents actions from landing on the wrong app — the orchestrator tracks the target app per turn and verifies before every action tool. ComputerControl now tries AX path before falling back to screenshot+vision. Upcoming milestones add cleanup (M045-M046), essential tools, memory, and ship.
