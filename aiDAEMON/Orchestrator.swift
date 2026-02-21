@@ -27,6 +27,7 @@ public struct OrchestratorTurnResult {
     public let modelUsed: String
     public let wasCloud: Bool
     public let success: Bool
+    public let metrics: TurnMetrics?
 }
 
 // MARK: - Orchestrator Errors
@@ -102,6 +103,9 @@ public final class Orchestrator {
     /// The expected frontmost app for this turn. Set by get_ui_state, checked before action tools.
     private var targetContext: ForegroundContext?
 
+    /// Metrics for the current orchestrator turn.
+    private var turnMetrics: TurnMetrics?
+
     private init() {}
 
     // MARK: - Public API
@@ -133,6 +137,8 @@ public final class Orchestrator {
     private func runAgentLoop(text: String, conversation: Conversation) async -> OrchestratorTurnResult {
         // Reset per-turn state
         targetContext = nil
+        let metrics = TurnMetrics()
+        turnMetrics = metrics
 
         let deadline = Date().addingTimeInterval(totalTimeout)
 
@@ -180,12 +186,14 @@ public final class Orchestrator {
                 switch response.stopReason {
                 case .endTurn:
                     let finalText = responseText.isEmpty ? "Done." : responseText
+                    metrics.finish()
                     onAfterTurnComplete?()
                     return OrchestratorTurnResult(
                         responseText: finalText,
                         modelUsed: anthropicProvider.providerName,
                         wasCloud: true,
-                        success: true
+                        success: true,
+                        metrics: metrics
                     )
 
                 case .toolUse:
@@ -210,42 +218,53 @@ public final class Orchestrator {
                     let partial = responseText.isEmpty
                         ? "I hit the response length limit before finishing."
                         : responseText
+                    metrics.success = false
+                    metrics.finish()
                     onAfterTurnComplete?()
                     return OrchestratorTurnResult(
                         responseText: partial,
                         modelUsed: anthropicProvider.providerName,
                         wasCloud: true,
-                        success: false
+                        success: false,
+                        metrics: metrics
                     )
 
                 case .stopSequence, .unknown:
                     if !responseText.isEmpty {
+                        metrics.finish()
                         onAfterTurnComplete?()
                         return OrchestratorTurnResult(
                             responseText: responseText,
                             modelUsed: anthropicProvider.providerName,
                             wasCloud: true,
-                            success: true
+                            success: true,
+                            metrics: metrics
                         )
                     }
                     throw OrchestratorError.noFinalResponse
                 }
             }
         } catch let error as OrchestratorError {
+            metrics.success = false
+            metrics.finish()
             onAfterTurnComplete?()
             return OrchestratorTurnResult(
                 responseText: error.localizedDescription,
                 modelUsed: anthropicProvider.providerName,
                 wasCloud: true,
-                success: false
+                success: false,
+                metrics: metrics
             )
         } catch {
+            metrics.success = false
+            metrics.finish()
             onAfterTurnComplete?()
             return OrchestratorTurnResult(
                 responseText: "Agent loop failed: \(error.localizedDescription)",
                 modelUsed: anthropicProvider.providerName,
                 wasCloud: true,
-                success: false
+                success: false,
+                metrics: metrics
             )
         }
     }
@@ -339,11 +358,13 @@ public final class Orchestrator {
         try throwIfAborted()
         try throwIfPast(deadline)
 
+        turnMetrics?.recordToolCall(toolId: call.toolId)
         emitStatus(statusText(for: call))
 
         // Context lock: verify the correct app is frontmost before action tools.
         if Self.contextLockedTools.contains(call.toolId) {
             if let lockError = await verifyForegroundContext() {
+                turnMetrics?.recordWrongTarget()
                 NSLog("Orchestrator: context lock FAILED for %@: %@", call.toolId, lockError)
                 return .error(lockError)
             }
@@ -382,7 +403,8 @@ public final class Orchestrator {
                 responseText: OrchestratorError.localModelUnavailable.localizedDescription,
                 modelUsed: "Local LLaMA 8B",
                 wasCloud: false,
-                success: false
+                success: false,
+                metrics: nil
             )
         }
 
@@ -401,7 +423,8 @@ public final class Orchestrator {
                     responseText: "Generation failed: \(error.localizedDescription)",
                     modelUsed: manager.lastProviderName.isEmpty ? "Local LLaMA 8B" : manager.lastProviderName,
                     wasCloud: manager.lastWasCloud,
-                    success: false
+                    success: false,
+                    metrics: nil
                 )
 
             case .success(let output):
@@ -415,7 +438,8 @@ public final class Orchestrator {
                         responseText: "Command blocked: \(reason)",
                         modelUsed: manager.lastProviderName,
                         wasCloud: manager.lastWasCloud,
-                        success: false
+                        success: false,
+                        metrics: nil
                     )
                 case .needsConfirmation(let cmd, let reason, let level):
                     let request = ToolConfirmationRequest(
@@ -429,7 +453,8 @@ public final class Orchestrator {
                             responseText: "Action cancelled.",
                             modelUsed: manager.lastProviderName,
                             wasCloud: manager.lastWasCloud,
-                            success: false
+                            success: false,
+                            metrics: nil
                         )
                     }
                     validatedCommand = cmd
@@ -451,7 +476,8 @@ public final class Orchestrator {
                     responseText: message,
                     modelUsed: manager.lastProviderName,
                     wasCloud: manager.lastWasCloud,
-                    success: exec.success
+                    success: exec.success,
+                    metrics: nil
                 )
             }
         } catch let error as OrchestratorError {
@@ -459,14 +485,16 @@ public final class Orchestrator {
                 responseText: error.localizedDescription,
                 modelUsed: manager.lastProviderName.isEmpty ? "Local LLaMA 8B" : manager.lastProviderName,
                 wasCloud: manager.lastWasCloud,
-                success: false
+                success: false,
+                metrics: nil
             )
         } catch {
             return OrchestratorTurnResult(
                 responseText: "Local fallback failed: \(error.localizedDescription)",
                 modelUsed: manager.lastProviderName.isEmpty ? "Local LLaMA 8B" : manager.lastProviderName,
                 wasCloud: manager.lastWasCloud,
-                success: false
+                success: false,
+                metrics: nil
             )
         }
     }

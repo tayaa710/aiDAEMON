@@ -358,7 +358,7 @@ extension ToolDefinition {
     static let axFind = ToolDefinition(
         id: "ax_find",
         name: "AX Find",
-        description: "Searches the frontmost app's accessibility tree for elements matching role, title, and/or value (case-insensitive substring match). Returns matching elements with their refs. Provide at least one filter parameter.",
+        description: "Searches the frontmost app's accessibility tree for elements matching role, title, and/or value (case-insensitive substring match). Returns matching elements with their own refs. Does NOT invalidate refs from previous get_ui_state calls — both old and new refs remain valid. Provide at least one filter parameter.",
         parameters: [
             ToolParameter(
                 name: "role",

@@ -41,6 +41,17 @@ struct ChatBubble: View {
                     .background(bubbleBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
+                // Metrics line for assistant messages with turn metrics
+                if !isUser, let metricsInfo = message.metadata.metricsInfo {
+                    HStack(spacing: 3) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 8))
+                        Text(metricsInfo)
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(.tertiary)
+                }
+
                 // Timestamp (shown on hover)
                 if isHovering {
                     Text(message.timestamp, style: .time)

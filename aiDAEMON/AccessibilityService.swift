@@ -171,6 +171,23 @@ final class AccessibilityService {
         return await walkTree(root: root, maxDepth: maxDepth, maxElements: maxElements)
     }
 
+    /// Walk the frontmost app's tree WITHOUT resetting the ref map.
+    /// New elements are appended to the existing map, preserving refs from prior get_ui_state calls.
+    /// Used by ax_find to avoid invalidating existing refs.
+    func searchFrontmostApp(maxDepth: Int = 10, maxElements: Int = 500) async -> AXElementSnapshot? {
+        guard isAccessibilityEnabled else { return nil }
+        guard let root = frontmostApplicationElement() else { return nil }
+
+        return await withCheckedContinuation { continuation in
+            axQueue.async { [self] in
+                // Do NOT reset _refMap — append to existing refs
+                let counter = ElementCounter(max: maxElements)
+                let snapshot = buildSnapshot(element: root, depth: 0, maxDepth: maxDepth, counter: counter)
+                continuation.resume(returning: snapshot)
+            }
+        }
+    }
+
     private func buildSnapshot(element: AXUIElement, depth: Int, maxDepth: Int, counter: ElementCounter) -> AXElementSnapshot? {
         guard depth < maxDepth, !counter.limitReached else { return nil }
 
@@ -301,7 +318,6 @@ final class AccessibilityService {
     /// Set the value of an element (e.g., text field content) by ref.
     func setValue(ref: String, value: String) async throws {
         guard isAccessibilityEnabled else { throw AXServiceError.accessibilityDisabled }
-        guard !value.isEmpty else { throw AXServiceError.invalidValue }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             axQueue.async { [self] in

@@ -24,11 +24,22 @@ final class UIStateProvider: ToolExecutor {
     /// Cache: last snapshot text and timestamp.
     private var cachedSnapshot: String?
     private var cacheTimestamp: Date = .distantPast
-    private let cacheTTL: TimeInterval = 1.0
+    private let cacheTTL: TimeInterval = 0.5
 
     init() {
         actionExecutor = AXActionExecutor()
         findExecutor = AXFindExecutor()
+
+        // After any AX action, invalidate cached snapshot so next get_ui_state is fresh.
+        actionExecutor.onActionCompleted = { [weak self] in
+            self?.invalidateCache()
+        }
+    }
+
+    /// Invalidate the cached snapshot so the next get_ui_state returns fresh data.
+    func invalidateCache() {
+        cachedSnapshot = nil
+        cacheTimestamp = .distantPast
     }
 
     // MARK: - ToolExecutor (get_ui_state)
@@ -129,6 +140,9 @@ final class AXActionExecutor: ToolExecutor {
 
     private let axService = AccessibilityService.shared
 
+    /// Called after an action completes so the UI state cache can be invalidated.
+    var onActionCompleted: (() -> Void)?
+
     func execute(arguments: [String: Any], completion: @escaping (ExecutionResult) -> Void) {
         guard let ref = arguments["ref"] as? String else {
             completion(.error("Missing required parameter 'ref'"))
@@ -139,11 +153,12 @@ final class AXActionExecutor: ToolExecutor {
             return
         }
 
-        Task {
+        Task { [weak self] in
             do {
                 switch action {
                 case "press":
                     try await axService.pressElement(ref: ref)
+                    self?.onActionCompleted?()
                     completion(.ok("Pressed element \(ref)"))
 
                 case "set_value":
@@ -152,18 +167,22 @@ final class AXActionExecutor: ToolExecutor {
                         return
                     }
                     try await axService.setValue(ref: ref, value: value)
+                    self?.onActionCompleted?()
                     completion(.ok("Set value on \(ref) to: \(value)"))
 
                 case "focus":
                     try await axService.focusElement(ref: ref)
+                    self?.onActionCompleted?()
                     completion(.ok("Focused element \(ref)"))
 
                 case "raise":
                     try await axService.raiseElement(ref: ref)
+                    self?.onActionCompleted?()
                     completion(.ok("Raised element \(ref)"))
 
                 case "show_menu":
                     try await axService.showMenu(ref: ref)
+                    self?.onActionCompleted?()
                     completion(.ok("Opened menu on element \(ref)"))
 
                 default:
@@ -195,7 +214,9 @@ final class AXFindExecutor: ToolExecutor {
         }
 
         Task {
-            guard let snapshot = await axService.walkFrontmostApp(maxDepth: 8, maxElements: 200) else {
+            // Use searchFrontmostApp to append to the existing ref map instead of resetting it.
+            // This preserves refs from prior get_ui_state calls.
+            guard let snapshot = await axService.searchFrontmostApp(maxDepth: 8, maxElements: 200) else {
                 if !axService.isAccessibilityEnabled {
                     completion(.error("Accessibility permission not granted."))
                 } else {

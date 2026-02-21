@@ -200,7 +200,8 @@ final class FloatingWindow: NSWindow {
                         result.responseText,
                         modelUsed: result.modelUsed,
                         wasCloud: result.wasCloud,
-                        success: result.success
+                        success: result.success,
+                        metricsInfo: result.metrics?.summary
                     )
                     self.speakAssistantResponseIfEnabled(result.responseText)
                 }

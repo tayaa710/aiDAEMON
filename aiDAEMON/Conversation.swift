@@ -26,16 +26,21 @@ public struct MessageMetadata: Codable, Equatable {
     /// Whether the action succeeded. Nil if no action was taken.
     public var success: Bool?
 
+    /// Compact metrics summary for the orchestrator turn (e.g., "[1.2s | 3 tools (2 AX, 0 vision) | no wrong-target]").
+    public var metricsInfo: String?
+
     public init(
         modelUsed: String? = nil,
         wasCloud: Bool? = nil,
         toolCall: String? = nil,
-        success: Bool? = nil
+        success: Bool? = nil,
+        metricsInfo: String? = nil
     ) {
         self.modelUsed = modelUsed
         self.wasCloud = wasCloud
         self.toolCall = toolCall
         self.success = success
+        self.metricsInfo = metricsInfo
     }
 }
 
@@ -97,13 +102,15 @@ public final class Conversation: ObservableObject {
         modelUsed: String? = nil,
         wasCloud: Bool? = nil,
         toolCall: String? = nil,
-        success: Bool? = nil
+        success: Bool? = nil,
+        metricsInfo: String? = nil
     ) {
         let metadata = MessageMetadata(
             modelUsed: modelUsed,
             wasCloud: wasCloud,
             toolCall: toolCall,
-            success: success
+            success: success,
+            metricsInfo: metricsInfo
         )
         let msg = Message(role: .assistant, content: content, metadata: metadata)
         addMessage(msg)
